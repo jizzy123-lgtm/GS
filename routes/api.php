@@ -127,6 +127,14 @@ Route::middleware('auth:sanctum')->put('/profile/update', [UserController::class
 Route::middleware('auth:sanctum')->get('/profile/userInfos', [UserController::class, 'userDetails']);
 
 
+Route::middleware(['auth:sanctum'])->group(function () {
+    Route::get('/notifications', [NotificationController::class, 'index']);
+    Route::get('/notifications/unreadCount', [NotificationController::class, 'unreadCount']);
+    Route::put('/notifications/markAsRead/{id}', [NotificationController::class, 'markAsRead']);
+    Route::put('/notifications/markAllAsRead', [NotificationController::class, 'markAllAsRead']);
+});
+
+
 
 
 

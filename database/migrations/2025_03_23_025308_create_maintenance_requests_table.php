@@ -20,16 +20,18 @@ return new class extends Migration {
             $table->time('time_received')->nullable();
             $table->integer('priority_number')->nullable();
             $table->text('remarks')->nullable();
+
             $table->foreignId('verified_by')->nullable()->constrained('users');
             $table->foreignId('approved_by_1')->nullable()->constrained('users');
             $table->foreignId('approved_by_2')->nullable()->constrained('users');
             $table->foreignId('maintenance_type_id')->constrained('maintenance_types')->onDelete('cascade');
+
             $table->timestamps();
         });
     }
 
     public function down()
     {
-        Schema::dropIfExists('maintenance_types');
+        Schema::dropIfExists('maintenance_requests');
     }
 };

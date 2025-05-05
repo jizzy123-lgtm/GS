@@ -40,6 +40,16 @@ class MaintenanceRequestController extends Controller
         // Use Notification facade to send notifications in bulk
         Notification::send($usersToNotify, new MaintenanceRequestCreated(Auth::user()->full_name));
 
+    //     $recipients = User::whereIn('role_id', [2, 3])->get();
+
+    // foreach ($recipients as $recipient) {
+    //     Notification::create([
+    //         'user_id' => $recipient->id,
+    //         'type' => 'maintenance_request',
+    //         'message' => Auth::user()->full_name . ' submitted a maintenance request!',
+    //     ]);
+    // }
+
         // Return a response with the created maintenance request and a message
         return response()->json([
             'message' => 'Maintenance request created and notifications sent.',

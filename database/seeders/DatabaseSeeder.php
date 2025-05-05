@@ -23,6 +23,10 @@ class DatabaseSeeder extends Seeder
             ['role_name' => 'requester'],
         ]);
 
-
+        $this->call([
+            AdminSeeder::class,
+        ]);
     }
+
+
 }

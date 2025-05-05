@@ -4,26 +4,51 @@ namespace App\Http\Controllers;
 use Illuminate\Support\Facades\Auth;
 
 
+
+
+
 use Illuminate\Http\Request;
+use App\Models\Notification;
 
 class NotificationController extends Controller
 {
-    public function index(Request $request)
+    public function index()
     {
-        return response()->json($request->user()->notifications);
+        $notifications = Notification::where('user_id', Auth::user()->id)
+            ->orderBy('created_at', 'desc')
+            ->get();
+
+        return response()->json($notifications);
+    }
+
+    public function unreadCount()
+    {
+        $count = Notification::where('user_id', Auth::user()->id)
+            ->where('is_read', false)
+            ->count();
+
+        return response()->json(['unread_count' => $count]);
     }
 
     public function markAsRead($id)
     {
-        $notification = Auth::user()?->notifications()->find($id);
+        $notification = Notification::where('id', $id)
+            ->where('user_id',Auth::user()->id)
+            ->firstOrFail();
 
+        $notification->update(['is_read' => true]);
 
-        if ($notification) {
-            $notification->markAsRead();
-            return response()->json(['message' => 'Notification marked as read']);
-        }
+        return response()->json(['message' => 'Marked as read']);
+    }
 
-        return response()->json(['error' => 'Notification not found'], 404);
+    public function markAllAsRead()
+    {
+        Notification::where('user_id', Auth::user()->id)
+            ->where('is_read', false)
+            ->update(['is_read' => true]);
+
+        return response()->json(['message' => 'All notifications marked as read']);
     }
 }
+
 

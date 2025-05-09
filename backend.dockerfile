@@ -15,9 +15,6 @@ WORKDIR /var/www/html
 # Copy Laravel project files into the container
 COPY . . 
 
-# Install Laravel dependencies using Composer
-RUN composer install
-
 # Set proper permissions
 RUN chown -R www-data:www-data /var/www/html
 

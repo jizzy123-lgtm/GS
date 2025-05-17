@@ -2,6 +2,7 @@
 
 namespace Database\Seeders;
 
+use App\Models\MaintenanceType;
 use App\Models\User;
 // use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
@@ -16,16 +17,17 @@ class DatabaseSeeder extends Seeder
     {
         // User::factory(10)->create();
 
-        Role::insert([
-            ['role_name' => 'admin'],
-            ['role_name' => 'head'],
-            ['role_name' => 'staff'],
-            ['role_name' => 'requester'],
-        ]);
 
         $this->call([
-            AdminSeeder::class,
+            RolesTableSeeder::class,
+            StatusTableSeeder::class,
+            PositionsTableSeeder::class,
+            OfficesTableSeeder::class,
+            MaintenanceTypeSeeder::class,
+            AdminSeeder::class
         ]);
+
+
     }
 
 

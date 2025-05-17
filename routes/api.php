@@ -8,6 +8,10 @@ use App\Http\Controllers\TransportationRequestController;
 use App\Http\Controllers\FeedbackController;
 use App\Http\Controllers\MaintenanceTypeController;
 use App\Http\Controllers\NotificationController;
+use App\Http\Controllers\PositionController;
+use App\Http\Controllers\OfficeController;
+use App\Http\Controllers\StatusController;
+use App\Http\Controllers\RoleController;
 use App\Models\MaintenanceType;
 
 
@@ -16,7 +20,9 @@ Route::get('/maintenance-types', [MaintenanceTypeController::class, 'index']);
 // Public Routes (Authentication)
 Route::post('/register', [UserController::class, 'register']);
 Route::post('/login', [UserController::class, 'login']);
-Route::post('/logout', [UserController::class, 'logout']);
+//Route::post('/logout', [UserController::class, 'logout']);
+
+Route::middleware('auth:sanctum')->post('/logout', [UserController::class, 'logout']);
 
 //for test only
 Route::get('/message', function(){
@@ -133,6 +139,11 @@ Route::middleware(['auth:sanctum'])->group(function () {
     Route::put('/notifications/markAsRead/{id}', [NotificationController::class, 'markAsRead']);
     Route::put('/notifications/markAllAsRead', [NotificationController::class, 'markAllAsRead']);
 });
+
+Route::apiResource('roles', RoleController::class);
+Route::apiResource('positions', PositionController::class);
+Route::apiResource('offices', OfficeController::class);
+Route::apiResource('statuses', StatusController::class);
 
 
 

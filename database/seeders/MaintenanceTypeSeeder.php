@@ -10,10 +10,10 @@ class MaintenanceTypeSeeder extends Seeder
     public function run()
     {
         DB::table('maintenance_types')->insert([
-            ['name' => 'Janitorial'],
-            ['name' => 'Carpentry'],
-            ['name' => 'Electrical'],
-            ['name' => 'Airconditioning'],
+            ['type_name' => 'Janitorial'],
+            ['type_name' => 'Carpentry'],
+            ['type_name' => 'Electrical'],
+            ['type_name' => 'Airconditioning'],
         ]);
     }
 }

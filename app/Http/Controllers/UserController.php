@@ -16,30 +16,36 @@ class UserController extends Controller
     public function register(Request $request)
     {
         $request->validate([
-            'full_name' => 'required|string',
-            'username' => 'required|string|unique:users,username',
-            'email' => 'nullable|email',
-            'position' => 'required|string',
-            'office' => 'required|string',
-            'contact_number' => 'required|string',
-            'password' => 'required|string|min:6',
-            'role_id' => 'required|exists:roles,id' // Must be a valid role ID
+            'last_name'       => 'required|string',
+            'first_name'      => 'required|string',
+            'middle_name'  => 'nullable|string|max:1',
+            'suffix'          => 'nullable|string|max:10',
+            'username'        => 'required|string|unique:users,username',
+            'email'           => 'nullable|email|unique:users,email',
+            'position_id'     => 'required|exists:positions,id',
+            'office_id'       => 'required|exists:offices,id',
+            'contact_number'  => 'required|string',
+            'password'        => 'required|string|min:6',
+            'role_id'         => 'required|exists:roles,id'
         ]);
 
         $user = User::create([
-            'full_name' => $request->full_name,
-            'username' => $request->username,
-            'email' => $request->email,
-            'position' => $request->position,
-            'office' => $request->office,
-            'contact_number' => $request->contact_number,
-            'password' => Hash::make($request->password),
-            'role_id' => $request->role_id
+            'last_name'       => $request->last_name,
+            'first_name'      => $request->first_name,
+            'middle_name'  => $request->middle_name,
+            'suffix'          => $request->suffix,
+            'username'        => $request->username,
+            'email'           => $request->email,
+            'position_id'     => $request->position_id,
+            'office_id'       => $request->office_id,
+            'contact_number'  => $request->contact_number,
+            'password'        => Hash::make($request->password),
+            'role_id'         => $request->role_id,
+            'status_id'       => 1, // Assuming 1 = Pending in status table
         ]);
 
-        // Notify admins and staff
+        // Notify Admins and Staffs (role_id = 1 for Admin, 3 for Staff)
         $adminsAndStaffs = User::whereIn('role_id', [1, 3])->get();
-
         foreach ($adminsAndStaffs as $notifiableUser) {
             if ($notifiableUser->email) {
                 $notifiableUser->notify(new NewUserRegistered($user));
@@ -65,20 +71,18 @@ class UserController extends Controller
             return response()->json(['message' => 'Invalid credentials'], 401);
         }
 
-        if ($user->account_status === 'Pending') {
+        // Check account status via status_id
+        if ($user->status_id == 1) { // 1 = Pending
             return response()->json(['message' => 'Your account is still pending approval.'], 403);
         }
 
-        if ($user->account_status === 'Disapproved') {
+        if ($user->status_id == 3) { // 3 = Disapproved
             return response()->json(['message' => 'Your account was disapproved. Contact admin.'], 403);
         }
 
         $token = $user->createToken('authToken')->plainTextToken;
 
         return response()->json(['token' => $token, 'user' => $user], 200);
-
-
-
 
     }
 
@@ -107,7 +111,7 @@ class UserController extends Controller
     public function updateAccountStatus(Request $request, $id)
     {
         $request->validate([
-            'account_status' => 'required|in:Pending,Disapproved,Approved'
+            'status_id' => 'required|exists:statuses,id',
         ]);
 
         $user = User::find($id);
@@ -116,27 +120,35 @@ class UserController extends Controller
             return response()->json(['message' => 'User not found'], 404);
         }
 
-        // Temporarily allow any user to approve accounts (FOR TESTING ONLY)
-        $user->account_status = $request->account_status;
+        // Only allow admin to approve (role_id = 1)
+        $authUser = Auth::user();
+        if ($request->status_id == 2 && $authUser->role_id !== 1) {
+            return response()->json(['message' => 'Only admins can approve accounts.'], 403);
+        }
+
+        $user->status_id = $request->status_id;
         $user->save();
-        //notify through email
-        if ($user->account_status === 'Approved' && $user->email) {
+
+        // Send email notification only if approved
+        if ($user->status_id == 2 && $user->email) {
             $user->notify(new AccountApproved());
         }
+
+        return response()->json(['message' => 'User status updated successfully.']);
     }
 
     public function getPendingApprovals()
     {
         // Ensure only admins can access this
-        // $admin = Auth::user();
+        $admin = Auth::user();
 
-        // if (!$admin || $admin->role_id !== 1) {
-        //     return response()->json(['message' => 'Only admins can view pending approvals.'], 403);
-        // }
+        if (!$admin || $admin->role_id !== 1) {
+            return response()->json(['message' => 'Only admins can view pending approvals.'], 403);
+        }
 
-        // Retrieve users who are pending approval
-        $pendingUsers = User::where('account_status', 'Pending')
-                            ->select('id', 'full_name', 'username', 'office', 'position', 'contact_number', 'email', 'role_id', 'account_status', 'created_at')
+        // Retrieve users who are pending approval (status_id = 1 assumed for 'Pending')
+        $pendingUsers = User::where('status_id', 1)
+                            ->select('id', 'last_name','first_name', 'middle_name', 'suffix', 'username', 'office_id', 'position_id', 'contact_number', 'email', 'role_id', 'status_id', 'created_at')
                             ->orderBy('created_at', 'desc')
                             ->get();
 
@@ -147,9 +159,10 @@ class UserController extends Controller
         return response()->json($pendingUsers, 200);
     }
 
+    //for display of data only
     public function getUsPass(){
         $pendingUsers = User::where('account_status', 'Approved')
-                            ->select('id', 'full_name', 'username', 'password')
+                            ->select('id', 'last_name','first_name', 'middle_name', 'suffix', 'username', 'password')
                             ->orderBy('created_at', 'desc')
                             ->get();
 
@@ -161,6 +174,8 @@ class UserController extends Controller
 
     }
 
+
+    //for getting the fullname
     public function getFullName($id)
     {
         $user = User::find($id);
@@ -171,12 +186,15 @@ class UserController extends Controller
 
         return response()->json([
             'message' => 'User retrieved successfully.',
-            'full_name' => $user->full_name, // Assuming "name" stores the full name
+            'last_name' => $user->last_name,
+            'first_name'=> $user->first_name,
+            'middle_name'=> $user->middle_name,
+            'suffix'=> $user->suffix
         ], 200);
     }
 
 
-
+    //for display of data only
     public function getAuthenticatedUserInfo()
     {
         $user = Auth::user(); // Get user from token
@@ -188,12 +206,15 @@ class UserController extends Controller
         return response()->json([
             'message' => 'User retrieved successfully.',
             'user_id' => $user->id,   // Return user ID
-            'full_name' => $user->full_name // Assuming "name" stores the full name
+            'last_name' => $user->last_name,
+            'first_name'=> $user->first_name,
+            'middle_name'=> $user->middle_name,
+            'suffix'=> $user->suffix
         ], 200);
     }
 
 
-
+    //for display of user details only
     public function getUserDetails()
     {
         // Get the authenticated user
@@ -205,13 +226,17 @@ class UserController extends Controller
 
         return response()->json([
             'user_id' => $user->id,
-            'full_name' => $user->full_name, // Ensure this field exists in your users table
+            'last_name' => $user->last_name,
+            'first_name'=> $user->first_name,
+            'middle_name'=> $user->middle_name,
+            'suffix'=> $user->suffix,
             'position' => $user->position,
             'office' => $user->office, // Adjust based on your DB column name
             'contact_number' => $user->contact_number
         ], 200);
     }
 
+    //get the user's role
     public function getUserDetailRole()
     {
         // Get the authenticated user
@@ -223,16 +248,19 @@ class UserController extends Controller
 
         return response()->json([
             'user_id' => $user->id,
-            'full_name' => $user->full_name, // Ensure this field exists in your users table
-            'position' => $user->position,
-            'office' => $user->office, // Adjust based on your DB column name
+            'last_name' => $user->last_name,
+            'first_name'=> $user->first_name,
+            'middle_name'=> $user->middle_name,
+            'suffix'=> $user->suffix,
+            'position_id' => $user->position_id,
+            'office_id' => $user->office_id, // Adjust based on your DB column name
             'contact_number' => $user->contact_number,
             'role_id' => $user->role_id
         ], 200);
     }
 
 
-
+    //another for display purpose
     public function getUserInfo()
     {
         // Get the authenticated user
@@ -243,41 +271,48 @@ class UserController extends Controller
         }
 
         return response()->json([
-            'full_name' => $user->full_name, // Ensure this field exists in your users table
-            'position' => $user->position,
-            'office' => $user->office, // Adjust based on your DB column name
+            'last_name' => $user->last_name,
+            'first_name'=> $user->first_name,
+            'middle_name'=> $user->middle_name,
+            'suffix'=> $user->suffix,
+            'position_id' => $user->position_id,
+            'office_id' => $user->office_id, // Adjust based on your DB column name
             'contact_number' => $user->contact_number,
             'email' => $user->email,
             'username' => $user->username
         ], 200);
     }
 
-
+    //allows editing of account
     public function updateProfile(Request $request)
     {
-        $user = Auth::user(); // Get the currently logged-in user
+        $user = Auth::user();
 
         $request->validate([
-            'full_name' => 'sometimes|string|max:255',
+            'last_name' => 'sometimes|string|max:255',
+            'first_name' => 'sometimes|string|max:255',
+            'middle_name' => 'sometimes|string|max:255',
+            'suffix' => 'sometimes|string|max:50|nullable',
             'contact_number' => 'sometimes|string|max:20',
-            'position' => 'sometimes|string|max:255',
-            'office' => 'sometimes|string|max:255',
+            'position_id' => 'sometimes|exists:positions,id',
+            'office_id' => 'sometimes|exists:offices,id',
             'email' => 'sometimes|email|max:255',
             'username' => 'sometimes|string|max:255|unique:users,username,' . $user->id,
-            'password' => 'sometimes|string|min:6|confirmed', // Add password (confirmed)
+            'password' => 'sometimes|string|min:6|confirmed',
         ]);
 
-        // Update basic info
         $user->update($request->only([
-            'full_name',
+            'last_name',
+            'first_name',
+            'middle_name',
+            'suffix',
             'contact_number',
-            'position',
-            'office',
+            'position_id',
+            'office_id',
             'email',
             'username',
         ]));
 
-        // Update password if provided
         if ($request->filled('password')) {
             $user->update([
                 'password' => Hash::make($request->password),

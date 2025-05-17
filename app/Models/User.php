@@ -2,8 +2,6 @@
 
 namespace App\Models;
 
-use App\Models\Role;
-
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
@@ -14,20 +12,25 @@ class User extends Authenticatable
     use HasApiTokens, HasFactory, Notifiable;
 
     protected $fillable = [
-        'full_name', 'username', 'email', 'position',
-        'office', 'contact_number', 'password', 'role_id'
+        'last_name',
+        'first_name',
+        'middle_name',
+        'suffix',
+        'position_id',
+        'office_id',
+        'status_id',
+        'role_id',
+        'contact_number',
+        'email',
+        'username',
+        'password',
     ];
 
-    public function role()
-    {
-        return $this->belongsTo(Role::class, 'role_id'); // Make sure it's role_id
-    }
-
-    public function isRole($roleName)
-    {
-        return optional($this->role)->role_name === $roleName;
-
-    }
+    // Relationships
+    public function position() { return $this->belongsTo(Position::class); }
+    public function office() { return $this->belongsTo(Office::class); }
+    public function status() { return $this->belongsTo(Status::class); }
+    public function role() { return $this->belongsTo(Role::class); }
 }
 
 

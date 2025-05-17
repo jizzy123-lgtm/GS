@@ -24,11 +24,11 @@ class MaintenanceRequestController extends Controller
         $request->validate([
             'date_requested' => 'required|date',
             'details' => 'required|string',
-            'requesting_personnel' => 'required|string',
-            'position' => 'required|string',
-            'requesting_office' => 'required|string',
+            'requesting_personnel' => 'required|exists:users,id',
+            'position_id' => 'required|exists:positions,id',
+            'requesting_office' => 'required|exists:offices,id',
             'contact_number' => 'required|string',
-            'maintenance_type_id' => 'required|int',
+            'maintenance_type_id' => 'required|exists:maintenance_types,id',
         ]);
 
         // Create a new maintenance request
@@ -68,7 +68,7 @@ class MaintenanceRequestController extends Controller
         $request->validate([
             'date_received' => 'required|date',
             'time_received' => 'required|date_format:H:i:s',
-            'priority_number' => 'required|integer|min:1',
+            'priority_number' => 'required|string',
             'remarks' => 'nullable|string',
             'verified_by' => 'required|exists:users,id', // Staff ID must exist in users table
         ]);
@@ -118,7 +118,7 @@ class MaintenanceRequestController extends Controller
             }
 
             $maintenanceRequest->approved_by_2 = $user->id;
-            $maintenanceRequest->status = "Approved"; // Auto-update status
+            $maintenanceRequest->status = 2; // Auto-update status
 
             // Notify the requester by email after final approval
             $requester = User::where('full_name', $maintenanceRequest->requesting_personnel)->first();
@@ -145,7 +145,7 @@ class MaintenanceRequestController extends Controller
                 'date_requested',
                 'details',
                 'requesting_personnel',
-                'position',
+                'position_id',
                 'requesting_office',
                 'contact_number'
             ])
@@ -175,7 +175,7 @@ class MaintenanceRequestController extends Controller
 
 
 
-
+    //staff denies the maintenance request
     public function denyRequest(Request $request, $id)
     {
         $maintenanceRequest = MaintenanceRequest::find($id);
@@ -201,7 +201,7 @@ class MaintenanceRequestController extends Controller
             'date_received' => $request->date_received,
             'time_received' => $request->time_received,
             'remarks' => $request->remarks,
-            'status' => 'Disapproved',
+            'status_id' => 3, //3 means dissaproved
         ]);
 
         return response()->json([
@@ -210,7 +210,7 @@ class MaintenanceRequestController extends Controller
         ], 200); // Alternative to Response::HTTP_OK
     }
 
-
+    //autosaves the date and time in the request
     public function autosaveDateTime($id)
     {
         $maintenanceRequest = MaintenanceRequest::find($id);
@@ -259,7 +259,7 @@ class MaintenanceRequestController extends Controller
     }
 
 
-
+    //head dissapproves the request
     public function disapprove(Request $request, $id)
     {
         $maintenanceRequest = MaintenanceRequest::find($id);
@@ -275,7 +275,7 @@ class MaintenanceRequestController extends Controller
 
         // Update request status to "Disapproved"
         $maintenanceRequest->update([
-            'status' => 'Disapproved',
+            'status_id' => 3,
         ]);
 
         return response()->json([
@@ -283,14 +283,14 @@ class MaintenanceRequestController extends Controller
         ], 200);
     }
 
-
+    //for display of data purposes only
     public function headpov($id)
         {
             $request = MaintenanceRequest::select([
                 'date_requested',
                 'details',
                 'requesting_personnel',
-                'position',
+                'position_id',
                 'requesting_office',
                 'contact_number',
                 'date_received',
@@ -313,6 +313,8 @@ class MaintenanceRequestController extends Controller
     }
 
 
+
+    //allows editing of the maintenance request
     public function updateDetails(Request $request, $id)
     {
         // Find the maintenance request

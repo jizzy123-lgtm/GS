@@ -44,6 +44,12 @@ Route::middleware(['auth:sanctum'])->put('/maintenance-requests/{id}/verify', [M
 //2 heads approves the maintenance request
 Route::middleware(['auth:sanctum'])->put('/maintenance-requests/{id}/approve', [MaintenanceRequestController::class, 'approve']);
 
+Route::middleware(['auth:sanctum'])->group(function () {
+    Route::put('/maintenance-requests/{id}/approve-head', [MaintenanceRequestController::class, 'approveByHead']);
+    Route::put('/maintenance-requests/{id}/approve-director', [MaintenanceRequestController::class, 'approveByDirector']);
+});
+
+
 //dissaproved
 Route::middleware(['auth:sanctum'])->put('/maintenance-requests/{id}/disapprove', [MaintenanceRequestController::class, 'disapprove']);
 
@@ -95,9 +101,7 @@ Route::middleware('auth:sanctum')->group(function () {
 });
 
 //admin adding of maintenance type
-Route::middleware('auth::sanctum')->group(function(){
-    Route::post('/addservice',[MaintenanceType::class, 'store']);
-});
+Route::middleware(['auth:sanctum'])->post('/addservice',[MaintenanceTypeController::class, 'store']);
 
 
 //users feedback
@@ -106,6 +110,8 @@ Route::middleware(['auth:sanctum'])->post('/feedbacks', [FeedbackController::cla
 Route::middleware('auth:sanctum')->get('/feedbacks/{id}/details', [FeedbackController::class, 'showFeedbackDetails']);
 
 
+
+//create maintenancerequestform
 Route::middleware('auth:sanctum')->group(function () {
     // Maintenance Requests
     Route::apiResource('/maintenance-requests', MaintenanceRequestController::class);
@@ -133,6 +139,7 @@ Route::middleware('auth:sanctum')->put('/profile/update', [UserController::class
 Route::middleware('auth:sanctum')->get('/profile/userInfos', [UserController::class, 'userDetails']);
 
 
+//for notifications
 Route::middleware(['auth:sanctum'])->group(function () {
     Route::get('/notifications', [NotificationController::class, 'index']);
     Route::get('/notifications/unreadCount', [NotificationController::class, 'unreadCount']);
@@ -140,10 +147,13 @@ Route::middleware(['auth:sanctum'])->group(function () {
     Route::put('/notifications/markAllAsRead', [NotificationController::class, 'markAllAsRead']);
 });
 
+
+//can get, create, edit, delete roles, position, office, status, maintenance-types
 Route::apiResource('roles', RoleController::class);
 Route::apiResource('positions', PositionController::class);
 Route::apiResource('offices', OfficeController::class);
 Route::apiResource('statuses', StatusController::class);
+Route::apiResource('maintenance-types', MaintenanceTypeController::class);
 
 
 
@@ -168,65 +178,10 @@ Route::apiResource('statuses', StatusController::class);
 
 
 
-// Admin-only routes
-// Route::middleware(['auth:sanctum', 'role:admin'])->group(function () {
-//     Route::get('/users', [UserController::class, 'index']);
-//     Route::post('/users/create', [UserController::class, 'register']);
-// });
-
-// // Head-only routes
-// Route::middleware(['auth:sanctum', 'role:head'])->group(function () {
-//     Route::put('/maintenance-requests/{id}/approve', [MaintenanceRequestController::class, 'approve']);
-// });
-
-// // Staff-only routes
-// Route::middleware(['auth:sanctum', 'role:staff'])->group(function () {
-//     Route::get('/maintenance-requests', [MaintenanceRequestController::class, 'index']);
-// });
-
-// // Requester-only routes
-// Route::middleware(['auth:sanctum', 'role:requester'])->group(function () {
-//     Route::post('/maintenance-requests', [MaintenanceRequestController::class, 'store']);
-// });
-
-
-// Protected Routes (Require Authentication)
-// Routes for Head Only
-Route::middleware(['auth:sanctum', 'role:head'])->group(function () {
-    Route::put('/requests/{id}/approve', [RequestController::class, 'approve']); // Only approvers can approve requests
-});
-
-// General Routes for Authenticated Users
-Route::middleware('auth:sanctum')->group(function () {
-    // Requests
-    Route::apiResource('/requests', RequestController::class);
-
-    // Maintenance Requests
-    Route::apiResource('/maintenance-requests', MaintenanceRequestController::class);
-
-    // Transportation Requests
-    Route::apiResource('/transportation-requests', TransportationRequestController::class);
-
-    // Feedback
-    Route::apiResource('/feedback', FeedbackController::class);
-});
 
 
 
-//for notifications
-Route::middleware('auth:sanctum')->group(function () {
-    Route::get('/notifications', [NotificationController::class, 'index']); // Get all notifications
-    Route::put('/notifications/{id}/read', [NotificationController::class, 'markAsRead']); // Mark as read
-});
 
 
-// Route::middleware(['auth:sanctum'])->group(function () {
-//     // Approver updates maintenance request details
-//     Route::put('/maintenance-requests/{id}/review', [MaintenanceRequestController::class, 'review']);
 
-//     // Two-step approval process
-//     Route::put('/maintenance-requests/{id}/approve', [MaintenanceRequestController::class, 'approve']);
-// });
-Route::middleware(['auth:sanctum'])->group(function () {
-    Route::get('/profile', [UserController::class, 'profile']);
-});
+

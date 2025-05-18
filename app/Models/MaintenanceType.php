@@ -9,6 +9,6 @@ class MaintenanceType extends Model
 {
     use HasFactory;
 
-    protected $fillable = ['name'];
+    protected $fillable = ['type_name'];
 }
 

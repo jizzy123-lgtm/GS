@@ -214,7 +214,7 @@ class UserController extends Controller
     }
 
 
-    //for display of user details only
+    //for display and retrieving of user details only
     public function getUserDetails()
     {
         // Get the authenticated user
@@ -230,8 +230,8 @@ class UserController extends Controller
             'first_name'=> $user->first_name,
             'middle_name'=> $user->middle_name,
             'suffix'=> $user->suffix,
-            'position' => $user->position,
-            'office' => $user->office, // Adjust based on your DB column name
+            'position_id' => $user->position,
+            'office_id' => $user->office, // Adjust based on your DB column name
             'contact_number' => $user->contact_number
         ], 200);
     }

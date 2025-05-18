@@ -31,8 +31,20 @@ class MaintenanceRequestController extends Controller
             'maintenance_type_id' => 'required|exists:maintenance_types,id',
         ]);
 
+
+        $maintenanceRequest = MaintenanceRequest::create([
+            'date_requested' => $request->date_requested,
+            'details' => $request->details,
+            'requesting_personnel' => $request->requesting_personnel,
+            'position_id' => $request->position_id,
+            'requesting_office' => $request->requesting_office, // corrected key
+            'contact_number' => $request->contact_number,
+            'maintenance_type_id' => $request->maintenance_type_id,
+            'status_id' => 1, // Assuming 1 = Pending
+        ]);
+
         // Create a new maintenance request
-        $maintenanceRequest = MaintenanceRequest::create($request->all());
+        //$maintenanceRequest = MaintenanceRequest::create($request->all());
 
         // Notify all heads and staff (role_id 2 = head, role_id 3 = staff)
         $usersToNotify = User::whereIn('role_id', [2, 3])->get();
@@ -68,7 +80,7 @@ class MaintenanceRequestController extends Controller
         $request->validate([
             'date_received' => 'required|date',
             'time_received' => 'required|date_format:H:i:s',
-            'priority_number' => 'required|string',
+            'priority_number' => 'nullable|string',
             'remarks' => 'nullable|string',
             'verified_by' => 'required|exists:users,id', // Staff ID must exist in users table
         ]);
@@ -84,7 +96,7 @@ class MaintenanceRequestController extends Controller
             'verified_by' => $request->verified_by,
         ]);
 
-        $requester = User::where('full_name', $maintenanceRequest->requesting_personnel)->first();
+        $requester = User::where('id', $maintenanceRequest->requesting_personnel)->first();
         if ($requester && $requester->email) {
             $requester->notify(new MaintenanceVerifiedNotification($maintenanceRequest));
         }
@@ -138,6 +150,72 @@ class MaintenanceRequestController extends Controller
         ]);
     }
 
+    public function approveByHead(Request $request, $id)
+    {
+        $user = Auth::user();
+
+        if ($user->role_id !== 2) {
+            return response()->json(['message' => 'Only Heads can perform this approval.'], 403);
+        }
+
+        $maintenanceRequest = MaintenanceRequest::findOrFail($id);
+
+        if (!is_null($maintenanceRequest->approved_by_1)) {
+            return response()->json(['message' => 'Already approved by a Head.'], 400);
+        }
+
+        $maintenanceRequest->approved_by_1 = $user->id;
+        $maintenanceRequest->save();
+
+        return response()->json([
+            'message' => 'Approved by Head successfully.',
+            'maintenance_request' => $maintenanceRequest
+        ]);
+    }
+
+
+
+    public function approveByDirector(Request $request, $id)
+    {
+        $user = Auth::user();
+
+        if ($user->role_id !== 5) {
+            return response()->json(['message' => 'Only the Campus Director can perform this approval.'], 403);
+        }
+
+        $maintenanceRequest = MaintenanceRequest::findOrFail($id);
+
+        if (is_null($maintenanceRequest->approved_by_1)) {
+            return response()->json(['message' => 'This request must first be approved by a Head.'], 400);
+        }
+
+        if (!is_null($maintenanceRequest->approved_by_2)) {
+            return response()->json(['message' => 'Already approved by the Campus Director.'], 400);
+        }
+
+        $maintenanceRequest->approved_by_2 = $user->id;
+        $maintenanceRequest->status = 2; // Approved status ID
+        $maintenanceRequest->save();
+
+        // Notify requester
+        $requester = User::find($maintenanceRequest->requesting_personnel);
+        if ($requester && $requester->email) {
+            $requester->notify(new MaintenanceRequestApproved($maintenanceRequest));
+        }
+
+        return response()->json([
+            'message' => 'Approved by Campus Director successfully. Request is now fully approved.',
+            'maintenance_request' => $maintenanceRequest
+        ]);
+    }
+
+
+
+
+
+
+
+
     //this function gets the data of an specific maintenance request filled up by the requester
     public function staffpov($id)
         {
@@ -147,7 +225,9 @@ class MaintenanceRequestController extends Controller
                 'requesting_personnel',
                 'position_id',
                 'requesting_office',
-                'contact_number'
+                'contact_number',
+                'status_id',
+                'maintenance_type_id'
             ])
             ->where('id', $id)
             ->first();

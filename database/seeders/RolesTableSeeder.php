@@ -13,6 +13,7 @@ class RolesTableSeeder extends Seeder
             ['role_name' => 'Head'],
             ['role_name' => 'Staff'],
             ['role_name' => 'Requester'],
+            ['role_name' => 'Campus_Director'],
         ]);
     }
 }

@@ -12,7 +12,7 @@ class MaintenanceRequest extends Model
         'details',
         'requesting_personnel', // will become a user_id (foreign key)
         'position_id',
-        'requesting_office_id',
+        'requesting_office',
         'contact_number',
         'status_id',
         'date_received',
@@ -37,7 +37,7 @@ class MaintenanceRequest extends Model
 
     public function office()
     {
-        return $this->belongsTo(Office::class, 'requesting_office_id');
+        return $this->belongsTo(Office::class, 'requesting_office');
     }
 
     public function status()

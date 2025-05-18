@@ -15,6 +15,8 @@ class StatusTableSeeder extends Seeder
             ['name' => 'Disapproved'],
             ['name' => 'Done'],
             ['name' => 'Canceled'],
+            ['name' => 'Urgent'],
+            ['name' => 'Onhold'],
         ]);
     }
 }

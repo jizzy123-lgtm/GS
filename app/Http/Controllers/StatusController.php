@@ -12,8 +12,8 @@ class StatusController extends Controller
     }
 
     public function store(Request $request) {
-        $request->validate(['label' => 'required|string|unique:statuses,label']);
-        $status = Status::create($request->only('label'));
+        $request->validate(['name' => 'required|string|unique:statuses,name']);
+        $status = Status::create($request->only('name'));
         return response()->json($status, 201);
     }
 
@@ -23,7 +23,7 @@ class StatusController extends Controller
 
     public function update(Request $request, $id) {
         $status = Status::findOrFail($id);
-        $status->update($request->only('label'));
+        $status->update($request->only('name'));
         return response()->json($status);
     }
 

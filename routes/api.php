@@ -108,7 +108,8 @@ Route::middleware(['auth:sanctum'])->post('/addservice',[MaintenanceTypeControll
 Route::middleware(['auth:sanctum'])->post('/feedbacks', [FeedbackController::class, 'store']);
 //get the details of the feedback
 Route::middleware('auth:sanctum')->get('/feedbacks/{id}/details', [FeedbackController::class, 'showFeedbackDetails']);
-
+Route::middleware('auth:sanctum')->get('/feedbacks/{id}/details', [FeedbackController::class, 'showFeedbackDetails']);
+Route::get('/feedbacks', [FeedbackController::class, 'index']);
 
 
 //create maintenancerequestform
@@ -154,6 +155,10 @@ Route::apiResource('positions', PositionController::class);
 Route::apiResource('offices', OfficeController::class);
 Route::apiResource('statuses', StatusController::class);
 Route::apiResource('maintenance-types', MaintenanceTypeController::class);
+
+
+Route::put('/maintenance-requests/{id}/mark-urgent', [MaintenanceRequestController::class, 'markAsUrgent']);
+Route::put('/maintenance-requests/{id}/mark-onhold', [MaintenanceRequestController::class, 'markAsOnHold']);
 
 
 

@@ -127,5 +127,15 @@ class FeedbackController extends Controller
         ], 200);
     }
 
+    public function index()
+    {
+        $feedbacks = Feedback::all();
+
+        return response()->json([
+            'message' => 'All feedbacks retrieved successfully.',
+            'data' => $feedbacks
+        ]);
+    }
+
 
 }

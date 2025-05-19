@@ -179,7 +179,7 @@ class MaintenanceRequestController extends Controller
     {
         $user = Auth::user();
 
-        if ($user->role_id !== 5) {
+        if ($user->role_id !== 5) {////////means it is a campus director
             return response()->json(['message' => 'Only the Campus Director can perform this approval.'], 403);
         }
 
@@ -194,7 +194,7 @@ class MaintenanceRequestController extends Controller
         }
 
         $maintenanceRequest->approved_by_2 = $user->id;
-        $maintenanceRequest->status = 2; // Approved status ID
+        $maintenanceRequest->status_id = 2; // Approved status ID
         $maintenanceRequest->save();
 
         // Notify requester
@@ -378,7 +378,9 @@ class MaintenanceRequestController extends Controller
                 'priority_number',
                 'verified_by',
                 'approved_by_1',
-                'remarks'
+                'remarks',
+                'maintenance_type_id',
+                'status_id'
 
 
             ])
@@ -424,6 +426,40 @@ class MaintenanceRequestController extends Controller
         ], 200);
     }
 
+
+    public function markAsUrgent($id)
+    {
+        $request = MaintenanceRequest::find($id);
+
+        if (!$request) {
+            return response()->json(['message' => 'Maintenance request not found.'], 404);
+        }
+
+        $request->status_id = 6; // 6 = Urgent
+        $request->save();
+
+        return response()->json([
+            'message' => 'Maintenance request marked as urgent.',
+            'data' => $request
+        ]);
+    }
+
+    public function markAsOnHold($id)
+    {
+        $request = MaintenanceRequest::find($id);
+
+        if (!$request) {
+            return response()->json(['message' => 'Maintenance request not found.'], 404);
+        }
+
+        $request->status_id = 7; // 7 = On Hold
+        $request->save();
+
+        return response()->json([
+            'message' => 'Maintenance request marked as on hold.',
+            'data' => $request
+        ]);
+    }
 
 
 }

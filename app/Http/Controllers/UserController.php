@@ -161,16 +161,16 @@ class UserController extends Controller
 
     //for display of data only
     public function getUsPass(){
-        $pendingUsers = User::where('account_status', 'Approved')
+        $Users = Auth::user()
                             ->select('id', 'last_name','first_name', 'middle_name', 'suffix', 'username', 'password')
                             ->orderBy('created_at', 'desc')
                             ->get();
 
-        if ($pendingUsers->isEmpty()) {
-            return response()->json(['message' => 'No pending approvals found.'], 200);
+        if ($Users->isEmpty()) {
+            return response()->json(['message' => 'Empty.'], 200);
         }
 
-        return response()->json($pendingUsers, 200);
+        return response()->json($Users, 200);
 
     }
 

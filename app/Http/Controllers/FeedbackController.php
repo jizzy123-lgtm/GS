@@ -39,11 +39,20 @@ class FeedbackController extends Controller
             'email' => 'nullable|email',
         ]);
 
+        $maintenance = MaintenanceRequest::find($validated['maintenance_request_id']);
+
+        // ❗ Check if the maintenance request is approved (status_id = 2)
+        if (!$maintenance || $maintenance->status_id != 2) {
+            return response()->json([
+                'message' => 'Feedback can only be submitted for approved maintenance requests.'
+            ], 403);
+        }
+
         $validated['user_id'] = Auth::id(); // get authenticated user
 
         // mark maintenance request as done
         $maintenance = MaintenanceRequest::find($validated['maintenance_request_id']);
-        $maintenance->status = 'Done';
+        $maintenance->status_id = '4';
         $maintenance->save();
 
         $feedback = Feedback::create($validated);

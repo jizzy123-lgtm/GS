@@ -395,6 +395,41 @@ class MaintenanceRequestController extends Controller
     }
 
 
+    public function directorpov($id)
+    {
+            $request = MaintenanceRequest::select([
+                'date_requested',
+                'details',
+                'requesting_personnel',
+                'position_id',
+                'requesting_office',
+                'contact_number',
+                'date_received',
+                'time_received',
+                'priority_number',
+                'verified_by',
+                'approved_by_1',
+                'approved_by_2',
+                'remarks',
+                'maintenance_type_id',
+                'status_id'
+
+
+            ])
+            ->where('id', $id)
+            ->first();
+
+        if (!$request) {
+            return response()->json(['message' => 'Maintenance request not found'], 404);
+        }
+
+        return response()->json($request);
+    }
+
+
+
+
+
 
     //allows editing of the maintenance request
     public function updateDetails(Request $request, $id)
@@ -407,7 +442,7 @@ class MaintenanceRequestController extends Controller
         }
 
         // Optional: Only allow update if status is still Pending
-        if ($maintenanceRequest->status !== 'Pending') {
+        if ($maintenanceRequest->status_id !== 1) {
             return response()->json(['message' => 'Cannot edit a request that is already processed.'], 403);
         }
 
@@ -461,6 +496,63 @@ class MaintenanceRequestController extends Controller
         ]);
     }
 
+
+    //this cancels the request of the user
+    public function cancelRequest($id)
+    {
+        $request = MaintenanceRequest::find($id);
+
+        if (!$request) {
+            return response()->json(['message' => 'Maintenance request not found.'], 404);
+        }
+
+        if ($request->status_id != 1) {
+            return response()->json(['message' => 'Only pending requests can be canceled.'], 400);
+        }
+
+        $request->status_id = 5; // 5 = canceled
+        $request->save();
+
+        return response()->json(['message' => 'Maintenance request canceled successfully.']);
+    }
+
+
+    public function indexWithDetails()
+    {
+        $requests = MaintenanceRequest::with([
+            'requester',
+            'position',
+            'office',
+            'status',
+            'verifier',
+            'approver1',
+            'approver2',
+            'maintenanceType'
+        ])->get();
+
+        $data = $requests->map(function ($request) {
+            return [
+                'requester_id' => $request->requesting_personnel,
+                'date_requested' => $request->date_requested,
+                'details' => $request->details,
+                'requesting_personnel' => optional($request->requester)->last_name,
+                'position' => optional($request->position)->name,
+                'requesting_office' => optional($request->office)->name,
+                'contact_number' => $request->contact_number,
+                'status' => optional($request->status)->name,
+                'date_received' => $request->date_received,
+                'time_received' => $request->time_received,
+                'priority_number' => $request->priority_number,
+                'remarks' => $request->remarks,
+                'verified_by' => optional($request->verifier)->last_name,
+                'approved_by_1' => optional($request->approver1)->last_name,
+                'approved_by_2' => optional($request->approver2)->last_name,
+                'maintenance_type' => optional($request->maintenanceType)->type_name,
+            ];
+        });
+
+        return response()->json($data);
+    }
 
 }
 

@@ -13,7 +13,7 @@ use App\Http\Controllers\OfficeController;
 use App\Http\Controllers\StatusController;
 use App\Http\Controllers\RoleController;
 use App\Models\MaintenanceType;
-
+Route::get('/maintenance-requests/list-with-details', [MaintenanceRequestController::class, 'indexWithDetails']);
 
 Route::get('/maintenance-types', [MaintenanceTypeController::class, 'index']);
 
@@ -85,6 +85,7 @@ Route::middleware(['auth:sanctum'])->get('/users/reqInfo', [UserController::clas
 Route::middleware(['auth:sanctum'])->get('/users/userWithRole', [UserController::class, 'getUserDetailRole']);
 //head would get the maintenance request filled by the requester and staff
 Route::middleware(['auth:sanctum'])->get('/headpov/{id}', [MaintenanceRequestController::class, 'headpov']);
+Route::middleware(['auth:sanctum'])->get('/directorpov/{id}', [MaintenanceRequestController::class, 'directorpov']);
 
 
 
@@ -108,7 +109,7 @@ Route::middleware(['auth:sanctum'])->post('/addservice',[MaintenanceTypeControll
 Route::middleware(['auth:sanctum'])->post('/feedbacks', [FeedbackController::class, 'store']);
 //get the details of the feedback
 Route::middleware('auth:sanctum')->get('/feedbacks/{id}/details', [FeedbackController::class, 'showFeedbackDetails']);
-Route::middleware('auth:sanctum')->get('/feedbacks/{id}/details', [FeedbackController::class, 'showFeedbackDetails']);
+
 Route::get('/feedbacks', [FeedbackController::class, 'index']);
 
 
@@ -128,6 +129,11 @@ Route::middleware('auth:sanctum')->group(function () {
 
 
 //this section is for the non functional requirements
+
+
+
+//cancels the request
+Route::put('/maintenance-requests/{id}/cancel', [MaintenanceRequestController::class, 'cancelRequest']);
 
 
 //edit request form
@@ -164,6 +170,7 @@ Route::put('/maintenance-requests/{id}/mark-onhold', [MaintenanceRequestControll
 
 
 
+Route::get('/maintenance-requests/list-with-details', [MaintenanceRequestController::class, 'indexWithDetails']);
 
 
 

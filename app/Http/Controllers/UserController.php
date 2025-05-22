@@ -3,6 +3,11 @@ namespace App\Http\Controllers;
 use Illuminate\Support\Facades\Auth;
 
 use Illuminate\Http\Request;
+use App\Models\Role;
+use App\Models\Office;
+use App\Models\Status;
+use App\Models\Position;
+use Illuminate\Http\JsonResponse;
 use App\Models\User;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Validation\ValidationException;
@@ -323,6 +328,17 @@ class UserController extends Controller
             'message' => 'Profile updated successfully.',
             'user' => $user,
         ], 200);
+    }
+
+
+    public function commonDatas(): JsonResponse
+    {
+        return response()->json([
+            'roles' => Role::all(),
+            'offices' => Office::all(),
+            'statuses' => Status::all(),
+            'positions' => Position::all(),
+        ]);
     }
 
 }

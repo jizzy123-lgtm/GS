@@ -179,7 +179,7 @@ class MaintenanceRequestController extends Controller
     {
         $user = Auth::user();
 
-        if ($user->role_id !== 5) {////////means it is a campus director
+        if ($user->role_id !== 10) {////////means it is a campus director
             return response()->json(['message' => 'Only the Campus Director can perform this approval.'], 403);
         }
 
@@ -532,9 +532,10 @@ class MaintenanceRequestController extends Controller
 
         $data = $requests->map(function ($request) {
             return [
-                'requester_id' => $request->requesting_personnel,
+
                 'date_requested' => $request->date_requested,
                 'details' => $request->details,
+                'requester_id' => $request->requesting_personnel,
                 'requesting_personnel' => optional($request->requester)->last_name,
                 'position' => optional($request->position)->name,
                 'requesting_office' => optional($request->office)->name,
@@ -548,6 +549,8 @@ class MaintenanceRequestController extends Controller
                 'approved_by_1' => optional($request->approver1)->last_name,
                 'approved_by_2' => optional($request->approver2)->last_name,
                 'maintenance_type' => optional($request->maintenanceType)->type_name,
+                'created_at' => $request->created_at,
+                'updated_at'=> $request->updated_at,
             ];
         });
 

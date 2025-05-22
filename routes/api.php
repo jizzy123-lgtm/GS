@@ -170,17 +170,20 @@ Route::put('/maintenance-requests/{id}/mark-onhold', [MaintenanceRequestControll
 
 
 
+
+
+
+
+
+
+
+
+
+
+//translated datas
+
+Route::get('/common-datas', [UserController::class, 'commonDatas']);
 Route::get('/maintenance-requests/list-with-details', [MaintenanceRequestController::class, 'indexWithDetails']);
-
-
-
-
-
-
-
-
-
-
 
 
 

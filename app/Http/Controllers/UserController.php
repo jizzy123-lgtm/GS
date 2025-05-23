@@ -341,5 +341,41 @@ class UserController extends Controller
         ]);
     }
 
+
+     public function usersList()
+    {
+        $requests = User::with([
+            'position',
+            'office',
+            'status',
+            'role'
+
+        ])->get();
+
+        $data = $requests->map(function ($request) {
+            return [
+                'user_id' => $request->id,
+                'last_name'=> $request->last_name,
+                'first_name'=> $request->first_name,
+                'middle_name'=> $request->middle_name,
+                'suffix'=> $request->suffix,
+                'position_id'=>$request->position_id,
+                'position' => optional($request->position)->name,
+                'role_id'=>$request->role_id,
+                'role'=>optional($request->role)->role_name,
+                'office_id'=>$request->office_id,
+                'office' => optional($request->office)->name,
+                'status_id'=>$request->status_id,
+                'status' => optional($request->status)->name,
+                'contact_number' => $request->contact_number,
+                'email' => $request->email,
+                'username' => $request->username,
+                'created_at' => $request->created_at,
+                'updated_at'=> $request->updated_at,
+            ];
+        });
+
+        return response()->json($data);
+    }
 }
 

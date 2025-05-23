@@ -532,7 +532,7 @@ class MaintenanceRequestController extends Controller
 
         $data = $requests->map(function ($request) {
             return [
-
+                'request_id'=> $request->id,
                 'date_requested' => $request->date_requested,
                 'details' => $request->details,
                 'requester_id' => $request->requesting_personnel,

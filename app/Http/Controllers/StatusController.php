@@ -31,4 +31,15 @@ class StatusController extends Controller
         Status::destroy($id);
         return response()->json(['message' => 'Status deleted.']);
     }
+
+
+    public function accountStatuses()
+    {
+
+        $statuses = Status::whereIn('id', [1, 2, 3])->get();
+
+        return response()->json([
+            'statuses' => $statuses
+        ]);
+    }
 }

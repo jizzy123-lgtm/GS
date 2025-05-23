@@ -184,7 +184,8 @@ Route::put('/maintenance-requests/{id}/mark-onhold', [MaintenanceRequestControll
 
 Route::get('/common-datas', [UserController::class, 'commonDatas']);
 Route::get('/maintenance-requests/list-with-details', [MaintenanceRequestController::class, 'indexWithDetails']);
-
+Route::get('/accountStatuses', [StatusController::class, 'accountStatuses']);
+Route::get('/users-list', [UserController::class, 'usersList']);
 
 
 

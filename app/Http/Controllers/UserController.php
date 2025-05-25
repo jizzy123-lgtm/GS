@@ -1,5 +1,7 @@
 <?php
 namespace App\Http\Controllers;
+
+use App\Models\MaintenanceType;
 use Illuminate\Support\Facades\Auth;
 
 use Illuminate\Http\Request;
@@ -338,6 +340,7 @@ class UserController extends Controller
             'offices' => Office::all(),
             'statuses' => Status::all(),
             'positions' => Position::all(),
+            'maintenance_types'=>MaintenanceType::all(),
         ]);
     }
 

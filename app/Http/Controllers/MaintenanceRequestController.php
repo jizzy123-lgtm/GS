@@ -50,7 +50,7 @@ class MaintenanceRequestController extends Controller
         $usersToNotify = User::whereIn('role_id', [2, 3])->get();
 
         // Use Notification facade to send notifications in bulk
-        Notification::send($usersToNotify, new MaintenanceRequestCreated(Auth::user()->full_name));
+        Notification::send($usersToNotify, new MaintenanceRequestCreated(Auth::user()->last_name));
 
     //     $recipients = User::whereIn('role_id', [2, 3])->get();
 
@@ -133,7 +133,7 @@ class MaintenanceRequestController extends Controller
             $maintenanceRequest->status = 2; // Auto-update status
 
             // Notify the requester by email after final approval
-            $requester = User::where('full_name', $maintenanceRequest->requesting_personnel)->first();
+            $requester = User::where('id', $maintenanceRequest->requesting_personnel)->first();
 
             if ($requester && $requester->email) {
                 $requester->notify(new MaintenanceRequestApproved($maintenanceRequest));
@@ -167,6 +167,12 @@ class MaintenanceRequestController extends Controller
         $maintenanceRequest->approved_by_1 = $user->id;
         $maintenanceRequest->save();
 
+        // Notify the requester by email after final approval
+        $requester = User::where('id', $maintenanceRequest->requesting_personnel)->first();
+
+       if ($requester && $requester->email) {
+            $requester->notify(new MaintenanceRequestApproved($maintenanceRequest));
+         }
         return response()->json([
             'message' => 'Approved by Head successfully.',
             'maintenance_request' => $maintenanceRequest
@@ -179,7 +185,7 @@ class MaintenanceRequestController extends Controller
     {
         $user = Auth::user();
 
-        if ($user->role_id !== 10) {////////means it is a campus director
+        if ($user->role_id !== 5) {////////means it is a campus director
             return response()->json(['message' => 'Only the Campus Director can perform this approval.'], 403);
         }
 
@@ -197,11 +203,11 @@ class MaintenanceRequestController extends Controller
         $maintenanceRequest->status_id = 2; // Approved status ID
         $maintenanceRequest->save();
 
-        // Notify requester
-        $requester = User::find($maintenanceRequest->requesting_personnel);
-        if ($requester && $requester->email) {
-            $requester->notify(new MaintenanceRequestApproved($maintenanceRequest));
-        }
+        // // Notify requester
+        // $requester = User::find($maintenanceRequest->requesting_personnel);
+        // if ($requester && $requester->email) {
+        //     $requester->notify(new MaintenanceRequestApproved($maintenanceRequest));
+        // }
 
         return response()->json([
             'message' => 'Approved by Campus Director successfully. Request is now fully approved.',

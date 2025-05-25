@@ -28,7 +28,7 @@ class MaintenanceRequestApproved extends Notification
         return (new MailMessage)
             ->subject('Your Maintenance Request is Approved')
             ->greeting('Hello ' . $notifiable->full_name . ',')
-            ->line('Your maintenance request has been approved by both heads.')
+            ->line('Your maintenance request has been approved by the head.')
             ->line('Details: ' . $this->request->details)
             ->line('Priority No.: ' . $this->request->priority_number)
             ->line('Thank you for using the GSO Maintenance System!');

@@ -24,9 +24,9 @@ class NewUserRegistered extends Notification
     {
         return (new MailMessage)
             ->subject('New User Registration')
-            ->greeting('Hello ' . $notifiable->full_name . ',')
+            ->greeting('Hello ' . $notifiable->first_name . ',')
             ->line('A new user has registered and is awaiting approval.')
-            ->line('Name: ' . $this->newUser->full_name)
+            ->line('Name: ' . $this->newUser->first_name)
             ->line('Position: ' . $this->newUser->position)
             ->line('Office: ' . $this->newUser->office)
             ->line('Please review and approve the account if appropriate.');

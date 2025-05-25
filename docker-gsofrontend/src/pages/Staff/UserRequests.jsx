@@ -1,9 +1,9 @@
-import { useState, useReducer, useEffect, useCallback, memo, useRef } from 'react';
-import { NavLink, useNavigate, useLocation } from 'react-router-dom';
-import Sidebar from '../../components/Sidebar';
+import { useState, useReducer, useEffect, useCallback, memo, useRef, useMemo } from 'react';
+import { NavLink, useNavigate } from 'react-router-dom';
 import Icon from '../../components/Icon';
+import { StaffSidebar, MENU_ITEMS } from '../../components/StaffSidebar';
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL; 
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
 
 // Custom Hooks
 const useClickOutside = (ref, handler) => {
@@ -31,96 +31,333 @@ const sidebarReducer = (state, action) => {
   }
 };
 
-const MENU_ITEMS = [
-  { text: "Dashboard", to: "/staffdashboard", icon: "M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" },
-  { text: "Notifications", to: "/adminnotifications", icon: "M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" },
-  { text: "Schedules", to: "/adminschedules", icon: "M5 4h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2z M16 2v4 M3 10h18 M8 2v4 M17 14h-6 M13 18H7 M7 14h.01 M17 18h.01" },
-  { text: "User Requests", to: "/userrequests", icon: "M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2 M5 7a4 4 0 1 0 8 0a4 4 0 1 0-8 0 M22 21v-2a4 4 0 0 0-3-3.87 M16 3.13a4 4 0 0 1 0 7.75"},
-  { text: "Requests", to: "/StaffSlipRequests", icon: "M9 2h6a1 1 0 0 1 1 1v2a1 1 0 0 1-1 1H9a1 1 0 0 1-1-1V3a1 1 0 1 1 1-1z M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2 M12 11h4 M12 16h4 M8 11h.01 M8 16h.01"},
-  { text: "Reports", to: "/report", icon: "M13 17V9 M18 17V5 M3 3v16a2 2 0 0 0 2 2h16 M8 17v-3"},
-  { text: "Settings", to: "/settings", icon: "M9.594 3.94c.09-.542.56-.94 1.11-.94h2.593c.55 0 1.02.398 1.11.94l.213 1.281c.063.374.313.686.645.87.074.04.147.083.22.127.325.196.72.257 1.075.124l1.217-.456a1.125 1.125 0 0 1 1.37.49l1.296 2.247a1.125 1.125 0 0 1-.26 1.431l-1.003.827c-.293.241-.438.613-.43.992a7.723 7.723 0 0 1 0 .255c-.008.378.137.75.43.991l1.004.827c.424.35.534.955.26 1.43l-1.298 2.247a1.125 1.125 0 0 1-1.369.491l-1.217-.456c-.355-.133-.75-.072-1.076.124a6.47 6.47 0 0 1-.22.128c-.331.183-.581.495-.644.869l-.213 1.281c-.09.543-.56.94-1.11.94h-2.594c-.55 0-1.019-.398-1.11-.94l-.213-1.281c-.062-.374-.312-.686-.644-.87a6.52 6.52 0 0 1-.22-.127c-.325-.196-.72-.257-1.076-.124l-1.217.456a1.125 1.125 0 0 1-1.369-.49l-1.297-2.247a1.125 1.125 0 0 1 .26-1.431l1.004-.827c.292-.24.437-.613.43-.991a6.932 6.932 0 0 1 0-.255c.007-.38-.138-.751-.43-.992l-1.004-.827a1.125 1.125 0 0 1-.26-1.43l1.297-2.247a1.125 1.125 0 0 1 1.37-.491l1.216.456c.356.133.751.072 1.076-.124.072-.044.146-.086.22-.128.332-.183.582-.495.644-.869l.214-1.28ZM15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" },
-  { text: "Logout", to: "/loginpage", icon: "M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" }
-];
-
-const roleMapping = {
-  1: "Admin",
-  2: "Head",
-  3: "Staff",
-  4: "Requester"
-};
-
-const UserRequestsTable = memo(({ onRowClick, requests }) => (
-    <main className="flex-1 p-4 md:p-6 lg:p-8 bg-white/95 backdrop-blur-sm overflow-y-auto">
-      <h2 className="text-2xl md:text-3xl lg:text-4xl font-extrabold text-gray-900 border-b mb-4 md:mb-6 pb-3 md:pb-4">
-        User Requests
-      </h2>
+const Header = memo(({ 
+  isMobileMenuOpen, 
+  onToggleMobileMenu,
+  onCloseMobileMenu 
+}) => {
+  const mobileMenuRef = useRef(null);
   
-      <div className="bg-white rounded-lg shadow-sm md:shadow-lg border border-gray-200">
-{/* Mobile View */}
-<div className="lg:hidden space-y-4 p-2 sm:p-4">
-  {requests.map((request) => (
-    <div key={request.id} className="border-2 border-gray-100 rounded-lg p-4 space-y-3">
-      <div className="flex justify-between text-sm sm:text-base">
-        <span className="font-semibold">Name:</span>
-        <span className="text-gray-900">{request.full_name}</span>
-      </div>
-      <div className="flex justify-between text-sm sm:text-base">
-        <span className="font-semibold">Email:</span>
-        <span className="text-gray-900">{request.email}</span>
-      </div>
-      <div className="flex justify-between text-sm sm:text-base">
-        <span className="font-semibold">Role:</span>
-        <span className="text-gray-900 capitalize">
-          {roleMapping[request.role_id] || "Unknown"}
+  useClickOutside(mobileMenuRef, () => {
+    if (isMobileMenuOpen) onCloseMobileMenu();
+  });
+
+  return (
+    <header className="bg-gradient-to-r from-blue-900 to-indigo-900 text-white p-4 flex justify-between items-center relative shadow-md">
+      <div className="flex items-center">
+        <span className="text-xl md:text-2xl font-extrabold tracking-tight">
+          ManageIT
         </span>
       </div>
-      <div className="flex justify-between items-center text-sm sm:text-base">
-        <span className="font-semibold">Status:</span>
-        <span 
-  className={`px-3 py-1 text-xs sm:text-sm rounded-full font-medium 
-    flex items-center justify-center min-w-[80px] whitespace-nowrap
-    ${request.status === "Pending" ? "bg-yellow-100 text-yellow-800" : "bg-red-600 text-gray-50"}`}
->
-  {request.status}
-</span>
+      
+      <div className="flex items-center gap-4">
+        <div className="hidden md:flex items-center gap-3">
+          <div className="bg-blue-800 hover:bg-blue-700 p-2 rounded-full transition-colors cursor-pointer">
+            <Icon path="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" className="w-5 h-5" />
+          </div>
+          <div className="flex items-center text-sm">
+            <div className="bg-blue-500 rounded-full w-8 h-8 flex items-center justify-center font-bold mr-2">S</div>
+            <span className="hidden lg:inline">Staff User</span>
+          </div>
+        </div>
+        
+        <button 
+          onClick={onToggleMobileMenu}
+          className="md:hidden p-2 hover:bg-blue-800 rounded-lg border border-blue-400 transition-colors"
+          aria-label="Toggle menu"
+          aria-expanded={isMobileMenuOpen}
+        >
+          <Icon path="M4 6h16M4 12h16M4 18h16" className="w-6 h-6" />
+        </button>
       </div>
-    </div>
-  ))}
-</div>
-        {/* Desktop Table */}
-        <table className="hidden lg:table w-full border-collapse">
-          <thead>
-            <tr className="bg-gray-50 border-b-2 border-gray-200">
-              <th className="p-3 text-left font-semibold">Full Name</th>
-              <th className="p-3 text-left font-semibold">Email</th>
-              <th className="p-3 text-left font-semibold">Role</th>
-              <th className="p-3 text-left font-semibold">Registration Date</th>
-              <th className="p-3 text-left font-semibold">Status</th>
-            </tr>
-          </thead>
-          <tbody>
-            {requests.map((request) => (
-              <tr key={request.id} className="hover:bg-gray-50 even:bg-gray-50 border-b border-gray-400">
-                <td className="p-3 font-medium">{request.full_name}</td>
-                <td className="p-3">{request.email}</td>
-                <td> {roleMapping[request.role_id]} </td>
-                <td className="p-3">{new Date(request.created_at).toLocaleDateString()}</td>
-                <td className="p-3">
-                  <span className={`px-3 py-1 rounded-full text-sm ${request.status?.toLowerCase() === "pending"
-                      ? "bg-yellow-100 text-yellow-800"
-                      : "bg-red-600 text-gray-50"
-                    }`}>
-                    {request.status?.charAt(0).toUpperCase() + request.status?.slice(1) || "Pending"}
-                  </span>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+
+      <div
+        ref={mobileMenuRef}
+        className={`absolute md:hidden top-full right-0 mt-2 w-64 bg-blue-800 rounded-lg shadow-xl z-30 transition-all duration-300 ease-out overflow-hidden ${
+          isMobileMenuOpen ? 'max-h-96 opacity-100' : 'max-h-0 opacity-0'
+        }`}
+      >
+        <div className="p-4 border-b border-blue-700">
+          <div className="flex items-center mb-4">
+            <div className="bg-blue-600 rounded-full w-10 h-10 flex items-center justify-center font-bold mr-3">S</div>
+            <div>
+              <div className="font-medium">Staff User</div>
+              <div className="text-xs text-blue-300">Staff</div>
+            </div>
+          </div>
+        </div>
+        <nav className="py-2">
+          {MENU_ITEMS.map((item) => (
+            <NavLink
+              key={item.text}
+              to={item.to}
+              className={({ isActive }) => `flex items-center px-4 py-3 text-sm hover:bg-blue-700 transition-colors ${isActive ? 'bg-blue-700' : ''}`}
+              onClick={onCloseMobileMenu}
+            >
+              <Icon path={item.icon} className="w-5 h-5 mr-3" />
+              {item.text}
+            </NavLink>
+          ))}
+        </nav>
+        <div className="text-center py-3 text-xs text-blue-300 border-t border-blue-700">
+          Created By Bantilan & Friends
+        </div>
       </div>
-    </main>
-  ));
+    </header>
+  );
+});
+
+const StatusBadge = memo(({ status }) => {
+  const statusConfig = {
+    Pending: {
+      bg: 'bg-amber-100',
+      text: 'text-amber-800',
+      icon: 'M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z'
+    },
+    Approved: {
+      bg: 'bg-green-100',
+      text: 'text-green-800',
+      icon: 'M5 13l4 4L19 7'
+    },
+    Rejected: {
+      bg: 'bg-red-100',
+      text: 'text-red-800',
+      icon: 'M6 18L18 6M6 6l12 12'
+    },
+    Disapproved: {
+      bg: 'bg-red-100',
+      text: 'text-red-800',
+      icon: 'M6 18L18 6M6 6l12 12'
+    }
+  };
+
+  const config = statusConfig[status] || statusConfig.Pending;
+
+  return (
+    <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm ${config.bg} ${config.text}`}>
+      <Icon path={config.icon} className="w-4 h-4 mr-1" />
+      {status}
+    </span>
+  );
+});
+
+const LoadingSpinner = () => (
+  <div className="flex flex-col items-center justify-center h-64">
+    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mb-4"></div>
+    <div className="text-lg text-gray-600">Loading requests...</div>
+  </div>
+);
+
+const EmptyState = ({ searchTerm, statusFilter }) => {
+  const isFiltered = searchTerm || statusFilter !== 'All Statuses';
   
+  return (
+    <div className="flex flex-col items-center justify-center h-64 bg-gray-50 rounded-lg border-2 border-dashed border-gray-300 p-6">
+      <Icon path="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" className="w-12 h-12 text-gray-400 mb-3" />
+      <div className="text-lg font-medium text-gray-600 mb-1">
+        {isFiltered ? 'No matching requests found' : 'No pending requests'}
+      </div>
+      <p className="text-sm text-gray-500 text-center">
+        {isFiltered 
+          ? 'Try adjusting your search or filter criteria.'
+          : 'When users register for accounts, their requests will appear here for approval.'
+        }
+      </p>
+    </div>
+  );
+};
+
+const UserRequestCard = memo(({ request, onRowClick }) => (
+  <div className="bg-white border border-gray-200 rounded-xl shadow-sm hover:shadow-md transition-shadow p-4 space-y-3">
+    <div className="flex items-center justify-between">
+      <div className="flex items-center space-x-3">
+        <div className="bg-indigo-100 text-indigo-700 rounded-full w-10 h-10 flex items-center justify-center font-medium">
+          {request.username ? request.username.charAt(0).toUpperCase() : "U"}
+        </div>
+        <div>
+          <div className="font-medium text-gray-900">{request.username}</div>
+          <div className="text-sm text-gray-500">{request.email}</div>
+        </div>
+      </div>
+      <StatusBadge status={request.status} />
+    </div>
+    
+    <div className="grid grid-cols-2 gap-y-2 text-sm border-t border-b border-gray-100 py-3">
+      <div className="text-gray-500">Role:</div>
+      <div className="text-gray-900 font-medium capitalize">{request.role || 'Unknown Role'}</div>
+      
+      <div className="text-gray-500">Registration:</div>
+      <div className="text-gray-900">{new Date(request.created_at).toLocaleDateString()}</div>
+    </div>
+    
+    <button
+      onClick={() => onRowClick(request.id)}
+      className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-medium py-2 px-4 rounded-lg transition-colors flex items-center justify-center"
+    >
+      <Icon path="M15 12a3 3 0 11-6 0 3 3 0 016 0z M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" className="w-5 h-5 mr-2" />
+      Review Request
+    </button>
+  </div>
+));
+
+const UserRequestsTable = memo(({ 
+  onRowClick, 
+  requests, 
+  isLoading, 
+  searchTerm, 
+  setSearchTerm, 
+  statusFilter, 
+  setStatusFilter,
+  accountStatuses 
+}) => {
+  // Filter requests based on search term and status
+  const filteredRequests = useMemo(() => {
+    return requests.filter(request => {
+      const matchesSearch = !searchTerm || 
+        request.username.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        request.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (request.role && request.role.toLowerCase().includes(searchTerm.toLowerCase()));
+
+      const matchesStatus =
+        statusFilter === "" || String(request.status_id) === String(statusFilter);
+
+      return matchesSearch && matchesStatus;
+    });
+  }, [requests, searchTerm, statusFilter]);
+
+  if (isLoading) {
+    return (
+      <main className="flex-1 p-4 md:p-6 lg:p-8 bg-gray-50 overflow-y-auto">
+        <div className="mb-6">
+          <h1 className="text-2xl md:text-3xl font-bold text-gray-900">User Requests</h1>
+          <p className="text-gray-600 mt-1">Review and manage your account requests</p>
+        </div>
+        <LoadingSpinner />
+      </main>
+    );
+  }
+
+  return (
+    <main className="flex-1 p-4 md:p-6 lg:p-8 bg-gray-50 overflow-y-auto">
+      <div className="mb-6">
+        <div className="flex flex-wrap items-center justify-between gap-4">
+          <div>
+            <h1 className="text-2xl md:text-3xl font-bold text-gray-900">User Requests</h1>
+            <p className="text-gray-600 mt-1">Review and manage your account requests</p>
+          </div>
+          <div className="flex gap-2">
+            <div className="relative">
+              <input 
+                type="text" 
+                placeholder="Search requests..." 
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="pl-10 pr-4 py-2 bg-white border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none"
+              />
+              <Icon 
+                path="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" 
+                className="w-5 h-5 text-gray-400 absolute left-3 top-1/2 transform -translate-y-1/2" 
+              />
+            </div>
+            <select 
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value)}
+              className="bg-white border border-gray-300 rounded-lg py-2 px-4 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none"
+            >
+              <option value="">All Statuses</option>
+              {accountStatuses.map((status) => (
+                <option key={status.id} value={status.id}>
+                  {status.name}
+                </option>
+              ))}
+            </select>
+          </div>
+        </div>
+      </div>
+
+      {filteredRequests.length === 0 ? (
+        <EmptyState searchTerm={searchTerm} statusFilter={statusFilter} />
+      ) : (
+        <>
+          {/* Mobile Grid View */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:hidden gap-4">
+            {filteredRequests.map((request) => (
+              <UserRequestCard 
+                key={request.id} 
+                request={request} 
+                onRowClick={onRowClick} 
+              />
+            ))}
+          </div>
+      
+          {/* Desktop Table */}
+          <div className="hidden lg:block bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+            <table className="w-full border-collapse">
+              <thead>
+                <tr className="bg-gray-50">
+                  <th className="p-4 text-left font-semibold text-gray-600 border-b">Username</th>
+                  <th className="p-4 text-left font-semibold text-gray-600 border-b">Email</th>
+                  <th className="p-4 text-left font-semibold text-gray-600 border-b">Role</th>
+                  <th className="p-4 text-left font-semibold text-gray-600 border-b">Registration Date</th>
+                  <th className="p-4 text-left font-semibold text-gray-600 border-b">Status</th>
+                  <th className="p-4 text-left font-semibold text-gray-600 border-b">Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filteredRequests.map((request, index) => (
+                  <tr 
+                    key={request.id} 
+                    className={`hover:bg-gray-50 ${index !== filteredRequests.length - 1 ? 'border-b border-gray-200' : ''}`}
+                  >
+                    <td className="p-4">
+                      <div className="flex items-center">
+                        <div className="bg-indigo-100 text-indigo-700 rounded-full w-8 h-8 flex items-center justify-center font-medium mr-3">
+                          {request.username ? request.username.charAt(0).toUpperCase() : "U"}
+                        </div>
+                        <span className="font-medium text-gray-900">{request.username}</span>
+                      </div>
+                    </td>
+                    <td className="p-4 text-gray-600">{request.email}</td>
+                    <td className="p-4 capitalize text-gray-600">
+                      {request.role || 'Unknown Role'}
+                    </td>
+                    <td className="p-4 text-gray-600">{new Date(request.created_at).toLocaleDateString()}</td>
+                    <td className="p-4">
+                      <StatusBadge status={request.status} />
+                    </td>
+                    <td className="p-4">
+                      <button
+                        onClick={() => onRowClick(request.id)}
+                        className="bg-indigo-600 hover:bg-indigo-700 text-white font-medium py-2 px-4 rounded-lg transition-colors inline-flex items-center"
+                      >
+                        <Icon path="M15 12a3 3 0 11-6 0 3 3 0 016 0z M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" className="w-5 h-5 mr-2" />
+                        Review
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            <div className="bg-gray-50 px-4 py-3 border-t border-gray-200 flex items-center justify-between">
+              <div className="text-sm text-gray-600">
+                Showing <span className="font-medium">{filteredRequests.length}</span> of <span className="font-medium">{requests.length}</span> requests
+              </div>
+              <div className="flex items-center space-x-2">
+                <button className="bg-white border border-gray-300 rounded-md px-3 py-1 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50" disabled>
+                  Previous
+                </button>
+                <span className="bg-indigo-600 text-white rounded-md px-3 py-1 text-sm font-medium">1</span>
+                <button className="bg-white border border-gray-300 rounded-md px-3 py-1 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50" disabled>
+                  Next
+                </button>
+              </div>
+            </div>
+          </div>
+        </>
+      )}
+    </main>
+  );
+});
 
 const UserRequests = () => {
   const navigate = useNavigate();
@@ -131,21 +368,24 @@ const UserRequests = () => {
   const [requests, setRequests] = useState([]);
   const [loading, setLoading] = useState(true);
   const [token, setToken] = useState("");
+  const [searchTerm, setSearchTerm] = useState("");
+  const [statusFilter, setStatusFilter] = useState("");
+  const [accountStatuses, setAccountStatuses] = useState([]);
 
   // Retrieve token from storage
   useEffect(() => {
     const authToken = localStorage.getItem("authToken") || sessionStorage.getItem("authToken");
     if (!authToken) {
-      navigate("/loginpage"); // Redirect to login if token is missing
+      navigate("/loginpage");
     } else {
       setToken(authToken);
     }
   }, [navigate]);
 
-  const fetchUserRequests = async () => {
-    setLoading(true);
+  // Fetch account statuses from API
+  const fetchAccountStatuses = async () => {
     try {
-      const response = await fetch(`${API_BASE_URL}/pending-approvals`, {
+      const response = await fetch(`${API_BASE_URL}/accountStatuses`, {
         method: "GET",
         headers: {
           Authorization: `Bearer ${token}`,
@@ -154,23 +394,58 @@ const UserRequests = () => {
       });
 
       if (!response.ok) {
-        const errorText = await response.text(); // Capture error details from the response
-        console.error(`API Error: ${response.status} - ${response.statusText}`, errorText);
-        throw new Error(`Failed to fetch requests: ${response.statusText}`);
+        console.warn(`Failed to fetch account statuses: ${response.status} ${response.statusText}`);
+        return [];
       }
 
       const data = await response.json();
-      console.log("Fetched data:", data);
-
-      // Ensure we correctly extract the array
-      const extractedData = Array.isArray(data.data) ? data.data : Array.isArray(data) ? data : [];
-      console.log("Processed requests:", extractedData);
-
-      setRequests(extractedData);
+      const statusesArray = Array.isArray(data.statuses) ? data.statuses : [];
+      return statusesArray;
     } catch (error) {
-      console.error("Error fetching user requests:", error.message || error);
-      setRequests([]); // Prevent undefined issues
-      alert("An error occurred while fetching user requests. Please try again later."); // User-friendly message
+      console.error("Error fetching account statuses:", error);
+      return [];
+    }
+  };
+
+  // Fetch user requests
+  const fetchUserRequests = async () => {
+    setLoading(true);
+    try {
+      // Fetch statuses first
+      const statusesArray = await fetchAccountStatuses();
+      setAccountStatuses(statusesArray);
+
+      // Fetch user requests
+      const response = await fetch(`${API_BASE_URL}/users-list`, {
+        method: "GET",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+      });
+
+      if (!response.ok) throw new Error(`Failed to fetch requests: ${response.statusText}`);
+
+      const data = await response.json();
+      const extractedData = Array.isArray(data.data) ? data.data : Array.isArray(data) ? data : [];
+
+      if (extractedData.length === 0) {
+        setRequests([]);
+        setLoading(false);
+        return;
+      }
+
+      // Map requests
+      const requestsWithRoles = extractedData.map(request => ({
+        ...request,
+        id: request.user_id,
+        role: request.role || 'Unknown Role'
+      }));
+
+      setRequests(requestsWithRoles);
+    } catch (error) {
+      console.error("Error fetching user requests:", error);
+      setRequests([]);
     } finally {
       setLoading(false);
     }
@@ -182,70 +457,40 @@ const UserRequests = () => {
     }
   }, [token]);
 
-  const handleRowClick = useCallback(
-    (user_id) => {
-      navigate(`/adminuserrequestsform/${user_id}`);
-    },
-    [navigate]
-  );
+  const handleRowClick = useCallback((user_id) => {
+    navigate(`/viewuserrequestform/${user_id}`);
+  }, [navigate]);
 
-  if (loading) return <div className="p-4">Loading requests...</div>;
-  if (!requests.length) return <div className="p-4">No pending user requests found</div>;
+  const handleLogout = () => {
+    localStorage.removeItem("authToken");
+    sessionStorage.removeItem("authToken");
+    navigate("/loginpage");
+  };
 
   return (
     <div className="flex flex-col h-screen bg-gray-50">
-      <header className="bg-black text-white p-4 flex justify-between items-center relative">
-        <span className="text-xl md:text-2xl font-extrabold tracking-tight">
-          ManageIT
-        </span>
-
-        <div className="hidden md:block text-xl font-bold text-white">
-          Staff
-        </div>
-
-        <div className="flex items-center gap-4 md:hidden">
-          <button
-            onClick={() => dispatch({ type: "TOGGLE_MOBILE_MENU" })}
-            className="p-2 hover:bg-gray-800 rounded-lg border-2 border-white transition-colors"
-            aria-label="Toggle menu"
-            aria-expanded={state.isMobileMenuOpen}
-          >
-            <Icon path="M4 6h16M4 12h16M4 18h16" className="w-6 h-6" />
-          </button>
-        </div>
-
-        <div
-          className={`absolute md:hidden top-full right-0 mt-2 w-56 bg-gray-800 rounded-lg shadow-xl z-30 transition-all duration-300 ease-out overflow-hidden ${
-            state.isMobileMenuOpen ? "max-h-96 opacity-100" : "max-h-0 opacity-0"
-          }`}
-        >
-          <nav className="py-2">
-            {MENU_ITEMS.map((item) => (
-              <NavLink
-                key={item.text}
-                to={item.to}
-                className="flex items-center px-4 py-3 text-sm hover:bg-gray-700 transition-colors"
-                onClick={() => dispatch({ type: "CLOSE_MOBILE_MENU" })}
-              >
-                <Icon path={item.icon} className="w-5 h-5 mr-3" />
-                {item.text}
-              </NavLink>
-            ))}
-          </nav>
-          <div className="text-center py-2 text-xs text-gray-400 border-t border-gray-700">
-            Created By Bantilan & Friends
-          </div>
-        </div>
-      </header>
-
+      <Header
+        isMobileMenuOpen={state.isMobileMenuOpen}
+        onToggleMobileMenu={() => dispatch({ type: "TOGGLE_MOBILE_MENU" })}
+        onCloseMobileMenu={() => dispatch({ type: "CLOSE_MOBILE_MENU" })}
+      />
       <div className="flex flex-1 overflow-hidden">
-        <Sidebar
+        <StaffSidebar
           isSidebarCollapsed={state.isSidebarCollapsed}
           onToggleSidebar={() => dispatch({ type: "TOGGLE_SIDEBAR" })}
           menuItems={MENU_ITEMS}
-          title="ADMIN"
+          onLogout={handleLogout} 
         />
-        <UserRequestsTable onRowClick={handleRowClick} requests={requests} />
+        <UserRequestsTable 
+          onRowClick={handleRowClick} 
+          requests={requests} 
+          isLoading={loading}
+          searchTerm={searchTerm}
+          setSearchTerm={setSearchTerm}
+          statusFilter={statusFilter}
+          setStatusFilter={setStatusFilter}
+          accountStatuses={accountStatuses}
+        />
       </div>
     </div>
   );

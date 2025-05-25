@@ -49,6 +49,7 @@ import Report from "./pages/Staff/Report.jsx";
 import CampusDirectorDashboard from "./pages/CampusDirector/CampusDirectorDashboard.jsx";
 import CampusDirectorRequests from "./pages/CampusDirector/CampusDirectorRequests.jsx";
 import CampusDirectorMaintenanceRequestForm from "./pages/CampusDirector/CampusDirectorMaintenanceRequestForm.jsx";
+import ViewUserRequestForm from "./pages/Staff/ViewUserRequestForm.jsx";
 
 function App() {
   const token = localStorage.getItem('token'); // Retrieve token from localStorage
@@ -105,6 +106,7 @@ function App() {
         <Route path="/staffairconditioning" element={<StaffAirconditioning token={token} />} />
         <Route path="/report" element={<Report token={token} />} />
         <Route path="/staffviewmaintenancerequestform/:id" element={<StaffViewMaintenanceRequestForm token={token} />} />
+        <Route path="/viewuserrequestform/:user_id" element={<ViewUserRequestForm  />} />
 
         {/* Head Routes */}
         <Route path="/headdashboard" element={<HeadDashboard token={token} />} />

@@ -1,8 +1,8 @@
 import { useState, useReducer, useEffect, useCallback, memo, useRef } from 'react';
 import { NavLink, useNavigate, useLocation } from 'react-router-dom';
-import Sidebar from '../../components/Sidebar';
 import Icon from '../../components/Icon';
 import ScheduleSidebar from '../../components/ScheduleSidebar';
+import { HeadSidebar, HEAD_MENU_ITEMS } from '../../components/HeadSidebar';
 
 // Custom Hooks
 const useClickOutside = (ref, handler) => {
@@ -157,11 +157,17 @@ const HeadDashboard = () => {
       </header>
 
       <div className="flex flex-1 overflow-hidden">
-        <Sidebar
+        <HeadSidebar
           isSidebarCollapsed={state.isSidebarCollapsed}
           onToggleSidebar={() => dispatch({ type: "TOGGLE_SIDEBAR" })}
-          menuItems={MENU_ITEMS}
-          title="Head"
+          menuItems={HEAD_MENU_ITEMS}
+          onLogout={() => {
+            localStorage.removeItem("authToken");
+            localStorage.removeItem("user");
+            sessionStorage.removeItem("authToken");
+            sessionStorage.removeItem("user");
+            navigate("/loginpage", { replace: true });
+          }}
         />
 
         <DashboardContent onCardClick={handleNavigation} />

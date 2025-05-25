@@ -497,10 +497,7 @@ const AdminUserRequests = () => {
       
       // Add role names to requests using our role mapping
       const requestsWithRoles = extractedData.map(request => {
-        // Try to get the role name from various possible structures
         let roleName = null;
-        
-        // First check if the request already has role info
         if (request.role && typeof request.role === 'string') {
           roleName = request.role;
         } else if (request.role && typeof request.role === 'object' && request.role.name) {
@@ -508,12 +505,12 @@ const AdminUserRequests = () => {
         } else if (request.role_name) {
           roleName = request.role_name;
         } else if (request.role_id && roleMap[request.role_id]) {
-          // Use our role mapping if we have a role_id
           roleName = roleMap[request.role_id];
         }
-        
+
         return {
           ...request,
+          id: request.user_id, // <-- Use user_id as id
           roleName: roleName || 'Unknown Role'
         };
       });

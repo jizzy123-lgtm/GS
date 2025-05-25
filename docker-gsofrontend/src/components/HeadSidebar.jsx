@@ -1,14 +1,12 @@
 import { memo, useState } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
 
-// Constants
-const MENU_ITEMS = [
-  { text: "Profile", to: "/profile", icon: "M11.5 15H7a4 4 0 0 0-4 4v2 M21.378 16.626a1 1 0 0 0-3.004-3.004l-4.01 4.012a2 2 0 0 0-.506.854l-.837 2.87a.5.5 0 0 0 .62.62l2.87-.837a2 2 0 0 0 .854-.506z M10 3a4 4 0 1 1 0 8a4 4 0 0 1 0-8z"},
-  { text: "Dashboard", to: "/dashboard", icon: "M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" },
-  { text: "Notifications", to: "/notifications", icon: "M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" },
-  { text: "Schedules", to: "/schedules", icon: "M5 4h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2z M16 2v4 M3 10h18 M8 2v4 M17 14h-6 M13 18H7 M7 14h.01 M17 18h.01" },
-  { text: "Request Status", to: "/requeststatus", icon: "M9 2h6a1 1 0 0 1 1 1v2a1 1 0 0 1-1 1H9a1 1 0 0 1-1-1V3a1 1 0 1 1 1-1z M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2 M12 11h4 M12 16h4 M8 11h.01 M8 16h.01"},
-  { text: "User Feedback", to: "/userfeedback", icon: "M20 11V7a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v4a4 4 0 0 0 4 4h8a4 4 0 0 0 4-4zM8 7h8a4 4 0 0 1 4 4v4a4 4 0 0 1-4 4H8a4 4 0 0 1-4-4V7z" },
+// Head Menu Items
+const HEAD_MENU_ITEMS = [
+  { text: "Dashboard", to: "/headdashboard", icon: "M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" },
+  { text: "Notifications", to: "/headnotifications", icon: "M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" },
+  { text: "Schedules", to: "/headschedules", icon: "M5 4h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2z M16 2v4 M3 10h18 M8 2v4 M17 14h-6 M13 18H7 M7 14h.01 M17 18h.01" },
+  { text: "Requests", to: "/headrequests", icon: "M9 2h6a1 1 0 0 1 1 1v2a1 1 0 0 1-1 1H9a1 1 0 0 1-1-1V3a1 1 0 0 1 1-1z M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2 M12 11h4 M12 16h4 M8 11h.01 M8 16h.01"},
   { text: "Logout", to: "/loginpage", icon: "M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" }
 ];
 
@@ -71,7 +69,7 @@ const SidebarItem = memo(({ item, isSidebarCollapsed, onLogout }) => {
   );
 });
 
-const SidebarDemo = () => {
+const HeadSidebarDemo = () => {
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const navigate = useNavigate(); 
 
@@ -86,8 +84,6 @@ const SidebarDemo = () => {
       if (!token) {
         throw new Error("No token found");
       }
-
-      console.log("Calling logout API with token:", token); 
 
       const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/logout`, { 
         method: "POST",
@@ -115,10 +111,10 @@ const SidebarDemo = () => {
   
  return (
     <div className="flex h-screen bg-gray-100">
-      <Sidebar 
+      <HeadSidebar 
         isSidebarCollapsed={isSidebarCollapsed}
         onToggleSidebar={handleToggleSidebar}
-        menuItems={MENU_ITEMS}
+        menuItems={HEAD_MENU_ITEMS}
         onLogout={handleLogout}
       />
     </div>
@@ -126,10 +122,10 @@ const SidebarDemo = () => {
 };
 
 // Sidebar component
-const Sidebar = memo(({ 
+const HeadSidebar = memo(({ 
   isSidebarCollapsed, 
   onToggleSidebar,
-  menuItems = MENU_ITEMS, 
+  menuItems = HEAD_MENU_ITEMS, 
   onLogout,
 }) => (
   <aside className={`hidden md:block bg-gray-900 text-white transition-[width] duration-300 ease-in-out relative h-full z-20 ${
@@ -159,14 +155,14 @@ const Sidebar = memo(({
       <div className={`text-center text-xs md:text-sm text-gray-400 transition-opacity ${
         !isSidebarCollapsed ? 'opacity-100' : 'opacity-0'
       }`}>
-        Created By Bantilan & Friends
+        Head Portal - Bantilan & Friends
       </div>
     </div>
   </aside>
 ));
 
 // Export the main component for demo purposes
-export default SidebarDemo;
+export default HeadSidebarDemo;
 
 // Also export individual components for use in other parts of the application
-export { Sidebar, MENU_ITEMS };
+export { HeadSidebar, HEAD_MENU_ITEMS };

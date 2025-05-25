@@ -209,31 +209,17 @@ const CampusDirectorMaintenanceRequestForm = () => {
     if (!token) return;
     const fetchReferenceData = async () => {
       try {
-        const officesRes = await fetch(`${API_BASE_URL}/offices`, {
+        const res = await fetch(`${API_BASE_URL}/common-datas`, {
           headers: { Authorization: `Bearer ${token}` },
         });
-        const officesData = await officesRes.json();
-        setOffices(Array.isArray(officesData.data) ? officesData.data : officesData);
-
-        const positionsRes = await fetch(`${API_BASE_URL}/positions`, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        const positionsData = await positionsRes.json();
-        setPositions(Array.isArray(positionsData.data) ? positionsData.data : positionsData);
-
-        const maintenanceTypesRes = await fetch(`${API_BASE_URL}/maintenance-types`, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        const maintenanceTypesData = await maintenanceTypesRes.json();
-        setMaintenanceTypes(Array.isArray(maintenanceTypesData.data) ? maintenanceTypesData.data : maintenanceTypesData);
-
-        const statusesRes = await fetch(`${API_BASE_URL}/statuses`, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        const statusesData = await statusesRes.json();
-        setStatuses(Array.isArray(statusesData.data) ? statusesData.data : statusesData);
+        const data = await res.json();
+        setOffices(Array.isArray(data.offices) ? data.offices : []);
+        setPositions(Array.isArray(data.positions) ? data.positions : []);
+        setMaintenanceTypes(Array.isArray(data.maintenance_types) ? data.maintenance_types : []);
+        setStatuses(Array.isArray(data.statuses) ? data.statuses : []);
       } catch (err) {
         // Optionally handle error
+        console.error("Error fetching reference data:", err);
       }
     };
     fetchReferenceData();
@@ -321,7 +307,7 @@ const CampusDirectorMaintenanceRequestForm = () => {
       const endpoint =
         action === "deny"
           ? `${API_BASE_URL}/maintenance-requests/${id}/disapprove`
-          : `${API_BASE_URL}/maintenance-requests/${id}/approve-  director`;
+          : `${API_BASE_URL}/maintenance-requests/${id}/approve-director`;
 
       const payload = {
         id,

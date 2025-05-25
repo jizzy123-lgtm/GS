@@ -94,20 +94,17 @@ const HeadRequests = () => {
   const [offices, setOffices] = useState([]);
   const [maintenanceTypes, setMaintenanceTypes] = useState([]);
   const [positions, setPositions] = useState([]);
+  const [usersMap, setUsersMap] = useState({});
 
   const token = localStorage.getItem("authToken") || sessionStorage.getItem("authToken");
 
   // Function to format full name from API response
-  const formatFullName = (userData) => {
-    if (!userData) return "Unknown User";
-    const { first_name = "", middle_name = "", last_name = "", suffix = "" } = userData;
-    let formattedName = `${last_name || ""}, ${first_name || ""}`;
-    if (middle_name) {
-      formattedName += ` ${middle_name.charAt(0)}.`;
-    }
-    if (suffix) {
-      formattedName += ` ${suffix}`;
-    }
+  const formatFullName = (user) => {
+    if (!user) return "Unknown User";
+    const { last_name = "", first_name = "", middle_name = "", suffix = "" } = user;
+    let formattedName = `${last_name}, ${first_name}`;
+    if (middle_name) formattedName += ` ${middle_name.charAt(0)}.`;
+    if (suffix) formattedName += ` ${suffix}`;
     return formattedName.trim() || "Unknown User";
   };
 
@@ -119,7 +116,9 @@ const HeadRequests = () => {
         headers: { Authorization: `Bearer ${token}` },
       });
       if (!res.ok) {
-        throw new Error(`Failed to fetch user data: ${res.status}`);
+        // Remove or comment out this log if you don't want to see it
+        // console.error(`Failed to fetch user data: ${res.status}`);
+        return `User ${userId}`;
       }
       const userData = await res.json();
       if (userData.message === "User retrieved successfully.") {
@@ -130,39 +129,25 @@ const HeadRequests = () => {
         return `User ${userId}`;
       }
     } catch (err) {
-      console.error(`Error fetching fullname for user ${userId}:`, err);
+      // Remove or comment out this log if you don't want to see it
+      // console.error(`Error fetching fullname for user ${userId}:`, err);
       return `User ${userId}`;
     }
   };
 
-  // Fetch reference data (statuses, offices, maintenance types, positions)
+  // Fetch reference data (statuses, offices, maintenance types, positions) 
   useEffect(() => {
     const fetchReferenceData = async () => {
       if (!token) return;
       try {
-        const statusesRes = await fetch(`${API_BASE_URL}/statuses`, {
+        const res = await fetch(`${API_BASE_URL}/common-datas`, {
           headers: { Authorization: `Bearer ${token}` },
         });
-        const statusesData = await statusesRes.json();
-        setStatuses(Array.isArray(statusesData.data) ? statusesData.data : statusesData);
-
-        const officesRes = await fetch(`${API_BASE_URL}/offices`, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        const officesData = await officesRes.json();
-        setOffices(Array.isArray(officesData.data) ? officesData.data : officesData);
-
-        const maintenanceTypesRes = await fetch(`${API_BASE_URL}/maintenance-types`, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        const maintenanceTypesData = await maintenanceTypesRes.json();
-        setMaintenanceTypes(Array.isArray(maintenanceTypesData.data) ? maintenanceTypesData.data : maintenanceTypesData);
-
-        const positionsRes = await fetch(`${API_BASE_URL}/positions`, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        const positionsData = await positionsRes.json();
-        setPositions(Array.isArray(positionsData.data) ? positionsData.data : positionsData);
+        const data = await res.json();
+        setStatuses(Array.isArray(data.statuses) ? data.statuses : []);
+        setOffices(Array.isArray(data.offices) ? data.offices : []);
+        setMaintenanceTypes(Array.isArray(data.maintenance_types) ? data.maintenance_types : []);
+        setPositions(Array.isArray(data.positions) ? data.positions : []);
       } catch (err) {
         console.error("Error fetching reference data:", err);
       }
@@ -188,24 +173,23 @@ const HeadRequests = () => {
         const list = Array.isArray(data.data) ? data.data : data;
 
         // Enhance requests with reference data names and fullnames
-        const enhancedRequests = await Promise.all(
-          list.map(async (request) => {
-            const office = offices.find(o => o.id === request.requesting_office);
-            const maintenancetype = maintenanceTypes.find(m => m.id === request.maintenance_type_id);
-            const status = statuses.find(s => s.id === request.status_id);
-            const position = positions.find(p => p.id === request.position_id);
-            const personnelFullname = await fetchUserFullname(request.requesting_personnel);
+        const enhancedRequests = list.map((request) => {
+          const office = offices.find(o => o.id === request.requesting_office);
+          const maintenancetype = maintenanceTypes.find(m => m.id === request.maintenance_type_id);
+          const status = statuses.find(s => s.id === request.status_id);
+          const position = positions.find(p => p.id === request.position_id);
+          const personnelUser = usersMap[request.requesting_personnel];
+          const personnelFullname = formatFullName(personnelUser);
 
-            return {
-              ...request,
-              office_name: office ? office.name : 'Unknown Office',
-              maintenance_type_name: maintenancetype ? maintenancetype.type_name : 'Unknown Type',
-              status_name: status ? status.name : 'Unknown Status',
-              position_name: position ? position.name : 'Unknown Position',
-              personnel_fullname: personnelFullname
-            };
-          })
-        );
+          return {
+            ...request,
+            office_name: office ? office.name : 'Unknown Office',
+            maintenance_type_name: maintenancetype ? maintenancetype.type_name : 'Unknown Type',
+            status_name: status ? status.name : 'Unknown Status',
+            position_name: position ? position.name : 'Unknown Position',
+            personnel_fullname: personnelFullname
+          };
+        });
 
         setRequests(enhancedRequests);
       } catch (err) {
@@ -253,6 +237,27 @@ const HeadRequests = () => {
   });
 
   const showActions = true;
+
+  useEffect(() => {
+    const fetchUsers = async () => {
+      if (!token) return;
+      try {
+        const res = await fetch(`${API_BASE_URL}/users-list`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        const users = await res.json();
+        // Build a map: user_id -> user object
+        const map = {};
+        (Array.isArray(users.data) ? users.data : users).forEach(user => {
+          map[user.user_id] = user;
+        });
+        setUsersMap(map);
+      } catch (err) {
+        console.error("Error fetching users:", err);
+      }
+    };
+    fetchUsers();
+  }, [token]);
 
   if (loading) return <div className="p-4">Loading requests...</div>;
 

@@ -1,6 +1,6 @@
 import { useState, useReducer, useEffect, useCallback } from "react";
 import { useNavigate, NavLink } from "react-router-dom";
-import {StaffSidebar,MENU_ITEMS }from "../../components/StaffSidebar"; // <-- Use StaffSidebar
+import {StaffSidebar,MENU_ITEMS }from "../../components/StaffSidebar"; 
 import Icon from "../../components/Icon";
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
@@ -62,7 +62,7 @@ const RequestsTable = ({ onRowClick, requests, showActions }) => (
                 {showActions && (
                   <td className="p-3">
                     <button
-                      onClick={() => onRowClick(request.request_id, request.status_name)}
+                      onClick={() => onRowClick(request.request_id, request.status_name, request.approved_by_2)}
                       className="bg-blue-500 hover:bg-blue-600 text-white font-medium py-2 px-4 rounded-lg"
                     >
                       Review
@@ -100,57 +100,6 @@ const StaffSlipRequests = () => {
 
   const token = localStorage.getItem("authToken") || sessionStorage.getItem("authToken");
 
-  // Function to format full name from API response
-  const formatFullName = (userData) => {
-    if (!userData) return "Unknown User";
-    
-    const { first_name = "", middle_name = "", last_name = "", suffix = "" } = userData;
-    
-    // Format the name: Last Name, First Name Middle Initial. Suffix
-    let formattedName = `${last_name || ""}, ${first_name || ""}`;
-    
-    // Add middle initial if available
-    if (middle_name) {
-      formattedName += ` ${middle_name.charAt(0)}.`;
-    }
-    
-    // Add suffix if available
-    if (suffix) {
-      formattedName += ` ${suffix}`;
-    }
-    
-    return formattedName.trim() || "Unknown User";
-  };
-
-  // Function to fetch user fullname by ID
-  const fetchUserFullname = async (userId) => {
-    try {
-      const res = await fetch(`${API_BASE_URL}/users/${userId}/fullname`, {
-        method: 'GET',
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      
-      if (!res.ok) {
-        throw new Error(`Failed to fetch user data: ${res.status}`);
-      }
-      
-      const userData = await res.json();
-      
-      // Check if we received the expected format
-      if (userData.message === "User retrieved successfully.") {
-        return formatFullName(userData);
-      } else if (userData.data) {
-        // Fallback for different format
-        return formatFullName(userData.data);
-      } else {
-        // Generic fallback
-        return `User ${userId}`;
-      }
-    } catch (err) {
-      console.error(`Error fetching fullname for user ${userId}:`, err);
-      return `User ${userId}`;
-    }
-  };
 
   // Fetch reference data (statuses, offices, maintenance types, positions) from /common-datas
   useEffect(() => {
@@ -167,9 +116,6 @@ const StaffSlipRequests = () => {
         setStatuses(Array.isArray(data.statuses) ? data.statuses : []);
         setOffices(Array.isArray(data.offices) ? data.offices : []);
         setPositions(Array.isArray(data.positions) ? data.positions : []);
-        // maintenanceTypes still fetched from its own endpoint unless included in /common-datas
-        // If maintenanceTypes is also in /common-datas, add:
-        // setMaintenanceTypes(Array.isArray(data.maintenance_types) ? data.maintenance_types : []);
       } catch (err) {
         console.error("Error fetching reference data:", err);
       }
@@ -208,6 +154,7 @@ const StaffSlipRequests = () => {
           status_name: request.status,
           contact_number: request.contact_number,
           verified_by: request.verified_by,
+          approved_by_2: request.approved_by_2, 
         }));
 
         setRequests(enhancedRequests);
@@ -223,10 +170,10 @@ const StaffSlipRequests = () => {
   }, [token, navigate]);
 
   const handleRowClick = useCallback(
-    (id, status) => {
-      // Consider both status name and status ID
+    (id, status, approved_by_2) => {
       const isPending = status === "Pending" || status === 1;
-      if (isPending) {
+      const isApprovedBy2 = approved_by_2 !== null && approved_by_2 !== undefined;
+      if (isPending || isApprovedBy2) {
         navigate(`/staffmaintenancerequestform/${id}`);
       } else {
         navigate(`/staffviewmaintenancerequestform/${id}`);
@@ -234,18 +181,23 @@ const StaffSlipRequests = () => {
     },
     [navigate]
   );
+const filtered = requests.filter((r) => {
+  // Show in "Approved" tab if approved_by_2 is not null
+  if (selectedTab === "Approved") {
+    return r.approved_by_2 !== null && r.approved_by_2 !== undefined;
+  }
 
-  const filtered = requests.filter((r) => {
-    // Only show requests where verified_by is null
-    if (r.verified_by !== null && r.verified_by !== undefined) return false;
+  // Only show requests where verified_by is null for other tabs
+  if (r.verified_by !== null && r.verified_by !== undefined) return false;
 
-    // Check if selected tab is "Pending" and status is either ID 1 or name "Pending" (case insensitive)
-    if (selectedTab === "Pending") {
-      return r.status_id === 1 || r.status_name?.toLowerCase() === "pending";
-    }
-    // For other tabs, match by status name
-    return r.status_name === selectedTab;
-  });
+  // Check if selected tab is "Pending" and status is either ID 1 or name "Pending" (case insensitive)
+  if (selectedTab === "Pending") {
+    return (r.status_id === 1 || r.status_name?.toLowerCase() === "pending") && (r.approved_by_2 === null || r.approved_by_2 === undefined);
+  }
+
+  // For other tabs, match by status name and make sure not approved_by_2
+  return r.status_name === selectedTab && (r.approved_by_2 === null || r.approved_by_2 === undefined);
+});
   const showActions = true;
 
   if (loading) return <div className="p-4">Loading requests...</div>;
@@ -320,10 +272,10 @@ const StaffSlipRequests = () => {
           </div>
 
           <RequestsTable
-            onRowClick={handleRowClick}
-            requests={filtered}
-            showActions={showActions}
-          />
+  onRowClick={(id, status, approved_by_2) => handleRowClick(id, status, approved_by_2)}
+  requests={filtered}
+  showActions={showActions}
+/>
         </main>
       </div>
     </div>

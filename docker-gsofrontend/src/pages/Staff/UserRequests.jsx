@@ -458,8 +458,14 @@ const UserRequests = () => {
   }, [token]);
 
   const handleRowClick = useCallback((user_id) => {
-    navigate(`/userrequestsform/${user_id}`);
+    navigate(`/viewuserrequestform/${user_id}`);
   }, [navigate]);
+
+  const handleLogout = () => {
+    localStorage.removeItem("authToken");
+    sessionStorage.removeItem("authToken");
+    navigate("/loginpage");
+  };
 
   return (
     <div className="flex flex-col h-screen bg-gray-50">
@@ -473,6 +479,7 @@ const UserRequests = () => {
           isSidebarCollapsed={state.isSidebarCollapsed}
           onToggleSidebar={() => dispatch({ type: "TOGGLE_SIDEBAR" })}
           menuItems={MENU_ITEMS}
+          onLogout={handleLogout} 
         />
         <UserRequestsTable 
           onRowClick={handleRowClick} 

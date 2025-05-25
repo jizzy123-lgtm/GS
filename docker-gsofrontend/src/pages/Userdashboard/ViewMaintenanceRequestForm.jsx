@@ -3,20 +3,6 @@ import { useNavigate, useParams } from "react-router-dom";
 import Icon from "../../components/Icon";
 import Sidebar from "../../components/Sidebar";
 
-const maintenanceTypeMap = {
-  1: "Janitorial",
-  2: "Carpentry",
-  3: "Electrical",
-  4: "Air-Conditioning",
-};
-
-const roleMap = {
-  1: "Admin",
-  2: "Head",
-  3: "Staff",
-  4: "User",
-};
-
 // Reducer for sidebar state management
 const sidebarReducer = (state, action) => {
   switch (action.type) {
@@ -32,56 +18,13 @@ const ViewMaintenanceRequestForm = () => {
   const { id } = useParams();
   const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
 
-  const [requestDetails, setRequestDetails] = useState({});
-  const [userNames, setUserNames] = useState({});
-  const [currentUser, setCurrentUser] = useState({ id: "", full_name: "", role: "" });
+  const [requestDetails, setRequestDetails] = useState(null);
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [token, setToken] = useState("");
   const [sidebarState, dispatch] = useReducer(sidebarReducer, {
-    isSidebarCollapsed: true,
+    isSidebarCollapsed: true, // Default collapsed state
   });
-
-  const fetchUserInfoById = async (userId, authToken) => {
-    try {
-      const response = await fetch(`${API_BASE_URL}/users/${userId}/fullname`, {
-        method: "GET",
-        headers: {
-          Authorization: `Bearer ${authToken}`,
-          Accept: "application/json",
-        },
-      });
-      const data = await response.json();
-      if (!response.ok) throw new Error(data.message || "Failed to fetch user details");
-      return data.full_name || "Unknown User";
-    } catch (err) {
-      console.error("Error fetching user details:", err);
-      return "Unknown User";
-    }
-  };
-
-  const fetchCurrentUser = async (authToken) => {
-    try {
-      const response = await fetch(`${API_BASE_URL}/users/userWithRole`, {
-        method: "GET",
-        headers: {
-          Authorization: `Bearer ${authToken}`,
-          Accept: "application/json",
-        },
-      });
-
-      const data = await response.json();
-      if (!response.ok) throw new Error(data.message || "Failed to fetch current user");
-
-      setCurrentUser({
-        id: data.id,
-        full_name: data.full_name,
-        role: data.role_id,
-      });
-    } catch (err) {
-      console.error("Error fetching current user:", err);
-    }
-  };
 
   useEffect(() => {
     const authToken = localStorage.getItem("authToken") || sessionStorage.getItem("authToken");
@@ -89,7 +32,6 @@ const ViewMaintenanceRequestForm = () => {
       navigate("/loginpage");
     } else {
       setToken(authToken);
-      fetchCurrentUser(authToken);
     }
   }, [navigate]);
 
@@ -99,61 +41,118 @@ const ViewMaintenanceRequestForm = () => {
         setError("Invalid request ID");
         return;
       }
-
       try {
         setIsLoading(true);
-
-        const response = await fetch(`${API_BASE_URL}/maintenance-requests/${id}`, {
+        const response = await fetch(`${API_BASE_URL}/maintenance-requests/list-with-details`, {
           method: "GET",
           headers: {
             Authorization: `Bearer ${token}`,
             Accept: "application/json",
           },
         });
-
         const data = await response.json();
         if (!response.ok) throw new Error(data.message || "Failed to fetch request details");
-
-        const request = data.data || data;
-        setRequestDetails(request);
-
-        const approvalFields = ["verified_by", "approved_by_1", "approved_by_2"];
-        const namesMap = {};
-
-        await Promise.all(
-          approvalFields.map(async (field) => {
-            const userId = request[field];
-            if (userId) {
-              const name = await fetchUserInfoById(userId, token);
-              namesMap[field] = name;
-            }
-          })
+        // Find the request with the matching request_id
+        const request = (Array.isArray(data) ? data : data.data || []).find(
+          (req) => String(req.request_id) === String(id)
         );
-
-        setUserNames(namesMap);
+        if (!request) throw new Error("Request not found");
+        setRequestDetails(request);
       } catch (err) {
-        console.error("Error fetching data:", err);
         setError(err.message);
       } finally {
         setIsLoading(false);
       }
     };
-
     if (token) fetchData();
   }, [id, token, API_BASE_URL]);
 
-  const filteredEntries = Object.entries(requestDetails).filter(
-    ([key]) => key !== "created_at" && key !== "updated_at"
-  );
-  return (
-    <div className="flex flex-col h-screen bg-gray-50">
-      {/* Header */}
-      <header className="bg-black text-white p-4 flex justify-between items-center relative">
-        <span className="text-xl md:text-2xl font-extrabold tracking-tight">
-          ManageIT
+  // List of fields to display and their labels with better organization
+  const fieldsToDisplay = [
+    { key: "date_requested", label: "Date Requested", category: "basic" },
+    { key: "details", label: "Request Details", category: "basic" },
+    { key: "requesting_personnel", label: "Requesting Personnel", category: "requester" },
+    { key: "position", label: "Position", category: "requester" },
+    { key: "requesting_office", label: "Office", category: "requester" },
+    { key: "contact_number", label: "Contact Number", category: "requester" },
+    { key: "status", label: "Status", category: "status" },
+    { key: "priority_number", label: "Priority Level", category: "status" },
+    { key: "maintenance_type", label: "Maintenance Type", category: "status" },
+    { key: "date_received", label: "Date Received", category: "processing" },
+    { key: "time_received", label: "Time Received", category: "processing" },
+    { key: "remarks", label: "Remarks", category: "processing" },
+    { key: "verified_by", label: "Verified By", category: "approval" },
+    { key: "approved_by_1", label: "Approved By (1st Level)", category: "approval" },
+    { key: "approved_by_2", label: "Approved By (2nd Level)", category: "approval" },
+  ];
+
+  const getStatusColor = (status) => {
+    if (!status) return "bg-gray-100 text-gray-600";
+    const statusLower = status.toLowerCase();
+    if (statusLower.includes("pending")) return "bg-yellow-100 text-yellow-800 border-yellow-200";
+    if (statusLower.includes("approved")) return "bg-green-100 text-green-800 border-green-200";
+    if (statusLower.includes("completed")) return "bg-blue-100 text-blue-800 border-blue-200";
+    if (statusLower.includes("rejected")) return "bg-red-100 text-red-800 border-red-200";
+    return "bg-gray-100 text-gray-600 border-gray-200";
+  };
+
+  const getPriorityColor = (priority) => {
+    if (!priority) return "bg-gray-100 text-gray-600";
+    const priorityNum = parseInt(priority);
+    if (priorityNum <= 2) return "bg-red-100 text-red-800 border-red-200";
+    if (priorityNum <= 4) return "bg-orange-100 text-orange-800 border-orange-200";
+    return "bg-green-100 text-green-800 border-green-200";
+  };
+
+  const formatFieldValue = (key, value) => {
+    if (value === null || value === undefined || value === "") return "N/A";
+    
+    if (key === "status") {
+      return (
+        <span className={`inline-flex px-3 py-1 rounded-full text-sm font-medium border ${getStatusColor(value)}`}>
+          {value}
         </span>
-        <div className="hidden md:block text-xl font-bold text-white">
-          User
+      );
+    }
+    
+    if (key === "priority_number") {
+      return (
+        <span className={`inline-flex px-3 py-1 rounded-full text-sm font-medium border ${getPriorityColor(value)}`}>
+          Priority {value}
+        </span>
+      );
+    }
+    
+    if (key === "details" || key === "remarks") {
+      return <div className="whitespace-pre-wrap break-words">{value}</div>;
+    }
+    
+    return value;
+  };
+
+  return (
+    <div className="flex flex-col h-screen bg-gradient-to-br from-slate-50 to-slate-100">
+      {/* Header */}
+      <header className="bg-gradient-to-r from-slate-900 to-slate-800 text-white p-4 shadow-lg border-b border-slate-700">
+        <div className="flex justify-between items-center">
+          <div className="flex items-center space-x-3">
+            <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center">
+              <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+            </div>
+            <span className="text-xl md:text-2xl font-bold tracking-tight">
+              ManageIT
+            </span>
+          </div>
+          <div className="hidden md:flex items-center space-x-3">
+            <div className="w-8 h-8 bg-slate-700 rounded-full flex items-center justify-center">
+              <svg className="w-4 h-4 text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+              </svg>
+            </div>
+            <span className="text-sm font-medium text-slate-200">User</span>
+          </div>
         </div>
       </header>
 
@@ -162,90 +161,100 @@ const ViewMaintenanceRequestForm = () => {
         <Sidebar
           isSidebarCollapsed={sidebarState.isSidebarCollapsed}
           onToggleSidebar={() => dispatch({ type: "TOGGLE_SIDEBAR" })}
-          menuItems={[
-            { text: "Profile", to: "/profile", icon: "M11.5 15H7a4 4 0 0 0-4 4v2 M21.378 16.626a1 1 0 0 0-3.004-3.004l-4.01 4.012a2 2 0 0 0-.506.854l-.837 2.87a.5.5 0 0 0 .62.62l2.87-.837a2 2 0 0 0 .854-.506z M10 3a4 4 0 1 1 0 8a4 4 0 0 1 0-8z"},
-  { text: "Dashboard", to: "/dashboard", icon: "M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" },
-  { text: "Notifications", to: "/notifications", icon: "M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" },
-  { text: "Schedules", to: "/schedules", icon: "M5 4h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2z M16 2v4 M3 10h18 M8 2v4 M17 14h-6 M13 18H7 M7 14h.01 M17 18h.01" },
-  { text: "Request Status", to: "/requeststatus", icon: "M9 2h6a1 1 0 0 1 1 1v2a1 1 0 0 1-1 1H9a1 1 0 0 1-1-1V3a1 1 0 1 1 1-1z M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2 M12 11h4 M12 16h4 M8 11h.01 M8 16h.01"},
-  { text: "User Feedback", to: "/userfeedback", icon: "M20 11V7a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v4a4 4 0 0 0 4 4h8a4 4 0 0 0 4-4zM8 7h8a4 4 0 0 1 4 4v4a4 4 0 0 1-4 4H8a4 4 0 0 1-4-4V7z" },
-  { text: "Settings", to: "/settings", icon: "M9.594 3.94c.09-.542.56-.94 1.11-.94h2.593c.55 0 1.02.398 1.11.94l.213 1.281c.063.374.313.686.645.87.074.04.147.083.22.127.325.196.72.257 1.075.124l1.217-.456a1.125 1.125 0 0 1 1.37.49l1.296 2.247a1.125 1.125 0 0 1-.26 1.431l-1.003.827c-.293.241-.438.613-.43.992a7.723 7.723 0 0 1 0 .255c-.008.378.137.75.43.991l1.004.827c.424.35.534.955.26 1.43l-1.298 2.247a1.125 1.125 0 0 1-1.369.491l-1.217-.456c-.355-.133-.75-.072-1.076.124a6.47 6.47 0 0 1-.22.128c-.331.183-.581.495-.644.869l-.213 1.281c-.09.543-.56.94-1.11.94h-2.594c-.55 0-1.019-.398-1.11-.94l-.213-1.281c-.062-.374-.312-.686-.644-.87a6.52 6.52 0 0 1-.22-.127c-.325-.196-.72-.257-1.076-.124l-1.217.456a1.125 1.125 0 0 1-1.369-.49l-1.297-2.247a1.125 1.125 0 0 1 .26-1.431l1.004-.827c.292-.24.437-.613.43-.991a6.932 6.932 0 0 1 0-.255c.007-.38-.138-.751-.43-.992l-1.004-.827a1.125 1.125 0 0 1-.26-1.43l1.297-2.247a1.125 1.125 0 0 1 1.37-.491l1.216.456c.356.133.751.072 1.076-.124.072-.044.146-.086.22-.128.332-.183.582-.495.644-.869l.214-1.28ZM15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" },
-  { text: "Logout", to: "/loginpage", icon: "M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" }
-          ]}
           title="User"
         />
 
-        <main className="flex-1 p-6 overflow-auto">
-          <div className="flex flex-col items-center justify-center min-h-screen bg-gray-100 px-4 sm:px-6 lg:px-8 py-8">
-            <div className="bg-white p-3 md:p-4 lg:p-5 shadow-lg rounded-lg w-full max-w-sm md:max-w-md lg:max-w-xl transition-all duration-300">
-              <h2 className="text-xl md:text-2xl font-bold text-center mb-4 md:mb-6 text-gray-800">
-                Maintenance Request <br className="hidden sm:block" />
-              </h2>
+        <main className="flex-1 overflow-auto">
+          <div className="min-h-full p-4 md:p-6 lg:p-8">
+            <div className="max-w-4xl mx-auto">
+              {/* Page Header */}
+              <div className="mb-8">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h1 className="text-3xl font-bold text-slate-900 mb-2">
+                      Maintenance Request Details
+                    </h1>
+                    <p className="text-slate-600">
+                      Request ID: <span className="font-semibold text-slate-900">#{id}</span>
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => navigate("/maintenance")}
+                    className="inline-flex items-center px-4 py-2 text-sm font-medium text-slate-700 bg-white border border-slate-300 rounded-lg hover:bg-slate-50 hover:border-slate-400 transition-all duration-200 shadow-sm"
+                  >
+                    <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+                    </svg>
+                    Back to List
+                  </button>
+                </div>
+              </div>
 
               {/* Error Message */}
               {error && (
-                <div className="bg-red-50 text-red-600 p-4 rounded-lg mb-6 flex items-start">
-                  <svg className="w-5 h-5 mr-2 mt-0.5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                <div className="mb-6 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg flex items-start shadow-sm">
+                  <svg className="w-5 h-5 mr-3 mt-0.5 flex-shrink-0 text-red-500" fill="currentColor" viewBox="0 0 20 20">
                     <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
                   </svg>
-                  <span>{error}</span>
+                  <div>
+                    <h3 className="font-semibold">Error</h3>
+                    <p className="mt-1">{error}</p>
+                  </div>
                 </div>
               )}
 
-              <div className="space-y-4 md:space-y-6">
-                {isLoading ? (
-                  <div className="flex justify-center py-8">
-                    <svg className="animate-spin h-8 w-8 text-blue-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                    </svg>
+              {/* Loading State */}
+              {isLoading && (
+                <div className="flex flex-col items-center justify-center py-16">
+                  <div className="relative">
+                    <div className="w-12 h-12 border-4 border-slate-200 border-t-blue-600 rounded-full animate-spin"></div>
                   </div>
-                ) : (
-                  <>
-                    {filteredEntries.map(([key, value]) => {
-                      let displayValue = value;
-                      let displayLabel = key.replace(/_/g, " ").toUpperCase(); // default
+                  <p className="mt-4 text-slate-600 font-medium">Loading request details...</p>
+                </div>
+              )}
 
-                      if (key === "maintenance_type_id") {
-                        displayValue = maintenanceTypeMap[value] || `Unknown Type (${value})`;
-                        displayLabel = "MAINTENANCE TYPE";
-                      } else if (["verified_by", "approved_by_1", "approved_by_2"].includes(key)) {
-                        displayValue = userNames[key] || "N/A";
-
-                        // Custom labels
-                        if (key === "verified_by") displayLabel = "VERIFIED BY";
-                        else if (key === "approved_by_1") displayLabel = "APPROVED BY 1ST HEAD";
-                        else if (key === "approved_by_2") displayLabel = "APPROVED BY 2ND HEAD";
-                      }
-
-                      return (
-                        <div key={key}>
-                          <label className="block text-sm md:text-base font-semibold text-gray-700 mb-2">
-                            {displayLabel}:
-                          </label>
-                          <p className="border border-gray-300 rounded-lg px-4 py-2 md:py-3 bg-gray-100">
-                            {displayValue || "N/A"}
-                          </p>
+              {/* Request Details */}
+              {!isLoading && requestDetails && (
+                <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 p-6">
+                    {fieldsToDisplay.map(({ key, label, category }) => (
+                      <div 
+                        key={key} 
+                        className={`space-y-2 ${key === 'details' || key === 'remarks' ? 'lg:col-span-2' : ''}`}
+                      >
+                        <label className="block text-sm font-semibold text-slate-700 uppercase tracking-wide">
+                          {label}
+                        </label>
+                        <div className="bg-slate-50 border border-slate-200 rounded-lg px-4 py-3 min-h-[44px] flex items-center">
+                          <div className="text-slate-900 w-full">
+                            {formatFieldValue(key, requestDetails[key])}
+                          </div>
                         </div>
-                      );
-                    })}
-                  </>
-                )}
-              </div>
-
-              {/* Back Button */}
-              <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 sm:justify-between mt-6">
-                <button
-                  type="button"
-                  className="w-full sm:w-auto bg-gray-500 hover:bg-gray-600 text-white px-6 py-3 rounded-lg transition-colors duration-200 flex items-center justify-center"
-                  onClick={() => navigate("/maintenance")}
-                >
-                  <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
-                  </svg>
-                  Back
-                </button>
-              </div>
+                      </div>
+                    ))}
+                  </div>
+                  
+                  {/* Action Footer */}
+                  <div className="bg-slate-50 border-t border-slate-200 px-6 py-4">
+                    <div className="flex flex-col sm:flex-row gap-3 sm:justify-between sm:items-center">
+                      <div className="text-sm text-slate-500">
+                        Last updated: {new Date().toLocaleDateString()}
+                      </div>
+                      <div className="flex gap-3">
+                        <button
+                          onClick={() => navigate("/maintenance")}
+                          className="inline-flex items-center px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition-all duration-200 shadow-sm"
+                        >
+                          <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+                          </svg>
+                          Back to Requests
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         </main>

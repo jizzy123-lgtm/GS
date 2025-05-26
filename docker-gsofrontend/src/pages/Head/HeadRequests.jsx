@@ -129,6 +129,27 @@ const HeadRequests = () => {
   }, [token]);
 
   useEffect(() => {
+    const fetchUsers = async () => {
+      if (!token) return;
+      try {
+        const res = await fetch(`${API_BASE_URL}/users-list`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        const users = await res.json();
+        // Build a map: user_id (number) -> user object
+        const map = {};
+        (Array.isArray(users.data) ? users.data : users).forEach(user => {
+          map[user.user_id] = user; // Use number key
+        });
+        setUsersMap(map);
+      } catch (err) {
+        console.error("Error fetching users:", err);
+      }
+    };
+    fetchUsers();
+  }, [token]);
+
+  useEffect(() => {
     if (!token) {
       navigate("/loginpage");
       return;
@@ -151,8 +172,8 @@ const HeadRequests = () => {
           const maintenancetype = maintenanceTypes.find(m => m.id === request.maintenance_type_id);
           const status = statuses.find(s => s.id === request.status_id);
           const position = positions.find(p => p.id === request.position_id);
-          // Use String() for consistent lookup
-          const personnelUser = usersMap[String(request.requesting_personnel)];
+          // Use number key for lookup
+          const personnelUser = usersMap[request.requesting_personnel];
           const personnelFullname = formatFullName(personnelUser);
 
           return {
@@ -177,7 +198,7 @@ const HeadRequests = () => {
     if (offices.length > 0 && maintenanceTypes.length > 0 && statuses.length > 0 && positions.length > 0) {
       fetchRequests();
     }
-  }, [token, navigate, offices, maintenanceTypes, statuses, positions]);
+  }, [token, navigate, offices, maintenanceTypes, statuses, positions, usersMap]);
 
   const handleRowClick = useCallback(
     (id, status) => {
@@ -220,10 +241,10 @@ const HeadRequests = () => {
           headers: { Authorization: `Bearer ${token}` },
         });
         const users = await res.json();
-        // Build a map: user_id -> user object
+        // Build a map: user_id (number) -> user object
         const map = {};
         (Array.isArray(users.data) ? users.data : users).forEach(user => {
-          map[String(user.user_id)] = user;
+          map[user.user_id] = user; // Use number key
         });
         setUsersMap(map);
       } catch (err) {

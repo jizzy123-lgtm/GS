@@ -107,34 +107,7 @@ const HeadRequests = () => {
     if (suffix) formattedName += ` ${suffix}`;
     return formattedName.trim() || "Unknown User";
   };
-
-  // Function to fetch user fullname by ID
-  const fetchUserFullname = async (userId) => {
-    try {
-      const res = await fetch(`${API_BASE_URL}/users/${userId}/fullname`, {
-        method: 'GET',
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      if (!res.ok) {
-        // Remove or comment out this log if you don't want to see it
-        // console.error(`Failed to fetch user data: ${res.status}`);
-        return `User ${userId}`;
-      }
-      const userData = await res.json();
-      if (userData.message === "User retrieved successfully.") {
-        return formatFullName(userData);
-      } else if (userData.data) {
-        return formatFullName(userData.data);
-      } else {
-        return `User ${userId}`;
-      }
-    } catch (err) {
-      // Remove or comment out this log if you don't want to see it
-      // console.error(`Error fetching fullname for user ${userId}:`, err);
-      return `User ${userId}`;
-    }
-  };
-
+  
   // Fetch reference data (statuses, offices, maintenance types, positions) 
   useEffect(() => {
     const fetchReferenceData = async () => {
@@ -258,9 +231,7 @@ const HeadRequests = () => {
     };
     fetchUsers();
   }, [token]);
-
   if (loading) return <div className="p-4">Loading requests...</div>;
-
   return (
     <div className="flex flex-col h-screen bg-gray-50">
       <header className="bg-black text-white p-4 flex justify-between items-center relative">
@@ -344,5 +315,4 @@ const HeadRequests = () => {
     </div>
   );
 };
-
 export default HeadRequests;

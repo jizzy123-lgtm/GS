@@ -282,12 +282,18 @@ const CampusDirectorRequests = () => {
         <CampusDirectorSidebar
           isSidebarCollapsed={state.isSidebarCollapsed}
           onToggleSidebar={() => dispatch({ type: "TOGGLE_SIDEBAR" })}
+          onLogout={() => {
+            localStorage.removeItem("authToken");
+            localStorage.removeItem("user");
+            sessionStorage.removeItem("authToken");
+            sessionStorage.removeItem("user");
+            navigate("/loginpage", { replace: true });
+          }}
         />
         <main className="flex-1 p-4 md:p-6 lg:p-8 bg-white/95 backdrop-blur-sm overflow-y-auto">
           <h2 className="text-3xl font-extrabold text-gray-900 border-b mb-4 pb-3">
             Maintenance Requests
           </h2>
-
           {/* Tabs */}
           <div className="flex space-x-4 mb-6">
             {statuses.map((status) => (
@@ -309,7 +315,6 @@ const CampusDirectorRequests = () => {
               </button>
             ))}
           </div>
-
           <RequestsTable
             onRowClick={handleRowClick}
             requests={filtered}

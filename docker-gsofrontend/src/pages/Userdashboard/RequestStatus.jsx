@@ -15,7 +15,7 @@ const useClickOutside = (ref, handler) => {
   }, [ref, handler]);
 };
 
-// --- Reducer (same as Dashboard) ---
+// --- Reducer
 const sidebarReducer = (state, action) => {
   switch (action.type) {
     case "TOGGLE_SIDEBAR":
@@ -102,7 +102,7 @@ const StatusTable = ({ requests, selectedTab, userNameParts }) => {
       suffix
     ]
       .filter(Boolean)
-      .join(" ");
+      .join(", ");
   };
 
   return (
@@ -125,7 +125,7 @@ const StatusTable = ({ requests, selectedTab, userNameParts }) => {
           {requests.length > 0 ? (
             requests.map((request) => (
               <tr key={request.request_id} className="hover:bg-gray-50 even:bg-gray-50 border-b border-gray-400">
-                <td className="p-3">{request.requesting_personnel}</td>
+                <td className="p-3">{formatUserName()}</td>
                 <td className="p-3">{request.position}</td>
                 <td className="p-3">{request.date_requested || "N/A"}</td>
                 <td className="p-3">{request.maintenance_type}</td>

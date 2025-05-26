@@ -202,22 +202,27 @@ function AdminUserRequestsForm() {
     try {
       // Make sure statusId is a number
       const numericStatusId = parseInt(statusId);
-      
+
       // Validate we have a proper status ID
       if (isNaN(numericStatusId)) {
         throw new Error("Invalid status ID");
       }
-      
-      console.log(`Sending status update with status_id: ${numericStatusId}`);
-      
-      const response = await fetch(`${API_BASE_URL}/users/${user_id}/updateAccountStatus`, {
+
+      let endpoint = `${API_BASE_URL}/users/${user_id}/updateAccountStatus`;
+      if (numericStatusId === 3) {
+        endpoint = `${API_BASE_URL}/users/${user_id}/dissaproveAccountStatus`;
+      }
+
+      console.log(`Sending status update with status_id: ${numericStatusId} to ${endpoint}`);
+
+      const response = await fetch(endpoint, {
         method: "PUT",
         headers: {
           "Authorization": `Bearer ${token}`,
           "Accept": "application/json",
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ 
+        body: JSON.stringify({
           status_id: numericStatusId
         }),
       });
@@ -232,7 +237,7 @@ function AdminUserRequestsForm() {
       // Get the status label for display
       const statusLabel = getLabelFromLookup(statuses, numericStatusId, `Status ${numericStatusId}`);
       setStatusMessage(`User status updated to ${statusLabel}`);
-      
+
       // Update local user data with new status
       setUserData({ ...userData, account_status: numericStatusId });
 

@@ -74,6 +74,12 @@ const AirConditioning = () => {
   });
 
   const [token, setToken] = useState("");
+  const [userIds, setUserIds] = useState({
+    user_id: "",
+    position_id: "",
+    requesting_office: "",
+  });
+  const [displayName, setDisplayName] = useState("");
 
   // Update form data with a single function
   const updateFormData = (field, value) => {
@@ -209,11 +215,9 @@ const AirConditioning = () => {
   // Fetch user details
   useEffect(() => {
     if (!token) return;
-    
     const fetchUserDetails = async () => {
       try {
         setStatus(prev => ({ ...prev, isFetchingUserDetails: true }));
-        
         const response = await fetch(`${API_BASE_URL}/users/reqInfo`, {
           method: "GET",
           headers: {
@@ -221,23 +225,43 @@ const AirConditioning = () => {
             Accept: "application/json",
           },
         });
-
         const data = await response.json();
-        
         if (!response.ok) {
           throw new Error(data.message || "Failed to fetch user details");
         }
-
-        // Update form with user details
+        // Store IDs for backend submission
+        setUserIds({
+          user_id: data.user_id || "",
+          position_id: typeof data.position_id === "object" && data.position_id !== null
+            ? data.position_id.id || ""
+            : data.position_id || "",
+          requesting_office: typeof data.office_id === "object" && data.office_id !== null
+            ? data.office_id.id || ""
+            : data.office_id || "",
+        });
+        // Set form display values
         setFormData(prev => ({
           ...prev,
-          requesting_personnel: data.full_name || "",
-          position: data.position || "",
-          requesting_office: data.office || "",
+          requesting_personnel: [
+            data.last_name,
+            data.first_name,
+            data.middle_name,
+            data.suffix
+          ].filter(Boolean).join(", "),
+          position: typeof data.position_id === "object" && data.position_id !== null
+            ? data.position_id.name || ""
+            : data.position_id || "",
+          requesting_office: typeof data.office_id === "object" && data.office_id !== null
+            ? data.office_id.name || ""
+            : data.office_id || "",
           contact_number: data.contact_number || "",
         }));
+        setDisplayName(
+          [data.last_name, data.first_name, data.middle_name, data.suffix]
+            .filter(Boolean)
+            .join(", ")
+        );
       } catch (err) {
-        console.error("Error fetching user details:", err);
         setStatus(prev => ({
           ...prev,
           error: err.message || "Failed to fetch user details"
@@ -246,7 +270,6 @@ const AirConditioning = () => {
         setStatus(prev => ({ ...prev, isFetchingUserDetails: false }));
       }
     };
-
     fetchUserDetails();
   }, [token, API_BASE_URL]);
 
@@ -309,6 +332,9 @@ const AirConditioning = () => {
       // Include request_type in the API request
       const requestData = {
         ...formData,
+        requesting_personnel: parseInt(userIds.user_id, 10),
+        position_id: parseInt(userIds.position_id, 10),
+        requesting_office: parseInt(userIds.requesting_office, 10),
         maintenance_type_id: 4,  // 4 is for Air conditioning
         // Incorporate the request_type into the details if they didn't already do so
         details: formData.request_type !== "others" 

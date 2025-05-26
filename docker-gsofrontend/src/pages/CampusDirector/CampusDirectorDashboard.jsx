@@ -162,6 +162,13 @@ const CampusDirectorDashboard = () => {
         <CampusDirectorSidebar
           isSidebarCollapsed={state.isSidebarCollapsed}
           onToggleSidebar={() => dispatch({ type: "TOGGLE_SIDEBAR" })}
+          onLogout={() => {
+            localStorage.removeItem("authToken");
+            localStorage.removeItem("user");
+            sessionStorage.removeItem("authToken");
+            sessionStorage.removeItem("user");
+            navigate("/loginpage", { replace: true });
+          }}
         />
 
         <DashboardContent onCardClick={handleNavigation} />

@@ -1,6 +1,5 @@
 import { useState, useEffect, useReducer } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import Icon from "../../components/Icon";
 import Sidebar from "../../components/Sidebar";
 
 // Reducer for sidebar state management
@@ -8,6 +7,10 @@ const sidebarReducer = (state, action) => {
   switch (action.type) {
     case "TOGGLE_SIDEBAR":
       return { ...state, isSidebarCollapsed: !state.isSidebarCollapsed };
+    case "TOGGLE_MOBILE_MENU":
+      return { ...state, isMobileMenuOpen: !state.isMobileMenuOpen };
+    case "CLOSE_MOBILE_MENU":
+      return { ...state, isMobileMenuOpen: false };
     default:
       return state;
   }
@@ -23,7 +26,7 @@ const ViewMaintenanceRequestForm = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [token, setToken] = useState("");
   const [sidebarState, dispatch] = useReducer(sidebarReducer, {
-    isSidebarCollapsed: true, // Default collapsed state
+    isSidebarCollapsed: true, 
   });
 
   useEffect(() => {
@@ -227,7 +230,10 @@ const ViewMaintenanceRequestForm = () => {
                         </label>
                         <div className="bg-slate-50 border border-slate-200 rounded-lg px-4 py-3 min-h-[44px] flex items-center">
                           <div className="text-slate-900 w-full">
-                            {formatFieldValue(key, requestDetails[key])}
+                            {key === "requesting_personnel"
+                              ? requestDetails.requesting_personnel || "N/A"
+                              : formatFieldValue(key, requestDetails[key])
+                            }
                           </div>
                         </div>
                       </div>

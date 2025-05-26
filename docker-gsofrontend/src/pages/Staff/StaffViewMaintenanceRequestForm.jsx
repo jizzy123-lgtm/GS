@@ -163,6 +163,13 @@ const StaffViewMaintenanceRequestForm = () => {
     ([key]) => key !== "created_at" && key !== "updated_at"
   );
 
+  // Add the handleLogout function
+  const handleLogout = () => {
+    localStorage.removeItem("authToken");
+    sessionStorage.removeItem("authToken");
+    navigate("/loginpage");
+  };
+
   return (
     <div className="flex flex-col h-screen bg-gray-50">
       <header className="bg-black text-white p-4 flex justify-between items-center relative">
@@ -174,6 +181,15 @@ const StaffViewMaintenanceRequestForm = () => {
           Staff
         </div>
 
+        {/* Add Logout button to header */}
+        <button
+          onClick={handleLogout}
+          className="ml-4 bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded-lg"
+        >
+          Logout
+        </button>
+
+        {/* ...existing mobile menu button... */}
         <div className="flex items-center gap-4 md:hidden">
           <button
             onClick={() => dispatch({ type: "TOGGLE_MOBILE_MENU" })}

@@ -200,6 +200,12 @@ const filtered = requests.filter((r) => {
 });
   const showActions = true;
 
+  const handleLogout = () => {
+    localStorage.removeItem("authToken");
+    sessionStorage.removeItem("authToken");
+    window.location.href = "/loginpage"; // or use navigate("/loginpage");
+  };
+
   if (loading) return <div className="p-4">Loading requests...</div>;
 
   return (
@@ -243,6 +249,7 @@ const filtered = requests.filter((r) => {
           onToggleSidebar={() => dispatch({ type: "TOGGLE_SIDEBAR" })}
           menuItems={MENU_ITEMS}
           title="STAFF"
+          onLogout={handleLogout} // <-- Add this line
         />
         <main className="flex-1 p-4 md:p-6 lg:p-8 bg-white/95 backdrop-blur-sm overflow-y-auto">
           <h2 className="text-3xl font-extrabold text-gray-900 border-b mb-4 pb-3">

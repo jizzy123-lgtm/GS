@@ -367,6 +367,13 @@ const CampusDirectorMaintenanceRequestForm = () => {
         <CampusDirectorSidebar
           isSidebarCollapsed={sidebarState.isSidebarCollapsed}
           onToggleSidebar={() => sidebarDispatch({ type: "TOGGLE_SIDEBAR" })}
+          onLogout={() => {
+            localStorage.removeItem("authToken");
+            localStorage.removeItem("user");
+            sessionStorage.removeItem("authToken");
+            sessionStorage.removeItem("user");
+            navigate("/loginpage", { replace: true });
+          }}
         />
         <main className="flex-1 p-6 overflow-y-auto bg-white/95 backdrop-blur-sm">
           <div className="flex flex-col items-center justify-center min-h-screen bg-gray-100 px-4 sm:px-6 lg:px-8">

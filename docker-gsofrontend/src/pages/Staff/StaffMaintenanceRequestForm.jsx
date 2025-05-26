@@ -404,6 +404,49 @@ const StaffMaintenanceRequestForm = () => {
     { isSidebarCollapsed: true }
   );
 
+  const handleLogout = () => {
+    localStorage.removeItem("authToken");
+    sessionStorage.removeItem("authToken");
+    navigate("/loginpage");
+  };
+
+  const generatePriorityCode = () => {
+    const details = getDisplayDetails();
+    // Get first letter of maintenance type name, fallback to "X"
+    const typeLetter = details.maintenance_type_name
+      ? details.maintenance_type_name.charAt(0).toUpperCase()
+      : "X";
+    // Use the request number (id or request_number field)
+    const requestNum = details.id || details.request_number || "0";
+    // Get month and year from date_requested
+    let month = "MM";
+    let year = "YYYY";
+    if (details.date_requested) {
+      const date = new Date(details.date_requested);
+      month = String(date.getMonth() + 1).padStart(2, "0");
+      year = String(date.getFullYear());
+    }
+    return `${typeLetter}-${requestNum}-${month}-${year}`;
+  };
+
+  // Fetch priority numbers on mount
+  useEffect(() => {
+    if (!token) return;
+    const fetchPriorityNumbers = async () => {
+      try {
+        const res = await fetch(`${API_BASE_URL}/maintenance-requests/priority-numbers`, {
+          method: "GET",
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        const data = await res.json();
+        console.log("/maintenance-requests/priority-numbers GET response:", data);
+      } catch (err) {
+        console.error("Error fetching /maintenance-requests/priority-numbers:", err);
+      }
+    };
+    fetchPriorityNumbers();
+  }, [token, API_BASE_URL]);
+
   return (
     <div className="flex flex-col h-screen bg-gray-50">
       <header className="bg-black text-white p-4 flex justify-between items-center relative">
@@ -445,6 +488,7 @@ const StaffMaintenanceRequestForm = () => {
           onToggleSidebar={() => sidebarDispatch({ type: "TOGGLE_SIDEBAR" })}
           menuItems={MENU_ITEMS}
           title="STAFF"
+          onLogout={handleLogout} 
         />
         <main className="flex-1 p-6 overflow-auto bg-white/95 backdrop-blur-sm">
           <div className="flex flex-col items-center justify-center min-h-screen bg-gray-100 px-4 sm:px-6 lg:px-8">
@@ -602,9 +646,14 @@ const StaffMaintenanceRequestForm = () => {
                     <label className="block font-semibold text-gray-700">Priority Number:</label>
                     <input
                       type="number"
-                      className="w-full border rounded-lg px-4 py-2"
+                      className={`w-full border rounded-lg px-4 py-2 ${
+                        getDisplayDetails().approved_by_2 === null || getDisplayDetails().approved_by_2 === undefined
+                          ? "bg-gray-100 text-gray-500 cursor-not-allowed"
+                          : ""
+                      }`}
                       value={priority_number}
                       onChange={(e) => setPriorityNumber(e.target.value)}
+                      disabled={getDisplayDetails().approved_by_2 === null || getDisplayDetails().approved_by_2 === undefined}
                     />
                   </div>
                   <div>

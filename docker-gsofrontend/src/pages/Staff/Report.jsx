@@ -1272,6 +1272,12 @@ const Report = () => {
     }
   };
 
+  const handleLogout = () => {
+    localStorage.removeItem("authToken");
+    sessionStorage.removeItem("authToken");
+    navigate("/loginpage");
+  };
+
   return (
     <div className="flex flex-col h-screen bg-gray-50">
       <header className="bg-black text-white p-4 flex justify-between items-center relative">
@@ -1313,6 +1319,7 @@ const Report = () => {
           onToggleSidebar={() => dispatch({ type: "TOGGLE_SIDEBAR" })}
           menuItems={MENU_ITEMS}
           title="STAFF"
+          onLogout={handleLogout} 
         />
         <main className="flex-1 p-4 md:p-6 lg:p-8 bg-white/95 backdrop-blur-sm overflow-y-auto">
           <div className="flex justify-between items-center mb-6">

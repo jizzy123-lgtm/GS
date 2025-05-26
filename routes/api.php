@@ -96,6 +96,8 @@ Route::middleware(['auth:sanctum'])->get('/directorpov/{id}', [MaintenanceReques
 Route::middleware('auth:sanctum')->group(function () {
     //admin approves the account of user
     Route::put('/users/{id}/updateAccountStatus', [UserController::class, 'updateAccountStatus']);
+    //admin rejects the account of user
+    Route::put('/users/{id}/dissaproveAccountStatus', [UserController::class, 'rejectAccountStatus']);
     //gets all pending approvals
     Route::get('/pending-approvals', [UserController::class, 'getPendingApprovals']);
     Route::get('/uspass', [UserController::class, 'getUsPass']);

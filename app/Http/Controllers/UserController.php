@@ -141,8 +141,39 @@ class UserController extends Controller
             $user->notify(new AccountApproved());
         }
 
-        return response()->json(['message' => 'User status updated successfully.']);
+        return response()->json(['message' => 'User status approved successfully.']);
     }
+
+    public function rejectAccountStatus(Request $request, $id)
+    {
+        $request->validate([
+            'status_id' => 'required|exists:statuses,id',
+        ]);
+
+        $user = User::find($id);
+
+        if (!$user) {
+            return response()->json(['message' => 'User not found'], 404);
+        }
+
+        // Only allow admin to approve (role_id = 1)
+        $authUser = Auth::user();
+        if ($request->status_id == 2 && $authUser->role_id !== 1) {
+            return response()->json(['message' => 'Only admins can approve accounts.'], 403);
+        }
+
+        $user->status_id = $request->status_id;
+        $user->save();
+
+        // Send email notification only if approved
+        // if ($user->status_id == 2 && $user->email) {
+        //     $user->notify(new AccountApproved());
+        // }
+
+        return response()->json(['message' => 'User register dissapved successfully.']);
+    }
+
+
 
     public function getPendingApprovals()
     {

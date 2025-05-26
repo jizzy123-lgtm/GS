@@ -16,7 +16,7 @@ class AccountApproved extends Notification
     {
         return (new MailMessage)
             ->subject('Account Approved')
-            ->greeting('Hello ' . $notifiable->full_name . ',')
+            ->greeting('Hello ' . $notifiable->first_name . ',')
             ->line('Good news! Your account has been approved by the admin.')
             ->line('You can now log in and start using the system.')
             ->action('Login Now', url('/')) // optional: adjust the URL

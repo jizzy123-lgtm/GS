@@ -233,7 +233,10 @@ class MaintenanceRequestController extends Controller
                 'requesting_office',
                 'contact_number',
                 'status_id',
-                'maintenance_type_id'
+                'maintenance_type_id',
+                'verified_by',
+                'approved_by_1',
+                'approved_by_2'
             ])
             ->where('id', $id)
             ->first();
@@ -537,12 +540,21 @@ class MaintenanceRequestController extends Controller
         ])->get();
 
         $data = $requests->map(function ($request) {
+
+            $requester = optional($request->requester);
+            $fullName = trim(
+                ($requester->last_name ? $requester->last_name . ', ' : '') .
+                ($requester->first_name ?? '') . ' ' .
+                ($requester->middle_name ?? '') . ' ' .
+                ($requester->suffix ?? '')
+            );
+
             return [
                 'request_id'=> $request->id,
                 'date_requested' => $request->date_requested,
                 'details' => $request->details,
                 'requester_id' => $request->requesting_personnel,
-                'requesting_personnel' => optional($request->requester)->last_name,
+                'requesting_personnel' => $fullName,
                 'position' => optional($request->position)->name,
                 'requesting_office' => optional($request->office)->name,
                 'contact_number' => $request->contact_number,

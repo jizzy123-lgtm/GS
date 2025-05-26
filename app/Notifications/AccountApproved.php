@@ -20,6 +20,7 @@ class AccountApproved extends Notification
             ->line('Good news! Your account has been approved by the admin.')
             ->line('You can now log in and start using the system.')
             ->action('Login Now', url('/')) // optional: adjust the URL
-            ->line('Thank you for using our system!');
+            ->line('Thank you for using our system!')
+            ->salutation('Regards, GSO SYSTEM');
     }
 }

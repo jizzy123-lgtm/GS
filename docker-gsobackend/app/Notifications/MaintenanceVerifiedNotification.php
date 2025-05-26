@@ -28,12 +28,12 @@ class MaintenanceVerifiedNotification extends Notification
     {
         return (new MailMessage)
             ->subject('✅ Your Maintenance Request Was Verified')
-            ->greeting('Hello ' . $notifiable->full_name . '!')
+            ->greeting('Hello ' . $notifiable->first_name . '!')
             ->line('Your maintenance request has been verified by our staff.')
             ->line('Details:')
             ->line('• Date Requested: ' . $this->maintenanceRequest->date_requested)
             ->line('• Details: ' . $this->maintenanceRequest->details)
-            ->line('• Status: ' . $this->maintenanceRequest->status)
+           // ->line('• Status: ' . $this->maintenanceRequest->status)
             ->line('We’ll notify you again once it’s approved.')
             ->salutation('Thank you for using GSO System!');
     }

@@ -27,8 +27,9 @@ class NewUserRegistered extends Notification
             ->greeting('Hello ' . $notifiable->first_name . ',')
             ->line('A new user has registered and is awaiting approval.')
             ->line('Name: ' . $this->newUser->first_name)
-            ->line('Position: ' . $this->newUser->position)
-            ->line('Office: ' . $this->newUser->office)
-            ->line('Please review and approve the account if appropriate.');
+            ->line('Position: ' . optional($this->newUser->position)->name)
+            ->line('Office: ' . optional($this->newUser->office)->name)
+            ->line('Please review and approve the account if appropriate.')
+            ->salutation('Regards, GSO SYSTEM');
     }
 }

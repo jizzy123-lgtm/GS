@@ -32,6 +32,7 @@ class MaintenanceVerifiedNotification extends Notification
             ->line('Your maintenance request has been verified by our staff.')
             ->line('Details:')
             ->line('• Date Requested: ' . $this->maintenanceRequest->date_requested)
+            ->line('Priority Number: ' .$this->maintenanceRequest->priority_number)
             ->line('• Details: ' . $this->maintenanceRequest->details)
            // ->line('• Status: ' . $this->maintenanceRequest->status)
             ->line('We’ll notify you again once it’s approved.')

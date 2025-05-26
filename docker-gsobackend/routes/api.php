@@ -51,7 +51,7 @@ Route::middleware(['auth:sanctum'])->group(function () {
     Route::put('/maintenance-requests/{id}/approve-head', [MaintenanceRequestController::class, 'approveByHead']);
     Route::put('/maintenance-requests/{id}/approve-director', [MaintenanceRequestController::class, 'approveByDirector']);
 });
-//staff assigns a priority number
+//staff assigns a priority
 Route::middleware(['auth:sanctum'])->put('/maintenance-requests/{id}/assign-priority', [MaintenanceRequestController::class, 'assignPriority']);
 
 

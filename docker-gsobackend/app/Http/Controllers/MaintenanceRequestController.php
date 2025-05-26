@@ -221,7 +221,7 @@ class MaintenanceRequestController extends Controller
         $maintenanceRequest->save();
 
         // Notify Requester
-        $requester = $maintenanceRequest->requesting_personnel;
+        $requester = User::where('id', $maintenanceRequest->requesting_personnel)->first();
         if ($requester && $requester->email) {
             $requester->notify(new RequestApprovedByCampusDirector($maintenanceRequest));
         }

@@ -31,6 +31,7 @@ class MaintenanceRequestCreated extends Notification implements ShouldQueue
             ->greeting('Hello ' . $notifiable->full_name . ',')
             ->line("A new maintenance request was submitted by {$this->requesterName}.")
             ->line('Please review the request in the system.')
-            ->line('Thank you.');
+            ->line('Thank you.')
+            ->salutation('Regards, GSO SYSTEM');
     }
 }

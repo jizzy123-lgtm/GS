@@ -13,8 +13,9 @@ use App\Http\Controllers\OfficeController;
 use App\Http\Controllers\StatusController;
 use App\Http\Controllers\RoleController;
 use App\Models\MaintenanceType;
-Route::get('/maintenance-requests/list-with-details', [MaintenanceRequestController::class, 'indexWithDetails']);
 
+
+Route::get('/maintenance-requests/list-with-details', [MaintenanceRequestController::class, 'indexWithDetails']);
 Route::get('/maintenance-types', [MaintenanceTypeController::class, 'index']);
 
 // Public Routes (Authentication)
@@ -37,17 +38,21 @@ Route::post('/test-register', function () {
 });
 
 
-//only staff and head
+//for staffs, head, campus director
 //staff fills up the remaining fields and verifies it
 Route::middleware(['auth:sanctum'])->put('/maintenance-requests/{id}/verify', [MaintenanceRequestController::class, 'verify']);
 
-//2 heads approves the maintenance request
-Route::middleware(['auth:sanctum'])->put('/maintenance-requests/{id}/approve', [MaintenanceRequestController::class, 'approve']);
 
+// Route::middleware(['auth:sanctum'])->put('/maintenance-requests/{id}/approve', [MaintenanceRequestController::class, 'approve']);
+
+
+// need approval of head and director
 Route::middleware(['auth:sanctum'])->group(function () {
     Route::put('/maintenance-requests/{id}/approve-head', [MaintenanceRequestController::class, 'approveByHead']);
     Route::put('/maintenance-requests/{id}/approve-director', [MaintenanceRequestController::class, 'approveByDirector']);
 });
+//staff assigns a priority number
+Route::middleware(['auth:sanctum'])->put('/maintenance-requests/{id}/assign-priority', [MaintenanceRequestController::class, 'assignPriority']);
 
 
 //dissaproved
@@ -186,6 +191,7 @@ Route::put('/maintenance-requests/{id}/mark-onhold', [MaintenanceRequestControll
 
 Route::get('/common-datas', [UserController::class, 'commonDatas']);
 Route::get('/maintenance-requests/list-with-details', [MaintenanceRequestController::class, 'indexWithDetails']);
+Route::get('/forPriority', [MaintenanceRequestController::class, 'forPriorityNumber']);
 Route::get('/accountStatuses', [StatusController::class, 'accountStatuses']);
 Route::get('/users-list', [UserController::class, 'usersList']);
 

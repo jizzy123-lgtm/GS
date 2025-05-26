@@ -10,7 +10,11 @@ use Illuminate\Support\Facades\Mail;
 use App\Notifications\MaintenanceVerifiedNotification;
 use App\Notifications\MaintenanceRequestApproved;
 use Illuminate\Support\Facades\Notification;
-
+use App\Notifications\RequestVerifiedByStaff;
+use App\Notifications\RequestApprovedByHead;
+use App\Notifications\RequestApprovedByCampusDirector;
+use App\Notifications\AssignPriorityToRequest;
+use App\Notifications\RequestAssignedPriority;
 
 class MaintenanceRequestController extends Controller
 {
@@ -101,6 +105,12 @@ class MaintenanceRequestController extends Controller
             $requester->notify(new MaintenanceVerifiedNotification($maintenanceRequest));
         }
 
+        $heads = User::where('role_id', 2)->where('status_id', 2)->get(); // assuming role_id = 2 is Head
+
+        foreach ($heads as $head) {
+            $head->notify(new RequestVerifiedByStaff($maintenanceRequest));
+        }
+
         return response()->json([
             'message' => 'Maintenance request reviewed successfully',
             'data' => $maintenanceRequest,
@@ -170,9 +180,16 @@ class MaintenanceRequestController extends Controller
         // Notify the requester by email after final approval
         $requester = User::where('id', $maintenanceRequest->requesting_personnel)->first();
 
-       if ($requester && $requester->email) {
+        if ($requester && $requester->email) {
             $requester->notify(new MaintenanceRequestApproved($maintenanceRequest));
-         }
+        }
+
+        // Notify the campus director
+        $campusDirectors = User::where('role_id', 5)->where('status_id', 2)->get(); // assuming role_id 5 = Campus Director
+        foreach ($campusDirectors as $director) {
+            $director->notify(new RequestApprovedByHead($maintenanceRequest));
+        }
+
         return response()->json([
             'message' => 'Approved by Head successfully.',
             'maintenance_request' => $maintenanceRequest
@@ -203,11 +220,17 @@ class MaintenanceRequestController extends Controller
         $maintenanceRequest->status_id = 2; // Approved status ID
         $maintenanceRequest->save();
 
-        // // Notify requester
-        // $requester = User::find($maintenanceRequest->requesting_personnel);
-        // if ($requester && $requester->email) {
-        //     $requester->notify(new MaintenanceRequestApproved($maintenanceRequest));
-        // }
+        // Notify Requester
+        $requester = $maintenanceRequest->requesting_personnel;
+        if ($requester && $requester->email) {
+            $requester->notify(new RequestApprovedByCampusDirector($maintenanceRequest));
+        }
+
+        // Notify Staff
+        $staffMembers = User::where('role_id', 3)->where('status_id', 2)->get(); // Assuming role_id = 3 is staff
+        foreach ($staffMembers as $staff) {
+            $staff->notify(new AssignPriorityToRequest($maintenanceRequest));
+        }
 
         return response()->json([
             'message' => 'Approved by Campus Director successfully. Request is now fully approved.',
@@ -575,6 +598,48 @@ class MaintenanceRequestController extends Controller
         return response()->json($data);
     }
 
+    public function forPriorityNumber(){
+        $requests = MaintenanceRequest::with([
+
+            'maintenanceType'
+        ])->get();
+        $data = $requests->map(function ($request) {
+            return[
+                'request_id'=> $request->id,
+                'maintenance_type' => optional($request->maintenanceType)->type_name,
+                'date_received' => $request->date_received,
+                'time_received' => $request->time_received,
+            ];
+        });
+        return response()->json($data);
+    }
+
+
+
+    public function assignPriority(Request $request, $id)
+    {
+        $request->validate([
+            'priority_number' => 'required|string',
+        ]);
+
+        $maintenanceRequest = MaintenanceRequest::findOrFail($id);
+
+        // Update the priority number
+        $maintenanceRequest->priority_number = $request->priority_number;
+        $maintenanceRequest->save();
+
+        // Notify the requester
+        $requester = User::find($maintenanceRequest->requesting_personnel);
+
+        if ($requester && $requester->email) {
+            $requester->notify(new RequestAssignedPriority($maintenanceRequest));
+        }
+
+        return response()->json([
+            'message' => 'Priority number assigned successfully.',
+            'data' => $maintenanceRequest,
+        ]);
+    }
 }
 
 

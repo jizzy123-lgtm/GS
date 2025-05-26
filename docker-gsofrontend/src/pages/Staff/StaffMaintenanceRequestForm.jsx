@@ -15,7 +15,6 @@ const sidebarReducer = (state, action) => {
   }
 };
 
-
 const StaffMaintenanceRequestForm = () => {
   const navigate = useNavigate();
   const { id } = useParams();
@@ -48,6 +47,8 @@ const StaffMaintenanceRequestForm = () => {
   const [verifiedById, setVerifiedById] = useState("");
 
   const [currentUser, setCurrentUser] = useState({ id: "", full_name: "" });
+  const [existingPriorityCodes, setExistingPriorityCodes] = useState([]);
+  const [isGeneratingPriority, setIsGeneratingPriority] = useState(false);
 
   // Close mobile menu when clicking outside
   useEffect(() => {
@@ -111,6 +112,75 @@ const StaffMaintenanceRequestForm = () => {
         middle_name: "",
         suffix: "",
       };
+    }
+  };
+
+  // Fetch existing priority codes from backend
+  const fetchExistingPriorityCodes = async () => {
+    if (!token) return [];
+    
+    try {
+      const res = await fetch(`${API_BASE_URL}/forPriority`, {
+        method: "GET",
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const data = await res.json();
+      console.log("/forPriority GET response:", data);
+      
+      // Extract priority codes from response
+      // Assuming the response contains an array of objects with priority_number field
+      if (Array.isArray(data)) {
+        return data.map(item => item.priority_number || item.priority_code).filter(Boolean);
+      } else if (data.data && Array.isArray(data.data)) {
+        return data.data.map(item => item.priority_number || item.priority_code).filter(Boolean);
+      } else if (data.priority_codes && Array.isArray(data.priority_codes)) {
+        return data.priority_codes;
+      }
+      return [];
+    } catch (err) {
+      console.error("Error fetching existing priority codes:", err);
+      return [];
+    }
+  };
+
+  // Generate unique priority code
+  const generateUniquePriorityCode = async (details) => {
+    try {
+      setIsGeneratingPriority(true);
+
+      // Get first letter of maintenance type name, fallback to "X"
+      const typeLetter = details.maintenance_type_name
+        ? details.maintenance_type_name.charAt(0).toUpperCase()
+        : "X";
+
+      // Get the count for this maintenance type from state
+      const typeCount = details.maintenance_type_name
+        ? (maintenanceTypeCounts[details.maintenance_type_name] || 0)
+        : 0;
+
+      // The number for this request is count + 1
+      const requestNum = typeCount + 1;
+
+      // Get month and year from date_requested
+      let month = "MM";
+      let year = "YYYY";
+      if (details.date_requested) {
+        const date = new Date(details.date_requested);
+        month = String(date.getMonth() + 1).padStart(2, "0");
+        year = String(date.getFullYear());
+      }
+
+      // Generate the priority code
+      const priorityCode = `${typeLetter}-${requestNum}-${month}-${year}`;
+
+      console.log("Generated priority code:", priorityCode);
+      return priorityCode;
+
+    } catch (err) {
+      console.error("Error generating priority code:", err);
+      return `X-${Date.now()}-ERROR`; // Fallback code
+    } finally {
+      setIsGeneratingPriority(false);
     }
   };
 
@@ -286,7 +356,6 @@ const StaffMaintenanceRequestForm = () => {
         // Set form values immediately
         setDateReceived(requestData.date_received || new Date().toISOString().split("T")[0]);
         setTimeReceived(requestData.time_received || new Date().toTimeString().slice(0, 5));
-        setPriorityNumber(requestData.priority_number || "");
         setRemarks(requestData.remarks || "");
 
         // Fetch user info (gets user_id from token)
@@ -336,6 +405,23 @@ const StaffMaintenanceRequestForm = () => {
 
     enhanceWhenReady();
   }, [requestDetails, statuses, maintenanceTypes, offices, positions, token]);
+
+  // Auto-generate priority number when enhanced request details are available
+  useEffect(() => {
+    const generatePriority = async () => {
+      if (enhancedRequestDetails && Object.keys(enhancedRequestDetails).length > 0 && 
+          !priority_number && enhancedRequestDetails.approved_by_2) {
+        try {
+          const generatedCode = await generateUniquePriorityCode(enhancedRequestDetails);
+          setPriorityNumber(generatedCode);
+        } catch (err) {
+          console.error("Error auto-generating priority code:", err);
+        }
+      }
+    };
+
+    generatePriority();
+  }, [enhancedRequestDetails, priority_number]);
 
   const formatTimeTo24Hour = (time) => {
     if (!time) return "";
@@ -387,6 +473,19 @@ const StaffMaintenanceRequestForm = () => {
     }
   };
 
+  // Function to manually regenerate priority code
+  const handleRegeneratePriority = async () => {
+    if (enhancedRequestDetails && Object.keys(enhancedRequestDetails).length > 0) {
+      try {
+        const generatedCode = await generateUniquePriorityCode(enhancedRequestDetails);
+        setPriorityNumber(generatedCode);
+      } catch (err) {
+        console.error("Error regenerating priority code:", err);
+        setError("Failed to regenerate priority code");
+      }
+    }
+  };
+
   // Function to get the details to display
   const getDisplayDetails = () => {
     return Object.keys(enhancedRequestDetails).length > 0 ? enhancedRequestDetails : requestDetails;
@@ -410,42 +509,39 @@ const StaffMaintenanceRequestForm = () => {
     navigate("/loginpage");
   };
 
-  const generatePriorityCode = () => {
-    const details = getDisplayDetails();
-    // Get first letter of maintenance type name, fallback to "X"
-    const typeLetter = details.maintenance_type_name
-      ? details.maintenance_type_name.charAt(0).toUpperCase()
-      : "X";
-    // Use the request number (id or request_number field)
-    const requestNum = details.id || details.request_number || "0";
-    // Get month and year from date_requested
-    let month = "MM";
-    let year = "YYYY";
-    if (details.date_requested) {
-      const date = new Date(details.date_requested);
-      month = String(date.getMonth() + 1).padStart(2, "0");
-      year = String(date.getFullYear());
-    }
-    return `${typeLetter}-${requestNum}-${month}-${year}`;
-  };
-
-  // Fetch priority numbers on mount
+  // Count maintenance requests by type ID from the /forPriority endpoint
   useEffect(() => {
-    if (!token) return;
-    const fetchPriorityNumbers = async () => {
+    if (!token || maintenanceTypes.length === 0) return;
+    const fetchAndCountTypes = async () => {
       try {
-        const res = await fetch(`${API_BASE_URL}/maintenance-requests/priority-numbers`, {
+        const res = await fetch(`${API_BASE_URL}/forPriority`, {
           method: "GET",
           headers: { Authorization: `Bearer ${token}` },
         });
         const data = await res.json();
-        console.log("/maintenance-requests/priority-numbers GET response:", data);
+        const requests = Array.isArray(data.data) ? data.data : Array.isArray(data) ? data : [];
+        const typeNameCounts = {};
+        requests.forEach(req => {
+          const typeName = req.maintenance_type;
+          if (typeName) {
+            typeNameCounts[typeName] = (typeNameCounts[typeName] || 0) + 1;
+          }
+        });
+        maintenanceTypes.forEach(type => {
+          if (!(type.type_name in typeNameCounts)) {
+            typeNameCounts[type.type_name] = 0;
+          }
+        });
+        setMaintenanceTypeCounts(typeNameCounts); 
+        console.log("Maintenance type counts from /forPriority:", typeNameCounts);
       } catch (err) {
-        console.error("Error fetching /maintenance-requests/priority-numbers:", err);
+        console.error("Error counting maintenance types from /forPriority:", err);
       }
     };
-    fetchPriorityNumbers();
-  }, [token, API_BASE_URL]);
+    fetchAndCountTypes();
+  }, [token, API_BASE_URL, maintenanceTypes]);
+
+  const [maintenanceTypeCounts, setMaintenanceTypeCounts] = useState({});
 
   return (
     <div className="flex flex-col h-screen bg-gray-50">
@@ -643,57 +739,99 @@ const StaffMaintenanceRequestForm = () => {
                     />
                   </div>
                   <div>
-                    <label className="block font-semibold text-gray-700">Priority Number:</label>
-                    <input
-                      type="number"
-                      className={`w-full border rounded-lg px-4 py-2 ${
-                        getDisplayDetails().approved_by_2 === null || getDisplayDetails().approved_by_2 === undefined
-                          ? "bg-gray-100 text-gray-500 cursor-not-allowed"
-                          : ""
-                      }`}
-                      value={priority_number}
-                      onChange={(e) => setPriorityNumber(e.target.value)}
-                      disabled={getDisplayDetails().approved_by_2 === null || getDisplayDetails().approved_by_2 === undefined}
-                    />
+                    <label className="block font-semibold text-gray-700">
+                      Priority Number:
+                      {isGeneratingPriority && (
+                        <span className="text-sm text-blue-600 ml-2">(Generating...)</span>
+                      )}
+                    </label>
+                    <div className="flex gap-2">
+                      <input
+                        type="text"
+                        className={`flex-1 border rounded-lg px-4 py-2 ${
+                          getDisplayDetails().approved_by_2 === null || getDisplayDetails().approved_by_2 === undefined
+                            ? "bg-gray-100 text-gray-500 cursor-not-allowed"
+                            : ""
+                        }`}
+                        value={priority_number}
+                        onChange={(e) => setPriorityNumber(e.target.value)}
+                        disabled={getDisplayDetails().approved_by_2 === null || getDisplayDetails().approved_by_2 === undefined}
+                        placeholder="Auto-generated based on request details"
+                      />
+                      {getDisplayDetails().approved_by_2 && (
+                        <button
+                          type="button"
+                          onClick={handleRegeneratePriority}
+                          disabled={isGeneratingPriority}
+                          className="px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed text-sm"
+                        >
+                          {isGeneratingPriority ? "..." : "Regenerate"}
+                        </button>
+                      )}
+                    </div>
+                    {getDisplayDetails().approved_by_2 === null || getDisplayDetails().approved_by_2 === undefined ? (
+                      <p className="text-sm text-gray-500 mt-1">
+                        Priority number will be generated after the request is approved by the second approver.
+                      </p>
+                    ) : null}
                   </div>
-                  <div>
-                    <label className="block font-semibold text-gray-700">Remarks:</label>
-                    <textarea
-                      className="w-full border rounded-lg px-4 py-2"
-                      rows="3"
-                      value={remarks}
-                      onChange={(e) => setRemarks(e.target.value)}
-                    ></textarea>
-                  </div>
+
                   <div>
                     <label className="block font-semibold text-gray-700">Verified By:</label>
                     <input
                       type="text"
-                      className="w-full border rounded-lg px-4 py-2"
+                      className="w-full border rounded-lg px-4 py-2 bg-gray-100"
                       value={verifiedByName}
                       disabled
                     />
                   </div>
-                  <button
-                    type="submit"
-                    className="w-full bg-green-500 text-white py-2 rounded-lg hover:bg-green-600 transition-colors duration-200"
-                  >
-                    Verify
-                  </button>
-                  <button
-                    type="button"
-                    className="w-full bg-red-500 text-white py-2 rounded-lg hover:bg-red-600 transition-colors duration-200"
-                    onClick={(e) => handleapprove(e, "deny")}
-                  >
-                    Deny
-                  </button>
+
+                  <div>
+                    <label className="block font-semibold text-gray-700">Remarks:</label>
+                    <textarea
+                      className="w-full border rounded-lg px-4 py-2"
+                      rows="4"
+                      value={remarks}
+                      onChange={(e) => setRemarks(e.target.value)}
+                      placeholder="Enter any remarks..."
+                    />
+                  </div>
+
+                  <div className="flex gap-4 pt-4">
+                    <button
+                      type="submit"
+                      disabled={isLoading}
+                      className="flex-1 bg-green-600 text-white px-6 py-3 rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed font-semibold transition-colors"
+                    >
+                      {isLoading ? "Processing..." : "Verify Request"}
+                    </button>
+                    
+                    <button
+                      type="button"
+                      onClick={(e) => handleapprove(e, "deny")}
+                      disabled={isLoading}
+                      className="flex-1 bg-red-600 text-white px-6 py-3 rounded-lg hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed font-semibold transition-colors"
+                    >
+                      {isLoading ? "Processing..." : "Deny Request"}
+                    </button>
+                  </div>
+
+                  <div className="text-center pt-4">
+                    <button
+                      type="button"
+                      onClick={() => navigate("/staffsliprequests")}
+                      className="text-gray-600 hover:text-gray-800 font-semibold underline"
+                    >
+                      Back to Requests
+                    </button>
+                  </div>
                 </form>
               )}
 
-              {/* Loading state */}
               {isLoading && (
-                <div className="text-center text-gray-500">
-                  <p>Loading request details...</p>
+                <div className="text-center py-8">
+                  <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900"></div>
+                  <p className="mt-2 text-gray-600">Loading request details...</p>
                 </div>
               )}
             </div>

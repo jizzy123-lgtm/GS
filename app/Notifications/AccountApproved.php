@@ -19,7 +19,7 @@ class AccountApproved extends Notification
             ->greeting('Hello ' . $notifiable->first_name . ',')
             ->line('Good news! Your account has been approved by the admin.')
             ->line('You can now log in and start using the system.')
-            ->action('Login Now', url('/')) // optional: adjust the URL
+            ->action('Login Now', url('https://manageit-test.coeofjrmsu.com/')) // optional: adjust the URL
             ->line('Thank you for using our system!')
             ->salutation('Regards, GSO SYSTEM');
     }

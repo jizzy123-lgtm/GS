@@ -314,6 +314,7 @@ class MaintenanceRequestController extends Controller
             'time_received' => $request->time_received,
             'remarks' => $request->remarks,
             'status_id' => 3, //3 means dissaproved
+            'priority_number'=> null,
         ]);
 
         return response()->json([
@@ -388,6 +389,7 @@ class MaintenanceRequestController extends Controller
         // Update request status to "Disapproved"
         $maintenanceRequest->update([
             'status_id' => 3,
+            'priority_number' => null,
         ]);
 
         return response()->json([
@@ -639,6 +641,30 @@ class MaintenanceRequestController extends Controller
             'message' => 'Priority number assigned successfully.',
             'data' => $maintenanceRequest,
         ]);
+    }
+
+    public function markAsDone($id)
+    {
+        $maintenanceRequest = MaintenanceRequest::find($id);
+
+        if (!$maintenanceRequest) {
+            return response()->json(['message' => 'Maintenance request not found.'], 404);
+        }
+
+        // Only allow staff (role_id = 3) to mark as done
+        if (Auth::user()->role_id !== 3) {
+            return response()->json(['message' => 'Unauthorized – only staff can perform this action.'], 403);
+        }
+
+        // Update status to "Done" (status_id = 4)
+        $maintenanceRequest->update([
+            'status_id' => 4,
+        ]);
+
+        return response()->json([
+            'message' => 'Maintenance request successfully marked as done.',
+            'data' => $maintenanceRequest,
+        ], 200);
     }
 }
 

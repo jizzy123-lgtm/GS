@@ -5,6 +5,16 @@ Release 1.3
 -Fixed Bug No. 13
 -Fixed Bug No. 15
 -Fixed Bug No. 18
+-Fixed-Email Notification about Admin who will receive email if there is a new account registering
+-Fixed-Email Notification about Requester who will receive email if the account registered is approved
+-Fixed-Email Notification about Staff who will receive email if there is service request
+-Fixed-Email Notification about Head who will receive email if there is service request
+-Fixed-Email Notification about Requester who will receive email if service requested is verified by Staff
+-Fixed-Email Notification about Head who will receive email if service requested is verified by Staff
+-Fixed-Email Notification about Requester who will receive email if service requested is approved/disapproved by Head
+-Fixed-Email Notification about Campus Admin who will receive email if service requested is approved/disapproved by Head
+-Fixed-Email Notification about Requester who will receive email if service requested already have priority number, done by staff
+-Fixed-Campus Admin can now approve after Head
 
 Release 1.2
 -Fix admin mobile hamburger menu open

@@ -172,6 +172,7 @@ Route::apiResource('maintenance-types', MaintenanceTypeController::class);
 
 Route::put('/maintenance-requests/{id}/mark-urgent', [MaintenanceRequestController::class, 'markAsUrgent']);
 Route::put('/maintenance-requests/{id}/mark-onhold', [MaintenanceRequestController::class, 'markAsOnHold']);
+Route::middleware('auth:sanctum')->put('/maintenance-requests/{id}/mark-done', [MaintenanceRequestController::class, 'markAsDone']);
 
 
 

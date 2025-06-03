@@ -233,26 +233,6 @@ const HeadRequests = () => {
 
   const showActions = true;
 
-  useEffect(() => {
-    const fetchUsers = async () => {
-      if (!token) return;
-      try {
-        const res = await fetch(`${API_BASE_URL}/users-list`, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        const users = await res.json();
-        // Build a map: user_id (number) -> user object
-        const map = {};
-        (Array.isArray(users.data) ? users.data : users).forEach(user => {
-          map[user.user_id] = user; // Use number key
-        });
-        setUsersMap(map);
-      } catch (err) {
-        console.error("Error fetching users:", err);
-      }
-    };
-    fetchUsers();
-  }, [token]);
   if (loading) return <div className="p-4">Loading requests...</div>;
   return (
     <div className="flex flex-col h-screen bg-gray-50">

@@ -171,7 +171,7 @@ const HeadMaintenanceRequestForm = () => {
         setDateReceived((prev) => prev || responseData.date_received || new Date().toISOString().split("T")[0]);
         setTimeReceived((prev) => prev || responseData.time_received || new Date().toTimeString().slice(0, 5));
         setPriorityNumber(responseData.priority_number || "");
-        setRemarks(responseData.remarks || "");
+        setRemarks("");
         setApprovedBy1(responseData.approved_by_1 || null); // Set approved_by_1 directly
 
         const userInfo = await fetchUserInfo(token);
@@ -396,165 +396,171 @@ const HeadMaintenanceRequestForm = () => {
             navigate("/loginpage", { replace: true });
           }}
         />
-        <main className="flex-1 p-6 overflow-y-auto bg-white/95 backdrop-blur-sm">
+        <main className="flex-1 p-6 overflow-auto bg-white/95 backdrop-blur-sm">
           <div className="flex flex-col items-center justify-center min-h-screen bg-gray-100 px-4 sm:px-6 lg:px-8">
-            <div className="bg-white p-6 md:p-8 lg:p-10 shadow-lg rounded-lg w-full max-w-md md:max-w-xl lg:max-w-2xl">
-              <h2 className="text-xl md:text-2xl font-bold text-center mb-4 md:mb-6 text-gray-800">
-                User Request Slip (Head Approval) 
-              </h2>      
+            <div className="bg-white p-6 shadow-lg rounded-lg w-full max-w-2xl transition-all duration-300">
+              <h2 className="text-2xl font-bold text-center mb-4">
+                User Request Slip (Head Approval)
+              </h2>
 
-              {error && <div className="bg-red-50 text-red-500 p-3 rounded-lg mb-4 text-sm">{error}</div>}
+              {error && (
+                <div className="bg-red-50 text-red-500 p-3 rounded-lg mb-4 text-sm">
+                  {error}
+                </div>
+              )}
 
-              <div className="space-y-4 md:space-y-6">
-                {isLoading ? (
-                  <p className="text-center text-gray-500">Loading request details...</p>
-                ) : (
-                  <>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div>
-                        <label className="block text-sm font-semibold text-gray-700 mb-1">
-                          Request Date:
-                        </label>
-                        <input
-                          type="text"
-                          className="w-full border border-gray-300 rounded-lg px-4 py-2 bg-gray-100"
-                          value={
-                            requestDetails.date_requested
-                              ? new Date(requestDetails.date_requested).toLocaleDateString()
-                              : "N/A"
-                          }
-                          disabled
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-sm font-semibold text-gray-700 mb-1">
-                          Personnel Name:
-                        </label>
-                        <input
-                          type="text"
-                          className="w-full border border-gray-300 rounded-lg px-4 py-2 bg-gray-100"
-                          value={personnelName || (requestDetails.requesting_personnel ? `User ID: ${requestDetails.requesting_personnel}` : "N/A")}
-                          disabled
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-sm font-semibold text-gray-700 mb-1">
-                          Position:
-                        </label>
-                        <input
-                          type="text"
-                          className="w-full border border-gray-300 rounded-lg px-4 py-2 bg-gray-100"
-                          value={getPositionName()}
-                          disabled
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-sm font-semibold text-gray-700 mb-1">
-                          Office:
-                        </label>
-                        <input
-                          type="text"
-                          className="w-full border border-gray-300 rounded-lg px-4 py-2 bg-gray-100"
-                          value={getOfficeName()}
-                          disabled
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-sm font-semibold text-gray-700 mb-1">
-                          Maintenance Type:
-                        </label>
-                        <input
-                          type="text"
-                          className="w-full border border-gray-300 rounded-lg px-4 py-2 bg-gray-100"
-                          value={getMaintenanceTypeName()}
-                          disabled
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-sm font-semibold text-gray-700 mb-1">
-                          Status:
-                        </label>
-                        <input
-                          type="text"
-                          className="w-full border border-gray-300 rounded-lg px-4 py-2 bg-gray-100"
-                          value={getStatusName()}
-                          disabled
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-sm font-semibold text-gray-700 mb-1">
-                          Contact Number:
-                        </label>
-                        <input
-                          type="text"
-                          className="w-full border border-gray-300 rounded-lg px-4 py-2 bg-gray-100"
-                          value={requestDetails.contact_number || "N/A"}
-                          disabled
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-sm font-semibold text-gray-700 mb-1">
-                          Verified By:
-                        </label>
-                        <input
-                          type="text"
-                          className="w-full border border-gray-300 rounded-lg px-4 py-2 bg-gray-100"
-                          value={verifiedByName || "N/A"}
-                          disabled
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-sm font-semibold text-gray-700 mb-1">
-                          Date Received:
-                        </label>
-                        <input
-                          type="text"
-                          className="w-full border border-gray-300 rounded-lg px-4 py-2 bg-gray-100"
-                          value={requestDetails.date_received || "N/A"}
-                          disabled
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-sm font-semibold text-gray-700 mb-1">
-                          Time Received:
-                        </label>
-                        <input
-                          type="text"
-                          className="w-full border border-gray-300 rounded-lg px-4 py-2 bg-gray-100"
-                          value={requestDetails.time_received || "N/A"}
-                          disabled
-                        />
-                      </div>               
-                    </div>
-                    <div>
-                      <label className="block text-sm font-semibold text-gray-700 mb-1">
-                        Description:
-                      </label>
-                      <textarea
-                        className="w-full border border-gray-300 rounded-lg px-4 py-2 bg-gray-100"
-                        rows="4"
-                        value={requestDetails.details || "N/A"}
-                        disabled
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-semibold text-gray-700 mb-1">
-                        Remarks:
-                      </label>
-                      <textarea
-                        className="w-full border border-gray-300 rounded-lg px-4 py-2 bg-gray-100"
-                        rows="2"
-                        value={requestDetails.remarks || "N/A"}
-                        disabled
-                      />
-                    </div>               
-                  </>               
-                )}
-              </div>
-              
-
+              {/* Request Details Section */}
               {!isLoading && (
-                <form className="space-y-4 md:space-y-6 mt-6" onSubmit={(e) => handleDecision(e, "approve")}>
+                <div className="space-y-4 mb-6">
+                  <h3 className="text-lg font-semibold text-gray-800 border-b pb-2">Request Details</h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {/* Repeat for each field as in Staff form */}
+                    <div>
+                      <label className="block text-sm font-semibold text-gray-700 mb-1">
+                        Request Date:
+                      </label>
+                      <input
+                        type="text"
+                        className="w-full border border-gray-300 rounded-lg px-4 py-2 bg-gray-100"
+                        value={
+                          requestDetails.date_requested
+                            ? new Date(requestDetails.date_requested).toLocaleDateString()
+                            : "N/A"
+                        }
+                        disabled
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-semibold text-gray-700 mb-1">
+                        Personnel Name:
+                      </label>
+                      <input
+                        type="text"
+                        className="w-full border border-gray-300 rounded-lg px-4 py-2 bg-gray-100"
+                        value={personnelName || (requestDetails.requesting_personnel ? `User ID: ${requestDetails.requesting_personnel}` : "N/A")}
+                        disabled
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-semibold text-gray-700 mb-1">
+                        Position:
+                      </label>
+                      <input
+                        type="text"
+                        className="w-full border border-gray-300 rounded-lg px-4 py-2 bg-gray-100"
+                        value={getPositionName()}
+                        disabled
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-semibold text-gray-700 mb-1">
+                        Office:
+                      </label>
+                      <input
+                        type="text"
+                        className="w-full border border-gray-300 rounded-lg px-4 py-2 bg-gray-100"
+                        value={getOfficeName()}
+                        disabled
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-semibold text-gray-700 mb-1">
+                        Maintenance Type:
+                      </label>
+                      <input
+                        type="text"
+                        className="w-full border border-gray-300 rounded-lg px-4 py-2 bg-gray-100"
+                        value={getMaintenanceTypeName()}
+                        disabled
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-semibold text-gray-700 mb-1">
+                        Status:
+                      </label>
+                      <input
+                        type="text"
+                        className="w-full border border-gray-300 rounded-lg px-4 py-2 bg-gray-100"
+                        value={getStatusName()}
+                        disabled
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-semibold text-gray-700 mb-1">
+                        Contact Number:
+                      </label>
+                      <input
+                        type="text"
+                        className="w-full border border-gray-300 rounded-lg px-4 py-2 bg-gray-100"
+                        value={requestDetails.contact_number || "N/A"}
+                        disabled
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-semibold text-gray-700 mb-1">
+                        Verified By:
+                      </label>
+                      <input
+                        type="text"
+                        className="w-full border border-gray-300 rounded-lg px-4 py-2 bg-gray-100"
+                        value={verifiedByName || "N/A"}
+                        disabled
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-semibold text-gray-700 mb-1">
+                        Date Received:
+                      </label>
+                      <input
+                        type="text"
+                        className="w-full border border-gray-300 rounded-lg px-4 py-2 bg-gray-100"
+                        value={requestDetails.date_received || "N/A"}
+                        disabled
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-semibold text-gray-700 mb-1">
+                        Time Received:
+                      </label>
+                      <input
+                        type="text"
+                        className="w-full border border-gray-300 rounded-lg px-4 py-2 bg-gray-100"
+                        value={requestDetails.time_received || "N/A"}
+                        disabled
+                      />
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-700 mb-1">
+                      Description:
+                    </label>
+                    <textarea
+                      className="w-full border border-gray-300 rounded-lg px-4 py-2 bg-gray-100"
+                      rows="4"
+                      value={requestDetails.details || "N/A"}
+                      disabled
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-700 mb-1">
+                      Remarks from Staff:
+                    </label>
+                    <textarea
+                      className="w-full border border-gray-300 rounded-lg px-4 py-2 bg-gray-100"
+                      rows="2"
+                      value={requestDetails.remarks || "N/A"}
+                      disabled
+                    />
+                  </div>
+                </div>
+              )}
+
+              {/* Action Required Section */}
+              {!isLoading && (
+                <form className="space-y-4" onSubmit={(e) => handleDecision(e, "approve")}>
+                  <h3 className="text-lg font-semibold text-gray-800 border-b pb-2">Action Required</h3>
+
+                  {/* Optional: Head/Supervisor fields as in your logic */}
                   {approvedById === HEAD1_ID && (
                     <div>
                       <label className="block font-medium text-gray-700 mb-1">Approved by Head</label>
@@ -567,7 +573,6 @@ const HeadMaintenanceRequestForm = () => {
                       />
                     </div>
                   )}
-
                   {approvedById === HEAD2_ID && (
                     <div>
                       <label className="block font-medium text-gray-700 mb-1">Approved by Supervisor</label>
@@ -583,40 +588,56 @@ const HeadMaintenanceRequestForm = () => {
                         <p className="text-red-500 text-sm mt-1">Waiting for Head 1 approval.</p>
                       )}
                     </div>
-                    
                   )}
+
                   <div>
-                        <label className="block text-sm font-semibold text-gray-700 mb-1">
-                          Approved by:
-                        </label>
-                        <input
-                          type="text"
-                          className="w-full border border-gray-300 rounded-lg px-4 py-2 bg-gray-100"
-                          value={getCurrentUserDisplayName()}
-                          disabled
-                        />
-                      </div>
+                    <label className="block text-sm font-semibold text-gray-700 mb-1">
+                      Approved by:
+                    </label>
+                    <input
+                      type="text"
+                      className="w-full border border-gray-300 rounded-lg px-4 py-2 bg-gray-100"
+                      value={getCurrentUserDisplayName()}
+                      disabled
+                    />
+                  </div>
 
-                  <button
-                    type="submit"
-                    className={`w-full text-white py-2 rounded-lg ${
-                      alreadyApproved || (approvedById === HEAD2_ID && !approvedBy1)
-                        ? "bg-gray-400 cursor-not-allowed"
-                        : "bg-green-500 hover:bg-green-600"
-                    }`}
-                    disabled={alreadyApproved || (approvedById === HEAD2_ID && !approvedBy1)}
-                  >
-                    {buttonText}
-                  </button>
+                  <div>
+                    <label className="block font-semibold text-gray-700">Remarks:</label>
+                    <textarea
+                      className="w-full border rounded-lg px-4 py-2"
+                      rows={4}
+                      value={remarks}
+                      onChange={e => setRemarks(e.target.value)}
+                      placeholder="Enter any remarks..."
+                    />
+                  </div>
 
-                  <button
-                    type="button"
-                    className="w-full bg-red-500 text-white py-2 rounded-lg mt-2"
-                    onClick={(e) => handleDecision(e, "deny")}
-                  >
-                    Deny
-                  </button>
+                  <div className="flex gap-4 pt-4">
+                    <button
+                      type="submit"
+                      disabled={alreadyApproved || (approvedById === HEAD2_ID && !approvedBy1)}
+                      className={`flex-1 bg-green-600 text-white px-6 py-3 rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed font-semibold transition-colors`}
+                    >
+                      {buttonText}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={(e) => handleDecision(e, "deny")}
+                      disabled={alreadyApproved || (approvedById === HEAD2_ID && !approvedBy1)}
+                      className="flex-1 bg-red-600 text-white px-6 py-3 rounded-lg hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed font-semibold transition-colors"
+                    >
+                      Deny
+                    </button>
+                  </div>
                 </form>
+              )}
+
+              {isLoading && (
+                <div className="text-center py-8">
+                  <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900"></div>
+                  <p className="mt-2 text-gray-600">Loading request details...</p>
+                </div>
               )}
             </div>
           </div>

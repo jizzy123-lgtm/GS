@@ -72,8 +72,8 @@ const SidebarItem = memo(({ item, isSidebarCollapsed, onLogout }) => {
 });
 
 const StaffSidebarDemo = () => {
-  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const navigate = useNavigate(); 
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
 
   const handleToggleSidebar = () => {
     setIsSidebarCollapsed(prev => !prev);

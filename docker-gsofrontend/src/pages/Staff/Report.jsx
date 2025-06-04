@@ -205,12 +205,12 @@ const DateSelector = ({ dateFilter, setDateFilter, dateRange, setDateRange }) =>
 };
 
 const BarChartComponent = ({ requests }) => {
+  const maintenanceTypes = ["Janitorial", "Carpentry", "Electrical", "Airconditioning"];
+
   // Count by maintenance type and status
   const countByTypeAndStatus = () => {
     const counts = {};
-    
-    // Initialize counts for each maintenance type and status
-    Object.values(maintenanceTypeMap).forEach(type => {
+    maintenanceTypes.forEach(type => {
       counts[type] = {
         Pending: 0,
         Approved: 0,
@@ -218,22 +218,17 @@ const BarChartComponent = ({ requests }) => {
         Done: 0
       };
     });
-    
-    // Count requests
     requests.forEach(request => {
-      const type = maintenanceTypeMap[request.maintenance_type_id] || "Unknown";
+      const type = request.maintenance_type || "Unknown";
       const status = request.status;
-      
       if (counts[type] && counts[type][status] !== undefined) {
         counts[type][status]++;
       }
     });
-    
     return counts;
   };
   
   const counts = countByTypeAndStatus();
-  const maintenanceTypes = Object.values(maintenanceTypeMap);
   
   // Prepare data for Chart.js
   const data = {
@@ -330,10 +325,10 @@ const RequestsTable = ({ onRowClick, requests, showActions }) => (
       <tbody>
         {requests.length > 0 ? (
           requests.map((request) => (
-            <tr key={request.id} className="hover:bg-gray-50 even:bg-gray-50 border-b border-gray-400">
+            <tr key={request.request_id} className="hover:bg-gray-50 even:bg-gray-50 border-b border-gray-400">
               <td className="p-3 font-medium">{request.requesting_personnel}</td>
               <td className="p-3">{request.requesting_office}</td>
-              <td className="p-3">{maintenanceTypeMap[request.maintenance_type_id] || "Unknown"}</td>
+              <td className="p-3">{request.maintenance_type || "Unknown"}</td>
               <td className="p-3">{request.created_at ? new Date(request.created_at).toLocaleDateString() : "N/A"}</td>
               <td className="p-3">
                 <span className={`px-3 py-1 rounded-full text-sm ${
@@ -351,7 +346,7 @@ const RequestsTable = ({ onRowClick, requests, showActions }) => (
               {showActions && (
                 <td className="p-3">
                   <button
-                    onClick={() => onRowClick(request.id, request.status)}
+                    onClick={() => onRowClick(request.request_id, request.status)}
                     className="bg-blue-500 hover:bg-blue-600 text-white font-medium py-2 px-4 rounded-lg"
                   >
                     Review
@@ -378,7 +373,7 @@ const UserRequestAnalysis = ({ requests }) => {
     
     requests.forEach(request => {
       const user = request.requesting_personnel;
-      const type = maintenanceTypeMap[request.maintenance_type_id] || "Unknown";
+      const type = request.maintenance_type || "Unknown";
       
       if (!userRequests[user]) {
         userRequests[user] = {
@@ -969,7 +964,7 @@ const UserRequestAnalysis = ({ requests }) => {
                                       .map((req, i) => (
                                         <tr key={i} className="border-b border-gray-200">
                                           <td className="p-2 text-sm">
-                                            {maintenanceTypeMap[req.maintenance_type_id] || "Unknown"}
+                                            {req.maintenance_type || "Unknown"}
                                           </td>
                                           <td className="p-2 text-sm">
                                             <span className={`px-2 py-1 rounded-full text-xs ${
@@ -1108,7 +1103,7 @@ const UserRequestAnalysis = ({ requests }) => {
                                         .map((req, i) => (
                                           <tr key={i} className="border-b border-gray-200">
                                             <td className="p-2 text-sm">
-                                              {maintenanceTypeMap[req.maintenance_type_id] || "Unknown"}
+                                              {req.maintenance_type || "Unknown"}
                                             </td>
                                             <td className="p-2 text-sm">
                                               <span className={`px-2 py-1 rounded-full text-xs ${
@@ -1192,7 +1187,7 @@ const UserRequestAnalysis = ({ requests }) => {
 const Report = () => {
   const navigate = useNavigate();
   const [state, dispatch] = useReducer(sidebarReducer, {
-    isSidebarCollapsed: true,
+    isSidebarCollapsed: true, // Collapsed by default
     isMobileMenuOpen: false,
   });
   const [requests, setRequests] = useState([]);
@@ -1214,12 +1209,13 @@ const Report = () => {
     const fetchRequests = async () => {
       setLoading(true);
       try {
-        const res = await fetch(`${API_BASE_URL}/maintenance-requests`, {
+        const res = await fetch(`${API_BASE_URL}/maintenance-requests/list-with-details`, {
           headers: { Authorization: `Bearer ${token}` },
         });
         const data = await res.json();
-        const list = Array.isArray(data.data) ? data.data : data;
-        setRequests(list);
+
+        // The backend returns an array of requests directly
+        setRequests(Array.isArray(data) ? data : []);
       } catch (err) {
         console.error(err);
         setRequests([]);
@@ -1236,7 +1232,7 @@ const Report = () => {
       if (status === "Pending") {
         navigate(`/staffmaintenancerequestform/${id}`);
       } else {
-        navigate(`/viewmaintenancerequestform/${id}`);
+        navigate(`/staffviewmaintenancerequestform/${id}`);
       }
     },
     [navigate]

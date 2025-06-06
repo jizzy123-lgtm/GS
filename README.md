@@ -1,4 +1,5 @@
 Release 1.4
+backend:
 -Api for (facebook or messenger type of red notifs) numbers of notifications:
 /notifications/unreadCount
 -Function for deny request sets the priority number to null
@@ -8,6 +9,10 @@ Release 1.4
 /maintenance-requests/{id}/mark-onhold
 -Api to set done:
 /maintenance-requests/{id}/mark-done
+
+frontend:
+-mark as urgent
+-mark as onhold
 
 Release 1.3
 -In user POV, details in request status can be seen in text form instead of the ID

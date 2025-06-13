@@ -17,6 +17,7 @@ class FeedbackController extends Controller
             'maintenance_request_id' => 'required|exists:maintenance_requests,id',
             'client_type' => 'required|string',
             'service_type' => 'required|string',
+            'request_date'=> 'required|date',
             'date' => 'required|date',
             'sex' => 'required|string',
             'region' => 'nullable|string',
@@ -52,7 +53,7 @@ class FeedbackController extends Controller
 
         // mark maintenance request as done
         $maintenance = MaintenanceRequest::find($validated['maintenance_request_id']);
-        $maintenance->status_id = '4';
+        // $maintenance->status_id = '4';
         $maintenance->save();
 
         $feedback = Feedback::create($validated);

@@ -18,6 +18,7 @@ return new class extends Migration
 
             $table->string('client_type'); // Citizen, Business, Gov
             $table->string('service_type'); // Internal or External
+            $table->date('request_date');
             $table->date('date');
 
             $table->string('sex');

@@ -51,7 +51,7 @@ class MaintenanceRequestController extends Controller
         //$maintenanceRequest = MaintenanceRequest::create($request->all());
 
         // Notify all heads and staff (role_id 2 = head, role_id 3 = staff)
-        $usersToNotify = User::whereIn('role_id', [2, 3])->get();
+        $usersToNotify = User::whereIn('role_id', [2])->get();
 
         // Use Notification facade to send notifications in bulk
         Notification::send($usersToNotify, new MaintenanceRequestCreated(Auth::user()->last_name));
@@ -98,18 +98,20 @@ class MaintenanceRequestController extends Controller
             'priority_number' => $request->priority_number,
             'remarks' => $request->remarks,
             'verified_by' => $request->verified_by,
+            // 'status_id' => 8,
+
         ]);
 
-        $requester = User::where('id', $maintenanceRequest->requesting_personnel)->first();
-        if ($requester && $requester->email) {
-            $requester->notify(new MaintenanceVerifiedNotification($maintenanceRequest));
-        }
+        // $requester = User::where('id', $maintenanceRequest->requesting_personnel)->first();
+        // if ($requester && $requester->email) {
+        //     $requester->notify(new MaintenanceVerifiedNotification($maintenanceRequest));
+        // }
 
-        $heads = User::where('role_id', 2)->where('status_id', 2)->get(); // assuming role_id = 2 is Head
+        // $heads = User::where('role_id', 2)->where('status_id', 2)->get(); // assuming role_id = 2 is Head
 
-        foreach ($heads as $head) {
-            $head->notify(new RequestVerifiedByStaff($maintenanceRequest));
-        }
+        // foreach ($heads as $head) {
+        //     $head->notify(new RequestVerifiedByStaff($maintenanceRequest));
+        // }
 
         return response()->json([
             'message' => 'Maintenance request reviewed successfully',
@@ -175,14 +177,15 @@ class MaintenanceRequestController extends Controller
         }
 
         $maintenanceRequest->approved_by_1 = $user->id;
+        // $maintenanceRequest->status_id = 9;
         $maintenanceRequest->save();
 
         // Notify the requester by email after final approval
-        $requester = User::where('id', $maintenanceRequest->requesting_personnel)->first();
+        // $requester = User::where('id', $maintenanceRequest->requesting_personnel)->first();
 
-        if ($requester && $requester->email) {
-            $requester->notify(new MaintenanceRequestApproved($maintenanceRequest));
-        }
+        // if ($requester && $requester->email) {
+        //     $requester->notify(new MaintenanceRequestApproved($maintenanceRequest));
+        // }
 
         // Notify the campus director
         $campusDirectors = User::where('role_id', 5)->where('status_id', 2)->get(); // assuming role_id 5 = Campus Director
@@ -217,14 +220,14 @@ class MaintenanceRequestController extends Controller
         }
 
         $maintenanceRequest->approved_by_2 = $user->id;
-        $maintenanceRequest->status_id = 2; // Approved status ID
+        // $maintenanceRequest->status_id = 10;
         $maintenanceRequest->save();
 
         // Notify Requester
-        $requester = User::where('id', $maintenanceRequest->requesting_personnel)->first();
-        if ($requester && $requester->email) {
-            $requester->notify(new RequestApprovedByCampusDirector($maintenanceRequest));
-        }
+        // $requester = User::where('id', $maintenanceRequest->requesting_personnel)->first();
+        // if ($requester && $requester->email) {
+        //     $requester->notify(new RequestApprovedByCampusDirector($maintenanceRequest));
+        // }
 
         // Notify Staff
         $staffMembers = User::where('role_id', 3)->where('status_id', 2)->get(); // Assuming role_id = 3 is staff
@@ -382,13 +385,16 @@ class MaintenanceRequestController extends Controller
         }
 
         // Ensure only heads (role_id = 2) can disapprove
-        if (Auth::user()->role_id !== 2) {
-            return response()->json(['message' => 'Unauthorized'], 403);
-        }
-
+        // if (Auth::user()->role_id !== 2) {
+        //     return response()->json(['message' => 'Unauthorized'], 403);
+        // }
+        $request->validate([
+            'remarks' => 'required|string|max:255',
+        ]);
         // Update request status to "Disapproved"
         $maintenanceRequest->update([
             'status_id' => 3,
+            'remarks' => $request->remarks,
             'priority_number' => null,
         ]);
 
@@ -628,6 +634,7 @@ class MaintenanceRequestController extends Controller
 
         // Update the priority number
         $maintenanceRequest->priority_number = $request->priority_number;
+        $maintenanceRequest->status_id = 2; // Approved status ID
         $maintenanceRequest->save();
 
         // Notify the requester

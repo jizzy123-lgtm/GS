@@ -12,6 +12,8 @@ use App\Http\Controllers\PositionController;
 use App\Http\Controllers\OfficeController;
 use App\Http\Controllers\StatusController;
 use App\Http\Controllers\RoleController;
+use App\Http\Controllers\CommentController;
+
 use App\Models\MaintenanceType;
 
 
@@ -180,14 +182,6 @@ Route::middleware('auth:sanctum')->put('/maintenance-requests/{id}/mark-done', [
 
 
 
-
-
-
-
-
-
-
-
 //translated datas
 
 Route::get('/common-datas', [UserController::class, 'commonDatas']);
@@ -197,6 +191,19 @@ Route::get('/accountStatuses', [StatusController::class, 'accountStatuses']);
 Route::get('/users-list', [UserController::class, 'usersList']);
 
 
+//for comments
+
+Route::middleware('auth:sanctum')->group(function () {
+    Route::get('/comments', [CommentController::class, 'index']);
+    Route::post('/comments', [CommentController::class, 'store']);
+    Route::get('/comments/{id}', [CommentController::class, 'show']);
+    Route::put('/comments/{id}', [CommentController::class, 'update']);
+    Route::delete('/comments/{id}', [CommentController::class, 'destroy']);
+    Route::get('/requests/{id}/comments-by-request', [CommentController::class, 'commentsByRequest']);
+});
+
+Route::get('/statusesPovDirector', [StatusController::class, 'statusesPovDirector']);
+Route::get('/statusesPovHead', [StatusController::class, 'statusesPovHead']);
 
 
 

@@ -104,15 +104,6 @@ class UserController extends Controller
         return response()->json(['message' => 'Logged out'], 200);
     }
 
-    public function userDetails(Request $request)
-    {
-        $user = Auth::user();
-
-        if (!$user) {
-            return response()->json(['message' => 'Unauthorized'], 401);
-        }
-        return response()->json($request->user(), 200);
-    }
 
 
     public function updateAccountStatus(Request $request, $id)
@@ -332,8 +323,6 @@ class UserController extends Controller
             'middle_name' => 'sometimes|string|max:255',
             'suffix' => 'sometimes|string|max:50|nullable',
             'contact_number' => 'sometimes|string|max:20',
-            'position_id' => 'sometimes|exists:positions,id',
-            'office_id' => 'sometimes|exists:offices,id',
             'email' => 'sometimes|email|max:255',
             'username' => 'sometimes|string|max:255|unique:users,username,' . $user->id,
             'password' => 'sometimes|string|min:6|confirmed',
@@ -345,8 +334,6 @@ class UserController extends Controller
             'middle_name',
             'suffix',
             'contact_number',
-            'position_id',
-            'office_id',
             'email',
             'username',
         ]));
@@ -411,5 +398,48 @@ class UserController extends Controller
 
         return response()->json($data);
     }
+
+    public function userDetails(Request $request)
+    {
+        $user = Auth::user();
+
+        if (!$user) {
+            return response()->json(['message' => 'Unauthorized'], 401);
+        }
+
+        // Eager load relationships if needed
+        $user->load([
+            'position',
+            'office',
+            'status',
+            'role'
+        ]);
+
+        // Map user details
+        $data = [
+            'user_id' => $user->id,
+            'full_name' => trim($user->first_name . ' ' . $user->middle_name . ' ' . $user->last_name . ' ' . $user->suffix),
+            'last_name' => $user->last_name,
+            'first_name' => $user->first_name,
+            'middle_name' => $user->middle_name,
+            'suffix' => $user->suffix,
+            'position_id' => $user->position_id,
+            'position' => optional($user->position)->name,
+            'role_id' => $user->role_id,
+            'role' => optional($user->role)->role_name,
+            'office_id' => $user->office_id,
+            'office' => optional($user->office)->name,
+            'status_id' => $user->status_id,
+            'status' => optional($user->status)->name,
+            'contact_number' => $user->contact_number,
+            'email' => $user->email,
+            'username' => $user->username,
+            'created_at' => $user->created_at,
+            'updated_at' => $user->updated_at,
+        ];
+
+        return response()->json($data, 200);
+    }
+
 }
 

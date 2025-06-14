@@ -29,7 +29,7 @@ class RequestAssignedPriority extends Notification
         return (new MailMessage)
             ->subject('Priority Number Assigned to Your Request')
             ->greeting('Hello ' . optional($this->maintenanceRequest->requesting_personnel)->first_name. ',')
-            ->line('Your maintenance request has been assigned a priority number.')
+            ->line('Your maintenance request has been approved and assigned a priority number.')
             ->line('Priority Number: ' . $request->priority_number)
             ->line('Thank you for your patience and for using our system.')
             ->salutation('Regards, GSO SYSTEM');

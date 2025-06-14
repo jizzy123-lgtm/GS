@@ -30,7 +30,8 @@ return new class extends Migration {
             $table->foreignId('approved_by_1')->nullable()->constrained('users')->onDelete('set null');
             $table->foreignId('approved_by_2')->nullable()->constrained('users')->onDelete('set null');
             $table->foreignId('maintenance_type_id')->constrained('maintenance_types')->onDelete('cascade');
-
+            $table->date('approved_at')->nullable();
+            $table->time('time_approved')->nullable();
             $table->timestamps();
         });
     }

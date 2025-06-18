@@ -5,6 +5,7 @@ use App\Models\MaintenanceRequest;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use App\Models\User;
+use App\Models\MaintenanceType;
 use App\Notifications\MaintenanceRequestCreated;
 use Illuminate\Support\Facades\Mail;
 use App\Notifications\MaintenanceVerifiedNotification;
@@ -652,28 +653,69 @@ class MaintenanceRequestController extends Controller
 
     public function markAsDone($id)
     {
+        $request = MaintenanceRequest::find($id);
+
+        if (!$request) {
+            return response()->json(['message' => 'Maintenance request not found.'], 404);
+        }
+
+        $request->status_id = 4; // 4 = done
+        $request->save();
+
+        return response()->json([
+            'message' => 'Maintenance request marked as done.',
+            'data' => $request
+        ]);
+    }
+
+
+
+    public function generatePriorityNumber($maintenanceTypeId)
+    {
+        $maintenanceType = MaintenanceType::find($maintenanceTypeId);
+
+        if (!$maintenanceType) {
+            return response()->json(['message' => 'Maintenance type not found.'], 404);
+        }
+
+        $firstLetter = strtoupper(substr($maintenanceType->type_name, 0, 1));
+        $year = now()->format('y');
+        $month = now()->format('n');
+
+        $count = MaintenanceRequest::where('maintenance_type_id', $maintenanceType->id)
+            ->whereYear('created_at', now()->year)
+            ->whereMonth('created_at', now()->month)
+            ->whereNotNull('approved_by_2')  // <-- added condition
+            ->whereNotNull('priority_number')
+            ->count();
+
+        $runningNumber = $count + 1;
+        $priorityNumber = "{$firstLetter}-{$year}-{$month}-{$runningNumber}";
+
+        return response()->json([
+            'priority_number' => $priorityNumber
+        ], 200);
+    }
+
+    public function getRequestDate($id)
+    {
         $maintenanceRequest = MaintenanceRequest::find($id);
 
         if (!$maintenanceRequest) {
             return response()->json(['message' => 'Maintenance request not found.'], 404);
         }
 
-        // Only allow staff (role_id = 3) to mark as done
-        if (Auth::user()->role_id !== 3) {
-            return response()->json(['message' => 'Unauthorized – only staff can perform this action.'], 403);
-        }
-
-        // Update status to "Done" (status_id = 4)
-        $maintenanceRequest->update([
-            'status_id' => 4,
-        ]);
-
         return response()->json([
-            'message' => 'Maintenance request successfully marked as done.',
-            'data' => $maintenanceRequest,
+            //'request_id' => $maintenanceRequest->id,
+            'request_date' => $maintenanceRequest->date_requested
         ], 200);
     }
+
+
 }
+
+
+
 
 
 

@@ -11,63 +11,77 @@ use App\Notifications\FeedbackSubmitted;
 
 class FeedbackController extends Controller
 {
-    public function store(Request $request)
-    {
-        $validated = $request->validate([
-            'maintenance_request_id' => 'required|exists:maintenance_requests,id',
-            'client_type' => 'required|string',
-            'service_type' => 'required|string',
-            'request_date'=> 'required|date',
-            'date' => 'required|date',
-            'sex' => 'required|string',
-            'region' => 'nullable|string',
-            'age' => 'required|integer',
-            'office_visited' => 'required|string',
-            'service_availed' => 'required|string',
-            'cc1' => 'required|integer',
-            'cc2' => 'nullable|integer',
-            'cc3' => 'nullable|integer',
-            'sqd0' => 'required|integer',
-            'sqd1' => 'required|integer',
-            'sqd2' => 'required|integer',
-            'sqd3' => 'required|integer',
-            'sqd4' => 'required|integer',
-            'sqd5' => 'required|integer',
-            'sqd6' => 'required|integer',
-            'sqd7' => 'required|integer',
-            'sqd8' => 'required|integer',
-            'suggestions' => 'nullable|string',
-            'email' => 'nullable|email',
-        ]);
+   public function store(Request $request)
+{
+    $validated = $request->validate([
+        'maintenance_request_id' => 'required|exists:maintenance_requests,id',
+        'client_type' => 'required|string',
+        'service_type' => 'required|string',
+        'request_date'=> 'required|date',
+        'date' => 'required|date',
+        'sex' => 'required|string',
+        'region' => 'nullable|string',
+        'age' => 'required|integer',
+        'office_visited' => 'required|string',
+        'service_availed' => 'required|string',
+        'cc1' => 'required|integer',
+        'cc2' => 'nullable|integer',
+        'cc3' => 'nullable|integer',
+        'sqd0' => 'required|integer',
+        'sqd1' => 'required|integer',
+        'sqd2' => 'required|integer',
+        'sqd3' => 'required|integer',
+        'sqd4' => 'required|integer',
+        'sqd5' => 'required|integer',
+        'sqd6' => 'required|integer',
+        'sqd7' => 'required|integer',
+        'sqd8' => 'required|integer',
+        'suggestions' => 'nullable|string',
+        'email' => 'nullable|email',
+    ]);
 
-        $maintenance = MaintenanceRequest::find($validated['maintenance_request_id']);
+    // ✅ Prevent multiple feedbacks for the same request
+    $existingFeedback = Feedback::where('maintenance_request_id', $validated['maintenance_request_id'])->first();
 
-        // ❗ Check if the maintenance request is approved (status_id = 2)
-        if (!$maintenance || $maintenance->status_id != 2) {
-            return response()->json([
-                'message' => 'Feedback can only be submitted for approved maintenance requests.'
-            ], 403);
-        }
-
-        $validated['user_id'] = Auth::id(); // get authenticated user
-
-        // mark maintenance request as done
-        $maintenance = MaintenanceRequest::find($validated['maintenance_request_id']);
-        // $maintenance->status_id = '4';
-        $maintenance->save();
-
-        $feedback = Feedback::create($validated);
-
-        $staffUsers = User::where('role_id', [2, 3])->whereNotNull('email')->get();
-        foreach ($staffUsers as $staff) {
-            $staff->notify(new FeedbackSubmitted($feedback));
-        }
-
+    if ($existingFeedback) {
         return response()->json([
-            'message' => 'Feedback submitted successfully and staff notified.',
-            'data' => $feedback
-        ], 201);
+            'message' => 'Feedback has already been submitted for this maintenance request.'
+        ], 409); // 409 Conflict
     }
+
+    $maintenance = MaintenanceRequest::find($validated['maintenance_request_id']);
+
+    // Optional approval check
+    // if (!$maintenance || $maintenance->status_id != 2) {
+    //     return response()->json([
+    //         'message' => 'Feedback can only be submitted for approved maintenance requests.'
+    //     ], 403);
+    // }
+
+    // ✅ Mark as done
+    $maintenance->status_id = 8;
+    $maintenance->save();
+
+    $validated['user_id'] = Auth::id();
+
+    $feedback = Feedback::create($validated);
+
+    // ✅ Notify staff & head
+    $staffUsers = User::whereIn('role_id', [2, 3])
+        ->whereNotNull('email')
+        ->get();
+
+    foreach ($staffUsers as $staff) {
+        $staff->notify(new FeedbackSubmitted($feedback));
+    }
+
+    return response()->json([
+        'message' => 'Feedback submitted successfully and staff notified.',
+        'data' => $feedback
+    ], 201);
+}
+
+
 
 
 

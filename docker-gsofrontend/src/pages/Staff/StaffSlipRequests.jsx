@@ -205,7 +205,6 @@ const StaffSlipRequests = () => {
   };
 
   const filtered = sortUrgentFirst(requests.filter((r) => {
-  // Show in "Verified" tab requests where approved_by_2 is not null and priority_number is null
   if (selectedTab === "Verified") {
     return (
       (r.priority_number === null || r.priority_number === undefined) &&
@@ -213,15 +212,17 @@ const StaffSlipRequests = () => {
     );
   }
 
-  // Show in "Approved" tab requests with a non-null priority_number
   if (selectedTab === "Approved") {
     return r.priority_number !== null && r.priority_number !== undefined;
   }
 
-  // Only show requests where verified_by is null for other tabs
+  // Only show requests with status_name "Completed" (case-insensitive) for the Completed tab
+  if (selectedTab.toLowerCase() === "completed") {
+    return r.status_name && r.status_name.toLowerCase() === "completed";
+  }
+
   if (r.verified_by !== null && r.verified_by !== undefined) return false;
 
-  // Check if selected tab is "Pending" and status is either ID 1 or name "Pending" (case insensitive)
   if (selectedTab === "Pending") {
     return (r.status_id === 1 || r.status_name?.toLowerCase() === "pending") && (r.approved_by_2 === null || r.approved_by_2 === undefined);
   }

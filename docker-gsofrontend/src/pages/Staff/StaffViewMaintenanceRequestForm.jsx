@@ -73,6 +73,32 @@ const StaffViewMaintenanceRequestForm = () => {
     if (token) fetchData();
   }, [id, token, API_BASE_URL]);
 
+  const handleMarkAsDone = async () => {
+    if (!id) return;
+    try {
+      setIsLoading(true);
+      setError("");
+      const response = await fetch(
+        `${API_BASE_URL}/maintenance-requests/${id}/mark-done`,
+        {
+          method: "PUT",
+          headers: {
+            Authorization: `Bearer ${token}`,
+            Accept: "application/json",
+          },
+        }
+      );
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.message || "Failed to mark as done");
+      // Optionally, refresh the request details or navigate away
+      setRequestDetails({ ...requestDetails, status: "Completed" });
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   // List of fields to display and their labels with better organization
   const fieldsToDisplay = [
     { key: "date_requested", label: "Date Requested", category: "basic" },
@@ -241,6 +267,16 @@ const StaffViewMaintenanceRequestForm = () => {
                         Last updated: {new Date().toLocaleDateString()}
                       </div>
                       <div className="flex gap-3">
+                        {/* Mark as Done Button */}
+                        {requestDetails.priority_number && (
+                          <button
+                            className="bg-green-600 hover:bg-green-700 text-white font-semibold px-5 py-2 rounded-lg transition"
+                            onClick={handleMarkAsDone}
+                            disabled={isLoading}
+                          >
+                            Mark as Done
+                          </button>
+                        )}
                       </div>
                     </div>
                   </div>

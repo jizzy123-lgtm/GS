@@ -198,7 +198,7 @@ const DashboardContent = memo(({ onCardClick }) => (
 const Notifications = () => {
   const navigate = useNavigate();
   const [state, dispatch] = useReducer(sidebarReducer, {
-    isSidebarCollapsed: true,
+    isSidebarCollapsed: true, 
     isMobileMenuOpen: false
   });
 

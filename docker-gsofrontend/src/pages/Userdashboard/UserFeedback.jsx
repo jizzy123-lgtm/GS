@@ -88,7 +88,7 @@ const sidebarReducer = (state, action) => {
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
 
-const UserFeedbackForm = () => {
+const UserFeedback = () => {
   // --- Sidebar/menu state ---
   const [state, dispatch] = useReducer(sidebarReducer, {
     isSidebarCollapsed: true,
@@ -119,6 +119,9 @@ const UserFeedbackForm = () => {
   const { id } = useParams();
   const navigate = useNavigate();
 
+  const [requestDate, setRequestDate] = useState("");
+  const [isRequestDateLoading, setIsRequestDateLoading] = useState(false);
+
   useEffect(() => {
     const authToken = localStorage.getItem("authToken") || sessionStorage.getItem("authToken");
     if (!authToken) {
@@ -128,6 +131,28 @@ const UserFeedbackForm = () => {
     }
     if (id) {
       setFormData((prev) => ({ ...prev, maintenance_request_id: id }));
+      setIsRequestDateLoading(true);
+      fetch(`${API_BASE_URL}/maintenance-requests/${id}/request-date`, {
+        headers: {
+          Authorization: `Bearer ${authToken}`,
+          Accept: "application/json",
+        },
+      })
+        .then((res) => {
+          if (!res.ok) throw new Error("Failed to fetch request date");
+          return res.json();
+        })
+        .then((data) => {
+          if (data && data.request_date) {
+            setRequestDate(data.request_date);
+          }
+        })
+        .catch((err) => {
+          console.error("Error fetching request date:", err);
+        })
+        .finally(() => {
+          setIsRequestDateLoading(false);
+        });
     }
   }, [id]);
 
@@ -147,6 +172,15 @@ const UserFeedbackForm = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    console.log("maintenance_request_id for the form:", formData.maintenance_request_id);
+    if (isRequestDateLoading) {
+      alert("Please wait, loading request date...");
+      return;
+    }
+    if (!requestDate) {
+      alert("Request date not loaded. Please try again later.");
+      return;
+    }
     setIsSubmitting(true);
 
     if (!token) {
@@ -176,31 +210,41 @@ const UserFeedbackForm = () => {
       "N/A": 4,
     };
 
+    // Convert ratings to integer (1-5), N/A as 0 or null
+    const ratingToInt = (val) => {
+      if (val === "N/A" || val === "" || val == null) return null;
+      return parseInt(val, 10);
+    };
+
     const payload = {
       maintenance_request_id: formData.maintenance_request_id,
       client_type: formData.client_type,
       service_type: formData.service_type,
-      date: formData.date,
+      request_date: requestDate, // Use fetched request_date
+      date: formData.date, // User input
       sex: formData.sex,
-      age: formData.age,
-      region: formData.region,
+      region: formData.region || null,
+      age: formData.age ? parseInt(formData.age, 10) : null,
       office_visited: formData.office_visited,
       service_availed: formData.service_availed,
       cc1: cc1Options[formData.cc1] ?? null,
       cc2: cc2Map[formData.cc2] ?? null,
       cc3: cc3Map[formData.cc3] ?? null,
-      sqd0: formData.sqd[0],
-      sqd1: formData.sqd[1],
-      sqd2: formData.sqd[2],
-      sqd3: formData.sqd[3],
-      sqd4: formData.sqd[4],
-      sqd5: formData.sqd[5],
-      sqd6: formData.sqd[6],
-      sqd7: formData.sqd[7],
-      sqd8: formData.sqd[8],
-      suggestions: formData.suggestions,
-      email: formData.email,
+      sqd0: ratingToInt(formData.sqd[0]),
+      sqd1: ratingToInt(formData.sqd[1]),
+      sqd2: ratingToInt(formData.sqd[2]),
+      sqd3: ratingToInt(formData.sqd[3]),
+      sqd4: ratingToInt(formData.sqd[4]),
+      sqd5: ratingToInt(formData.sqd[5]),
+      sqd6: ratingToInt(formData.sqd[6]),
+      sqd7: ratingToInt(formData.sqd[7]),
+      sqd8: ratingToInt(formData.sqd[8]),
+      suggestions: formData.suggestions || null,
+      email: formData.email || null,
     };
+
+    // Log the payload before sending
+    console.log("Submitting feedback payload:", payload);
 
     try {
       const response = await fetch(`${API_BASE_URL}/feedback`, {
@@ -359,6 +403,17 @@ const UserFeedbackForm = () => {
                         <option value="Government">Government</option>
                       </select>
                     </div>
+                    {/* Maintenance Date Requested (request_date) */}
+                    <div className="space-y-1">
+                      <label className="block text-sm font-medium text-slate-700">Maintenance Date Requested</label>
+                      <input
+                        type="text"
+                        value={requestDate ? requestDate : (isRequestDateLoading ? "Loading..." : "Not available")}
+                        readOnly
+                        className="w-full border border-slate-300 rounded-md px-3 py-2 text-sm bg-gray-100 text-gray-700 focus:ring-0 focus:border-slate-300 cursor-not-allowed"
+                        placeholder="Maintenance date requested"
+                      />
+                    </div>
                     
                     <div className="space-y-1">
                       <label className="block text-sm font-medium text-slate-700">Service Type</label>
@@ -379,7 +434,9 @@ const UserFeedbackForm = () => {
                         type="date" 
                         name="date" 
                         onChange={handleInput} 
+                        value={formData.date}
                         className="w-full border border-slate-300 rounded-md px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
+                        placeholder="Select date"
                       />
                     </div>
                     
@@ -609,4 +666,4 @@ const UserFeedbackForm = () => {
   );
 };
 
-export default UserFeedbackForm;
+export default UserFeedback;

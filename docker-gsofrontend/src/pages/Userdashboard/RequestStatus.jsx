@@ -116,7 +116,7 @@ const StatusTable = ({ requests, selectedTab, userNameParts }) => {
             <th className="p-3 text-left font-semibold">Maintenance Type</th>
             <th className="p-3 text-left font-semibold">Status</th>
             <th className="p-3 text-left font-semibold">Actions</th>
-            {selectedTab === "Approved" && (
+            {selectedTab === "Done" && (
               <th className="p-3 text-left font-semibold">Give Feedback</th>
             )}
           </tr>
@@ -142,7 +142,7 @@ const StatusTable = ({ requests, selectedTab, userNameParts }) => {
                     View
                   </button>
                 </td>
-                {selectedTab === "Approved" && (
+                {selectedTab === "Done" && (
                   <td className="p-3">
                     <button
                       onClick={() => navigate(`/userfeedback/${request.request_id}`)}
@@ -156,7 +156,7 @@ const StatusTable = ({ requests, selectedTab, userNameParts }) => {
             ))
           ) : (
             <tr>
-              <td colSpan={selectedTab === "Approved" ? 7 : 6} className="p-3 text-center">
+              <td colSpan={selectedTab === "Done" ? 7 : 6} className="p-3 text-center">
                 No requests found
               </td>
             </tr>
@@ -289,7 +289,7 @@ const RequestStatus = () => {
 
           {/* Tabs */}
           <div className="flex space-x-4 mb-6">
-            {["Pending", "Approved", "Disapproved"].map((tab) => (
+            {["Pending", "Approved", "Disapproved", "Done", "Completed"].map((tab) => (
               <button
                 key={tab}
                 onClick={() => setSelectedTab(tab)}
@@ -299,7 +299,11 @@ const RequestStatus = () => {
                       ? "bg-yellow-500 text-white"
                       : tab === "Approved"
                       ? "bg-green-500 text-white"
-                      : "bg-red-500 text-white"
+                      : tab === "Disapproved"
+                      ? "bg-red-500 text-white"
+                      : tab === "Completed"
+                      ? "bg-blue-700 text-white"
+                      : "bg-gray-700 text-white"
                     : "bg-transparent text-gray-700"
                 }`}
               >
@@ -308,7 +312,9 @@ const RequestStatus = () => {
             ))}
           </div>
           <StatusTable
-            requests={filtered}
+            requests={selectedTab === "Completed"
+              ? requests.filter(r => r.status?.trim().toLowerCase() === "completed")
+              : filtered}
             selectedTab={selectedTab}
             userNameParts={userNameParts}
           />

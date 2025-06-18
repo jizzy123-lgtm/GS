@@ -211,7 +211,8 @@ const CampusDirectorRequests = () => {
       return (
         (r.status === "Pending") &&
         r.verified_by !== null && r.verified_by !== undefined &&
-        r.approved_by_1 !== null && r.approved_by_1 !== undefined
+        r.approved_by_1 !== null && r.approved_by_1 !== undefined &&
+        (r.approved_by_2 === null || r.approved_by_2 === undefined) // Only show if approved_by_2 is null
       );
     }
     if (selectedTab.toLowerCase() === "urgent") {

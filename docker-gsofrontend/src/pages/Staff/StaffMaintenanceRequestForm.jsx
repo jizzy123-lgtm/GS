@@ -47,7 +47,6 @@ const StaffMaintenanceRequestForm = () => {
   const [verifiedById, setVerifiedById] = useState("");
 
   const [currentUser, setCurrentUser] = useState({ id: "", full_name: "" });
-  const [existingPriorityCodes, setExistingPriorityCodes] = useState([]);
   const [isGeneratingPriority, setIsGeneratingPriority] = useState(false);
 
   // Close mobile menu when clicking outside
@@ -115,70 +114,24 @@ const StaffMaintenanceRequestForm = () => {
     }
   };
 
-  // Fetch existing priority codes from backend
-  const fetchExistingPriorityCodes = async () => {
-    if (!token) return [];
-    
+  // Generate priority number using backend API
+  const generatePriorityNumberFromAPI = async (maintenanceTypeId) => {
+    if (!maintenanceTypeId) return "";
     try {
-      const res = await fetch(`${API_BASE_URL}/forPriority`, {
+      setIsGeneratingPriority(true);
+      const res = await fetch(`${API_BASE_URL}/generate-priority-number/${maintenanceTypeId}`, {
         method: "GET",
         headers: { Authorization: `Bearer ${token}` },
       });
       const data = await res.json();
-      console.log("/forPriority GET response:", data);
-      
-      // Extract priority codes from response
-      // Assuming the response contains an array of objects with priority_number field
-      if (Array.isArray(data)) {
-        return data.map(item => item.priority_number || item.priority_code).filter(Boolean);
-      } else if (data.data && Array.isArray(data.data)) {
-        return data.data.map(item => item.priority_number || item.priority_code).filter(Boolean);
-      } else if (data.priority_codes && Array.isArray(data.priority_codes)) {
-        return data.priority_codes;
+      if (res.ok && data.priority_number) {
+        return data.priority_number;
       }
-      return [];
+      throw new Error(data.message || "Failed to generate priority number");
     } catch (err) {
-      console.error("Error fetching existing priority codes:", err);
-      return [];
-    }
-  };
-
-  // Generate unique priority code
-  const generateUniquePriorityCode = async (details) => {
-    try {
-      setIsGeneratingPriority(true);
-
-      // Get first letter of maintenance type name, fallback to "X"
-      const typeLetter = details.maintenance_type_name
-        ? details.maintenance_type_name.charAt(0).toUpperCase()
-        : "X";
-
-      // Get the count for this maintenance type from state
-      const typeCount = details.maintenance_type_name
-        ? (maintenanceTypeCounts[details.maintenance_type_name] || 0)
-        : 0;
-
-      // The number for this request is count + 1
-      const requestNum = typeCount + 1;
-
-      // Get month and year from date_requested
-      let month = "MM";
-      let year = "YYYY";
-      if (details.date_requested) {
-        const date = new Date(details.date_requested);
-        month = String(date.getMonth() + 1).padStart(2, "0");
-        year = String(date.getFullYear());
-      }
-
-      // Generate the priority code in the new format: TypeLetter-Year-Month-RequestNum
-      const priorityCode = `${typeLetter}-${year}-${month}-${requestNum}`;
-
-      console.log("Generated priority code:", priorityCode);
-      return priorityCode;
-
-    } catch (err) {
-      console.error("Error generating priority code:", err);
-      return `X-${Date.now()}-ERROR`; // Fallback code
+      console.error("Error generating priority number from API:", err);
+      setError("Failed to generate priority number");
+      return "";
     } finally {
       setIsGeneratingPriority(false);
     }
@@ -409,10 +362,15 @@ const StaffMaintenanceRequestForm = () => {
   // Auto-generate priority number when enhanced request details are available
   useEffect(() => {
     const generatePriority = async () => {
-      if (enhancedRequestDetails && Object.keys(enhancedRequestDetails).length > 0 && 
-          !priority_number && enhancedRequestDetails.approved_by_2) {
+      if (
+        enhancedRequestDetails &&
+        Object.keys(enhancedRequestDetails).length > 0 &&
+        !priority_number &&
+        enhancedRequestDetails.approved_by_2 &&
+        enhancedRequestDetails.maintenance_type_id
+      ) {
         try {
-          const generatedCode = await generateUniquePriorityCode(enhancedRequestDetails);
+          const generatedCode = await generatePriorityNumberFromAPI(enhancedRequestDetails.maintenance_type_id);
           setPriorityNumber(generatedCode);
         } catch (err) {
           console.error("Error auto-generating priority code:", err);
@@ -441,6 +399,45 @@ const StaffMaintenanceRequestForm = () => {
       setIsLoading(true);
       setError("");
       const formattedTime = formatTimeTo24Hour(time_received);
+
+      // Check if approved_by_2 is NOT null or undefined
+      if (
+        enhancedRequestDetails &&
+        (enhancedRequestDetails.approved_by_2 !== null && enhancedRequestDetails.approved_by_2 !== undefined)
+      ) {
+        // Use assign-priority endpoint
+        const endpoint = `${API_BASE_URL}/maintenance-requests/${id}/assign-priority`;
+        const payload = {
+          priority_number,
+          remarks,
+          verified_by: verifiedById,
+        };
+        console.log("Submitting assign-priority payload:", payload);
+
+        const response = await fetch(endpoint, {
+          method: "PUT",
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+            Accept: "application/json",
+          },
+          body: JSON.stringify(payload),
+        });
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.message || "Assign priority failed");
+
+        // After assigning priority, process "Mark as" if selected
+        if (markAs === "urgent") {
+          await handleMarkUrgent();
+        } else if (markAs === "onhold") {
+          await handleMarkOnhold();
+        }
+
+        navigate("/staffsliprequests");
+        return;
+      }
+
+      // Default: verify or deny
       const endpoint =
         action === "deny"
           ? `${API_BASE_URL}/maintenance-requests/${id}/deny`
@@ -453,7 +450,6 @@ const StaffMaintenanceRequestForm = () => {
         verified_by: verifiedById,
         ...(action === "deny" && { status: "denied" }),
       };
-      // Log what is being sent to the backend
       console.log("Submitting payload to backend:", payload);
 
       const response = await fetch(endpoint, {
@@ -485,9 +481,13 @@ const StaffMaintenanceRequestForm = () => {
 
   // Function to manually regenerate priority code
   const handleRegeneratePriority = async () => {
-    if (enhancedRequestDetails && Object.keys(enhancedRequestDetails).length > 0) {
+    if (
+      enhancedRequestDetails &&
+      Object.keys(enhancedRequestDetails).length > 0 &&
+      enhancedRequestDetails.maintenance_type_id
+    ) {
       try {
-        const generatedCode = await generateUniquePriorityCode(enhancedRequestDetails);
+        const generatedCode = await generatePriorityNumberFromAPI(enhancedRequestDetails.maintenance_type_id);
         setPriorityNumber(generatedCode);
       } catch (err) {
         console.error("Error regenerating priority code:", err);

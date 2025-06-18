@@ -13,6 +13,7 @@ class Feedback extends Model
     protected $fillable = [
         'user_id',
         'maintenance_request_id',
+        'request_date',
         'client_type',
         'service_type',
         'date',

@@ -115,7 +115,7 @@ Route::middleware(['auth:sanctum'])->post('/addservice',[MaintenanceTypeControll
 
 
 //users feedback
-Route::middleware(['auth:sanctum'])->post('/feedbacks', [FeedbackController::class, 'store']);
+Route::middleware(['auth:sanctum'])->post('/feedback', [FeedbackController::class, 'store']);
 //get the details of the feedback
 Route::middleware('auth:sanctum')->get('/feedbacks/{id}/details', [FeedbackController::class, 'showFeedbackDetails']);
 
@@ -128,6 +128,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::apiResource('/maintenance-requests', MaintenanceRequestController::class);
 });
 
+Route::get('/maintenance-requests/{id}/request-date', [MaintenanceRequestController::class, 'getRequestDate']);
 
 
 
@@ -174,7 +175,7 @@ Route::apiResource('maintenance-types', MaintenanceTypeController::class);
 
 Route::put('/maintenance-requests/{id}/mark-urgent', [MaintenanceRequestController::class, 'markAsUrgent']);
 Route::put('/maintenance-requests/{id}/mark-onhold', [MaintenanceRequestController::class, 'markAsOnHold']);
-Route::middleware('auth:sanctum')->put('/maintenance-requests/{id}/mark-done', [MaintenanceRequestController::class, 'markAsDone']);
+Route::put('/maintenance-requests/{id}/mark-done', [MaintenanceRequestController::class, 'markAsDone']);
 
 
 
@@ -195,7 +196,7 @@ Route::get('/users-list', [UserController::class, 'usersList']);
 
 Route::middleware('auth:sanctum')->group(function () {
     Route::get('/comments', [CommentController::class, 'index']);
-    Route::post('/comments', [CommentController::class, 'store']);
+    Route::post('/comment', [CommentController::class, 'store']);
     Route::get('/comments/{id}', [CommentController::class, 'show']);
     Route::put('/comments/{id}', [CommentController::class, 'update']);
     Route::delete('/comments/{id}', [CommentController::class, 'destroy']);
@@ -205,6 +206,8 @@ Route::middleware('auth:sanctum')->group(function () {
 Route::get('/statusesPovDirector', [StatusController::class, 'statusesPovDirector']);
 Route::get('/statusesPovHead', [StatusController::class, 'statusesPovHead']);
 
+
+Route::get('/generate-priority-number/{maintenanceTypeId}', [MaintenanceRequestController::class, 'generatePriorityNumber']);
 
 
 

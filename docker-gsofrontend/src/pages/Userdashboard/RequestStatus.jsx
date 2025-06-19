@@ -175,6 +175,7 @@ const RequestStatus = () => {
   });
   const [requests, setRequests] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(""); 
   const [selectedTab, setSelectedTab] = useState("Pending");
   const [userNameParts, setUserNameParts] = useState({
     last_name: "",
@@ -214,6 +215,7 @@ const RequestStatus = () => {
         return;
       }
       setLoading(true);
+      setError(""); // <-- Reset error on load
       try {
         const [userRes, reqRes] = await Promise.all([
           fetch(`${API_BASE_URL}/users/idfullname`, {
@@ -244,13 +246,8 @@ const RequestStatus = () => {
         setRequests(
           list.filter((r) => String(r.requester_id) === String(userId))
         );
-        console.log("User ID:", userId);
-        console.log("All Requests:", list);
-        console.log("Filtered Requests:", list.filter((r) => String(r.requester_id) === String(userId)));
-        console.log("User Data:", userData);
-        console.log("Requests Data:", reqData);
       } catch (err) {
-        console.error(err);
+        setError(err.message || "An error occurred while loading data."); // <-- Set error
         setRequests([]);
       } finally {
         setLoading(false);
@@ -263,7 +260,34 @@ const RequestStatus = () => {
     (r) => r.status?.trim().toLowerCase() === selectedTab.toLowerCase()
   );
 
-  if (loading) return <div className="p-4">Loading request statuses...</div>;
+  // --- Loading and Error UI (copied/adapted from ViewMaintenanceRequestForm) ---
+  if (loading) {
+    return (
+      <div className="flex flex-col items-center justify-center py-16 min-h-screen bg-gray-50">
+        <div className="relative">
+          <div className="w-12 h-12 border-4 border-slate-200 border-t-blue-600 rounded-full animate-spin"></div>
+        </div>
+        <p className="mt-4 text-slate-600 font-medium">Loading request statuses...</p>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="flex flex-col items-center justify-center py-16 min-h-screen bg-gray-50">
+        <div className="mb-6 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg flex items-start shadow-sm">
+          <svg className="w-5 h-5 mr-3 mt-0.5 flex-shrink-0 text-red-500" fill="currentColor" viewBox="0 0 20 20">
+            <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+          </svg>
+          <div>
+            <h3 className="font-semibold">Error</h3>
+            <p className="mt-1">{error}</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+  // --- End Loading and Error UI ---
 
   return (
     <div className="flex flex-col h-screen bg-gray-50">

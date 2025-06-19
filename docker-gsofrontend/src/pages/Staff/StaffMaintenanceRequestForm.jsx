@@ -519,40 +519,6 @@ const StaffMaintenanceRequestForm = () => {
     navigate("/loginpage");
   };
 
-  // Count maintenance requests by type ID from the /forPriority endpoint
-  useEffect(() => {
-    if (!token || maintenanceTypes.length === 0) return;
-    const fetchAndCountTypes = async () => {
-      try {
-        const res = await fetch(`${API_BASE_URL}/forPriority`, {
-          method: "GET",
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        const data = await res.json();
-        const requests = Array.isArray(data.data) ? data.data : Array.isArray(data) ? data : [];
-        const typeNameCounts = {};
-        requests.forEach(req => {
-          const typeName = req.maintenance_type;
-          if (typeName) {
-            typeNameCounts[typeName] = (typeNameCounts[typeName] || 0) + 1;
-          }
-        });
-        maintenanceTypes.forEach(type => {
-          if (!(type.type_name in typeNameCounts)) {
-            typeNameCounts[type.type_name] = 0;
-          }
-        });
-        setMaintenanceTypeCounts(typeNameCounts); 
-        console.log("Maintenance type counts from /forPriority:", typeNameCounts);
-      } catch (err) {
-        console.error("Error counting maintenance types from /forPriority:", err);
-      }
-    };
-    fetchAndCountTypes();
-  }, [token, API_BASE_URL, maintenanceTypes]);
-
-  const [maintenanceTypeCounts, setMaintenanceTypeCounts] = useState({});
-
   const handleMarkUrgent = async () => {
   try {
     setIsLoading(true);

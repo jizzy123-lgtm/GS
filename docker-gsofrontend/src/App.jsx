@@ -50,6 +50,9 @@ import CampusDirectorDashboard from "./pages/CampusDirector/CampusDirectorDashbo
 import CampusDirectorRequests from "./pages/CampusDirector/CampusDirectorRequests.jsx";
 import CampusDirectorMaintenanceRequestForm from "./pages/CampusDirector/CampusDirectorMaintenanceRequestForm.jsx";
 import ViewUserRequestForm from "./pages/Staff/ViewUserRequestForm.jsx";
+import StaffNotifications from "./pages/Staff/StaffNotifications.jsx";
+import { StaffNotificationProvider } from "./components/StaffSidebar";
+
 
 function App() {
   const token = localStorage.getItem('token'); // Retrieve token from localStorage
@@ -93,20 +96,119 @@ function App() {
         <Route path="/adminuserrequests" element={<AdminUserRequests token={token} />} />
         <Route path="/adminuserrequestsform/:user_id" element={<AdminUserRequestsForm />} />
         
-        {/* Staff Routes */}
-        <Route path="/staffdashboard" element={<StaffDashboard />} />
-        <Route path="/staffrequests" element={<StaffRequests />} />
-        <Route path="/staffsliprequests" element={<StaffSlipRequests token={token} />} />
-        <Route path="/userrequests" element={<UserRequests />} />
-        <Route path="/staffmaintenancerequestform/:id" element={<StaffMaintenanceRequestForm token={token} />} />
-        <Route path="/staffmaintenance" element={<StaffMaintenance token={token} />} />
-        <Route path="/staffjanitorial" element={<StaffJanitorial token={token} />} />
-        <Route path="/staffelectrical" element={<StaffElectrical token={token} />} />
-        <Route path="/staffcarpentry" element={<StaffCarpentry token={token} />} /> 
-        <Route path="/staffairconditioning" element={<StaffAirconditioning token={token} />} />
-        <Route path="/report" element={<Report token={token} />} />
-        <Route path="/staffviewmaintenancerequestform/:id" element={<StaffViewMaintenanceRequestForm token={token} />} />
-        <Route path="/viewuserrequestform/:user_id" element={<ViewUserRequestForm  />} />
+        {/* Staff Routes - wrapped with StaffNotificationProvider */}
+        <Route
+          path="/staffdashboard"
+          element={
+            <StaffNotificationProvider>
+              <StaffDashboard />
+            </StaffNotificationProvider>
+          }
+        />
+        <Route
+          path="/staffrequests"
+          element={
+            <StaffNotificationProvider>
+              <StaffRequests />
+            </StaffNotificationProvider>
+          }
+        />
+        <Route
+          path="/staffsliprequests"
+          element={
+            <StaffNotificationProvider>
+              <StaffSlipRequests token={token} />
+            </StaffNotificationProvider>
+          }
+        />
+        <Route
+          path="/userrequests"
+          element={
+            <StaffNotificationProvider>
+              <UserRequests />
+            </StaffNotificationProvider>
+          }
+        />
+        <Route
+          path="/staffmaintenancerequestform/:id"
+          element={
+            <StaffNotificationProvider>
+              <StaffMaintenanceRequestForm token={token} />
+            </StaffNotificationProvider>
+          }
+        />
+        <Route
+          path="/staffmaintenance"
+          element={
+            <StaffNotificationProvider>
+              <StaffMaintenance token={token} />
+            </StaffNotificationProvider>
+          }
+        />
+        <Route
+          path="/staffjanitorial"
+          element={
+            <StaffNotificationProvider>
+              <StaffJanitorial token={token} />
+            </StaffNotificationProvider>
+          }
+        />
+        <Route
+          path="/staffelectrical"
+          element={
+            <StaffNotificationProvider>
+              <StaffElectrical token={token} />
+            </StaffNotificationProvider>
+          }
+        />
+        <Route
+          path="/staffcarpentry"
+          element={
+            <StaffNotificationProvider>
+              <StaffCarpentry token={token} />
+            </StaffNotificationProvider>
+          }
+        />
+        <Route
+          path="/staffairconditioning"
+          element={
+            <StaffNotificationProvider>
+              <StaffAirconditioning token={token} />
+            </StaffNotificationProvider>
+          }
+        />
+        <Route
+          path="/report"
+          element={
+            <StaffNotificationProvider>
+              <Report token={token} />
+            </StaffNotificationProvider>
+          }
+        />
+        <Route
+          path="/staffviewmaintenancerequestform/:id"
+          element={
+            <StaffNotificationProvider>
+              <StaffViewMaintenanceRequestForm token={token} />
+            </StaffNotificationProvider>
+          }
+        />
+        <Route
+          path="/viewuserrequestform/:user_id"
+          element={
+            <StaffNotificationProvider>
+              <ViewUserRequestForm />
+            </StaffNotificationProvider>
+          }
+        />
+        <Route
+          path="/staffnotifications"
+          element={
+            <StaffNotificationProvider>
+              <StaffNotifications token={token} />
+            </StaffNotificationProvider>
+          }
+        />
 
         {/* Head Routes */}
         <Route path="/headdashboard" element={<HeadDashboard token={token} />} />

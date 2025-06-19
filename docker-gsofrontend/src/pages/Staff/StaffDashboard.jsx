@@ -1,7 +1,7 @@
 import { useState, useReducer, useEffect, useCallback, memo, useRef } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
 import Icon from '../../components/Icon';
-import ScheduleSidebar from '../../components/ScheduleSidebar';
+// import ScheduleSidebar from '../../components/ScheduleSidebar';
 import { StaffSidebar, MENU_ITEMS as STAFF_MENU_ITEMS } from '../../components/StaffSidebar';
 
 // Custom Hooks
@@ -189,7 +189,7 @@ const StaffDashboard = () => {
           onLogout={handleLogout}
         />
         <DashboardContent onCardClick={handleNavigation} />
-        <ScheduleSidebar />
+        {/* <ScheduleSidebar /> */}
       </div>
     </div>
   );

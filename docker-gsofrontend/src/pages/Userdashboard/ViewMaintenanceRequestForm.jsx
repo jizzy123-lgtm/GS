@@ -1,8 +1,25 @@
-import { useState, useEffect, useReducer } from "react";
-import { useNavigate, useParams } from "react-router-dom";
-import Sidebar from "../../components/Sidebar";
+import { useState, useEffect, useReducer, useRef, memo } from "react";
+import { useNavigate, useParams, NavLink } from "react-router-dom";
+import Sidebar, { MENU_ITEMS as SIDEBAR_MENU_ITEMS } from "../../components/Sidebar";
+import Icon from "../../components/Icon";
 
-// Reducer for sidebar state management
+// Custom Hooks (copied from Dashboard)
+const useClickOutside = (ref, handler) => {
+  useEffect(() => {
+    const listener = (event) => {
+      if (!ref.current || ref.current.contains(event.target)) return;
+      handler(event);
+    };
+    document.addEventListener('mousedown', listener);
+    document.addEventListener('touchstart', listener);
+    return () => {
+      document.removeEventListener('mousedown', listener);
+      document.removeEventListener('touchstart', listener);
+    };
+  }, [ref, handler]);
+};
+
+// Reducer for sidebar state management (copied from Dashboard)
 const sidebarReducer = (state, action) => {
   switch (action.type) {
     case "TOGGLE_SIDEBAR":
@@ -16,6 +33,70 @@ const sidebarReducer = (state, action) => {
   }
 };
 
+// Header (copied from Dashboard)
+const Header = memo(({ 
+  isMobileMenuOpen, 
+  onToggleMobileMenu,
+  onCloseMobileMenu,
+  userTitle = "User"
+}) => {
+  const mobileMenuRef = useRef(null);
+
+  useClickOutside(mobileMenuRef, () => {
+    if (isMobileMenuOpen) onCloseMobileMenu();
+  });
+
+  return (
+    <header className="bg-black text-white p-4 flex justify-between items-center relative">
+      <span className="text-xl md:text-2xl font-extrabold tracking-tight">
+        ManageIT 
+      </span>
+
+      <div className="hidden md:block text-xl font-bold text-white">
+        {userTitle}
+      </div>
+      
+      <div className="flex items-center gap-4 md:hidden">
+        <button 
+          onClick={onToggleMobileMenu}
+          className="p-3 hover:bg-gray-800 active:bg-gray-700 rounded-lg border-2 border-white 
+                     transition-colors touch-manipulation"
+          aria-label="Toggle menu"
+          aria-expanded={isMobileMenuOpen}
+        >
+          <Icon path="M4 6h16M4 12h16M4 18h16" className="w-6 h-6" />
+        </button>
+      </div>
+
+      <div
+        ref={mobileMenuRef}
+        className={`absolute md:hidden top-full right-0 mt-2 w-56 bg-gray-800 rounded-lg shadow-xl z-30 
+                    transition-all duration-300 ease-out overflow-hidden ${
+          isMobileMenuOpen ? 'max-h-96 opacity-100' : 'max-h-0 opacity-0'
+        }`}
+      >
+        <nav className="py-2">
+          {SIDEBAR_MENU_ITEMS.map((item) => (
+            <NavLink
+              key={item.text}
+              to={item.to}
+              className="flex items-center px-4 py-4 text-sm hover:bg-gray-700 active:bg-gray-600 
+                         transition-colors touch-manipulation"
+              onClick={onCloseMobileMenu}
+            >
+              <Icon path={item.icon} className="w-5 h-5 mr-3" />
+              {item.text}
+            </NavLink>
+          ))}
+        </nav>
+        <div className="text-center py-2 text-xs text-gray-400 border-t border-gray-700">
+          Created By Bantilan & Friends
+        </div>
+      </div>
+    </header>
+  );
+});
+
 const ViewMaintenanceRequestForm = () => {
   const navigate = useNavigate();
   const { id } = useParams();
@@ -26,7 +107,8 @@ const ViewMaintenanceRequestForm = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [token, setToken] = useState("");
   const [sidebarState, dispatch] = useReducer(sidebarReducer, {
-    isSidebarCollapsed: true, 
+    isSidebarCollapsed: true,
+    isMobileMenuOpen: false,
   });
 
   useEffect(() => {
@@ -79,7 +161,7 @@ const ViewMaintenanceRequestForm = () => {
     { key: "requesting_office", label: "Office", category: "requester" },
     { key: "contact_number", label: "Contact Number", category: "requester" },
     { key: "status", label: "Status", category: "status" },
-    { key: "priority_number", label: "Priority Level", category: "status" },
+    { key: "priority_number", label: "Priority Number", category: "status" },
     { key: "maintenance_type", label: "Maintenance Type", category: "status" },
     { key: "date_received", label: "Date Received", category: "processing" },
     { key: "time_received", label: "Time Received", category: "processing" },
@@ -136,34 +218,19 @@ const ViewMaintenanceRequestForm = () => {
   return (
     <div className="flex flex-col h-screen bg-gradient-to-br from-slate-50 to-slate-100">
       {/* Header */}
-      <header className="bg-gradient-to-r from-slate-900 to-slate-800 text-white p-4 shadow-lg border-b border-slate-700">
-        <div className="flex justify-between items-center">
-          <div className="flex items-center space-x-3">
-            <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center">
-              <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
-            </div>
-            <span className="text-xl md:text-2xl font-bold tracking-tight">
-              ManageIT
-            </span>
-          </div>
-          <div className="hidden md:flex items-center space-x-3">
-            <div className="w-8 h-8 bg-slate-700 rounded-full flex items-center justify-center">
-              <svg className="w-4 h-4 text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-              </svg>
-            </div>
-            <span className="text-sm font-medium text-slate-200">User</span>
-          </div>
-        </div>
-      </header>
+      <Header
+        isMobileMenuOpen={sidebarState.isMobileMenuOpen}
+        onToggleMobileMenu={() => dispatch({ type: "TOGGLE_MOBILE_MENU" })}
+        onCloseMobileMenu={() => dispatch({ type: "CLOSE_MOBILE_MENU" })}
+        userTitle="User"
+      />
 
       <div className="flex flex-1 overflow-hidden">
         {/* Sidebar */}
         <Sidebar
           isSidebarCollapsed={sidebarState.isSidebarCollapsed}
           onToggleSidebar={() => dispatch({ type: "TOGGLE_SIDEBAR" })}
+          menuItems={SIDEBAR_MENU_ITEMS}
           title="User"
         />
 
@@ -182,7 +249,7 @@ const ViewMaintenanceRequestForm = () => {
                     </p>
                   </div>
                   <button
-                    onClick={() => navigate("/maintenance")}
+                    onClick={() => navigate("/requeststatus")}
                     className="inline-flex items-center px-4 py-2 text-sm font-medium text-slate-700 bg-white border border-slate-300 rounded-lg hover:bg-slate-50 hover:border-slate-400 transition-all duration-200 shadow-sm"
                   >
                     <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -247,15 +314,6 @@ const ViewMaintenanceRequestForm = () => {
                         Last updated: {new Date().toLocaleDateString()}
                       </div>
                       <div className="flex gap-3">
-                        <button
-                          onClick={() => navigate("/requeststatus")}
-                          className="inline-flex items-center px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition-all duration-200 shadow-sm"
-                        >
-                          <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
-                          </svg>
-                          Back to Requests
-                        </button>
                       </div>
                     </div>
                   </div>

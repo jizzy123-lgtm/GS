@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 use App\Models\MaintenanceRequest;
+use App\Models\Notification as SystemNotification;;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use App\Models\User;
@@ -57,15 +58,16 @@ class MaintenanceRequestController extends Controller
         // Use Notification facade to send notifications in bulk
         Notification::send($usersToNotify, new MaintenanceRequestCreated(Auth::user()->last_name));
 
-    //     $recipients = User::whereIn('role_id', [2, 3])->get();
+        $staffUsers = User::where('role_id', 3)->get();
 
-    // foreach ($recipients as $recipient) {
-    //     Notification::create([
-    //         'user_id' => $recipient->id,
-    //         'type' => 'maintenance_request',
-    //         'message' => Auth::user()->full_name . ' submitted a maintenance request!',
-    //     ]);
-    // }
+        foreach ($staffUsers as $staff) {
+            SystemNotification::create([
+                'user_id' => $staff->id,
+                'type' => 'maintenance_request_created',
+                'message' => 'A new maintenance request was submitted by ' . Auth::user()->last_name . ', '. Auth::user()->first_name,
+                'is_read' => false,
+            ]);
+        }
 
         // Return a response with the created maintenance request and a message
         return response()->json([

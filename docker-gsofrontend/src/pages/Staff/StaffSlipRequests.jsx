@@ -179,6 +179,12 @@ const StaffSlipRequests = () => {
 
   const handleRowClick = useCallback(
     (id, status, approved_by_2, priority_number) => {
+      // If the selected tab is "Pending Approvals", always navigate to the view page
+      if (selectedTab === "Pending Approvals") {
+        navigate(`/staffviewmaintenancerequestform/${id}`);
+        return;
+      }
+
       const isPending = status === "Pending" || status === 1;
       const isApprovedBy2 = approved_by_2 !== null && approved_by_2 !== undefined;
       const hasPriority = priority_number !== null && priority_number !== undefined;
@@ -190,7 +196,7 @@ const StaffSlipRequests = () => {
         navigate(`/staffviewmaintenancerequestform/${id}`);
       }
     },
-    [navigate]
+    [navigate, selectedTab]
   );
 
   // Sort requests so that "Urgent" status requests appear first
@@ -204,7 +210,41 @@ const StaffSlipRequests = () => {
     });
   };
 
+  // Modify getTabs to insert "Pending Approvals" after "Pending"
+const getTabs = (statuses) => {
+  const pendingIdx = statuses.findIndex(s => s.name?.toLowerCase() === "pending");
+  const approvedIdx = statuses.findIndex(s => s.name?.toLowerCase() === "approved");
+
+  // Remove Approved from the list
+  let reordered = statuses.filter((s, idx) => idx !== approvedIdx);
+
+  // Insert Verified and Pending Approvals after Pending
+  if (pendingIdx !== -1) {
+    reordered.splice(pendingIdx + 1, 0, { id: "pending-approvals", name: "Pending Approvals" });
+    reordered.splice(pendingIdx + 2, 0, { id: "verified", name: "Verified" });
+  } else {
+    reordered.unshift({ id: "pending-approvals", name: "Pending Approvals" });
+    reordered.unshift({ id: "verified", name: "Verified" });
+  }
+
+  // Add Approved at the end
+  if (approvedIdx !== -1) {
+    reordered.push(statuses[approvedIdx]);
+  }
+
+  return reordered;
+};
+
   const filtered = sortUrgentFirst(requests.filter((r) => {
+  if (selectedTab === "Pending Approvals") {
+    // Show requests where status is "Pending" and either approved_by_1 or approved_by_2 is null/undefined
+    return (
+      (r.status_name?.toLowerCase() === "pending" || r.status_id === 1) &&
+      (r.approved_by_1 === null || r.approved_by_1 === undefined ||
+       r.approved_by_2 === null || r.approved_by_2 === undefined)
+    );
+  }
+
   if (selectedTab === "Verified") {
     return (
       (r.priority_number === null || r.priority_number === undefined) &&
@@ -247,30 +287,7 @@ const StaffSlipRequests = () => {
 
   if (loading) return <div className="p-4">Loading requests...</div>;
 
-  // Hardcode the Verified tab after Pending, and Approved at the end
-const getTabs = (statuses) => {
-  const pendingIdx = statuses.findIndex(s => s.name?.toLowerCase() === "pending");
-  const approvedIdx = statuses.findIndex(s => s.name?.toLowerCase() === "approved");
-
-  // Remove Approved from the list
-  let reordered = statuses.filter((s, idx) => idx !== approvedIdx);
-
-  // Insert Verified after Pending
-  if (pendingIdx !== -1) {
-    reordered.splice(pendingIdx + 1, 0, { id: "verified", name: "Verified" });
-  } else {
-    reordered.unshift({ id: "verified", name: "Verified" });
-  }
-
-  // Add Approved at the end
-  if (approvedIdx !== -1) {
-    reordered.push(statuses[approvedIdx]);
-  }
-
-  return reordered;
-};
-
-const tabs = getTabs(statuses);
+  const tabs = getTabs(statuses);
 
   return (
     <div className="flex flex-col h-screen bg-gray-50">

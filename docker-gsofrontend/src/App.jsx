@@ -1,6 +1,6 @@
 import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
-import Loginpage from "./pages/LoginScreen/Loginpage"; 
-import Dashboard from "./pages/Userdashboard/Dashboard"; 
+import Loginpage from "./pages/LoginScreen/Loginpage";
+import Dashboard from "./pages/Userdashboard/Dashboard";
 import Maintenace from "./pages/Maintenance/Maintenance";
 import Carpentry from "./pages/Maintenance/Carpentry";
 import Janitorial from "./pages/Maintenance/Janitorial";
@@ -50,6 +50,15 @@ import CampusDirectorDashboard from "./pages/CampusDirector/CampusDirectorDashbo
 import CampusDirectorRequests from "./pages/CampusDirector/CampusDirectorRequests.jsx";
 import CampusDirectorMaintenanceRequestForm from "./pages/CampusDirector/CampusDirectorMaintenanceRequestForm.jsx";
 import ViewUserRequestForm from "./pages/Staff/ViewUserRequestForm.jsx";
+import StaffNotifications from "./pages/Staff/StaffNotifications.jsx";
+import HeadNotifications from "./pages/Head/HeadNotifications.jsx";
+import CampusDirectorNotifications from "./pages/CampusDirector/CampusDirectorNotifications.jsx";
+import { StaffNotificationProvider } from "./components/StaffSidebar";
+import { AdminNotificationProvider } from "./components/AdminSidebar.jsx";
+import { UserNotificationProvider } from "./components/Sidebar.jsx";
+import { HeadNotificationProvider } from "./components/HeadSidebar.jsx";
+import { CampusDirectorNotificationProvider } from "./components/CampusDirectorSidebar.jsx";
+
 
 function App() {
   const token = localStorage.getItem('token'); // Retrieve token from localStorage
@@ -62,66 +71,431 @@ function App() {
         <Route path="/loginpage" element={<Loginpage />} />
         <Route path="/signuppage" element={<Signuppage />} />
 
-        {/* User Dashboard Routes */}
-        <Route path="/dashboard" element={<Dashboard />} />
-        <Route path="/notifications" element={<Notifications />} />
-        <Route path="/schedules" element={<Schedules />} />
-        <Route path="/requeststatus" element={<RequestStatus />} />
-        <Route path="/viewmaintenancerequestform/:id" element={<ViewMaintenanceRequestForm />} />
-        <Route path="/userfeedback/:id" element={<UserFeedback token={token}/>} />
-        <Route path="/profile" element={<Profile/>} />
-        <Route path="/userchangepass" element={<UserChangePass/>} />
+        {/* User Dashboard Routes - wrapped with UserNotificationProvider */}
+        <Route
+          path="/dashboard"
+          element={
+            <UserNotificationProvider>
+              <Dashboard />
+            </UserNotificationProvider>
+          }
+        />
+        <Route
+          path="/notifications"
+          element={
+            <UserNotificationProvider>
+              <Notifications />
+            </UserNotificationProvider>
+          }
+        />
+        <Route
+          path="/schedules"
+          element={
+            <UserNotificationProvider>
+              <Schedules />
+            </UserNotificationProvider>
+          }
+        />
+        <Route
+          path="/requeststatus"
+          element={
+            <UserNotificationProvider>
+              <RequestStatus />
+            </UserNotificationProvider>
+          }
+        />
+        <Route
+          path="/viewmaintenancerequestform/:id"
+          element={
+            <UserNotificationProvider>
+              <ViewMaintenanceRequestForm />
+            </UserNotificationProvider>
+          }
+        />
+        <Route
+          path="/userfeedback/:id"
+          element={
+            <UserNotificationProvider>
+              <UserFeedback token={token} />
+            </UserNotificationProvider>
+          }
+        />
+        <Route
+          path="/profile"
+          element={
+            <UserNotificationProvider>
+              <Profile />
+            </UserNotificationProvider>
+          }
+        />
+        <Route
+          path="/userchangepass"
+          element={
+            <UserNotificationProvider>
+              <UserChangePass />
+            </UserNotificationProvider>
+          }
+        />
 
-        {/* Maintenance Routes */}
-        <Route path="/maintenance" element={<Maintenace />} />
-        <Route path="/janitorial" element={<Janitorial token={token} />} />
-        <Route path="/carpentry" element={<Carpentry />} />
-        <Route path="/electrical" element={<Electrical />} />
-        <Route path="/airconditioning" element={<AirConditioning />} />
+        {/* Maintenance Routes - wrapped with UserNotificationProvider */}
+        <Route
+          path="/maintenance"
+          element={
+            <UserNotificationProvider>
+              <Maintenace />
+            </UserNotificationProvider>
+          }
+        />
+        <Route
+          path="/janitorial"
+          element={
+            <UserNotificationProvider>
+              <Janitorial token={token} />
+            </UserNotificationProvider>
+          }
+        />
+        <Route
+          path="/carpentry"
+          element={
+            <UserNotificationProvider>
+              <Carpentry />
+            </UserNotificationProvider>
+          }
+        />
+        <Route
+          path="/electrical"
+          element={
+            <UserNotificationProvider>
+              <Electrical />
+            </UserNotificationProvider>
+          }
+        />
+        <Route
+          path="/airconditioning"
+          element={
+            <UserNotificationProvider>
+              <AirConditioning />
+            </UserNotificationProvider>
+          }
+        />
 
-        {/* Admin Routes */}
-        <Route path="/admindashboard" element={<AdminDashboard />} />
-        <Route path="/adminnotifications" element={<Adminnotifications />} />
-        <Route path="/adminschedules" element={<AdminSchedules />} />
-        <Route path="/adminmaintenance" element={<AdminMaintenance />} />
-        <Route path="/requests" element={<Requests token={token} />} />
-        <Route path="/adminjanitorial" element={<AdminJanitorial token={token} />} />
-        <Route path="/adminelectrical" element={<AdminElectrical token={token} />} />
-        <Route path="/admincarpentry" element={<AdminCarpentry token={token} />} />
-        <Route path="/adminairconditioning" element={<AdminAirconditioning token={token} />} />
-        <Route path="/admincarpentryform/:id" element={<AdminCarpentryform token={token} />} />
-        <Route path="/adminuserrequests" element={<AdminUserRequests token={token} />} />
-        <Route path="/adminuserrequestsform/:user_id" element={<AdminUserRequestsForm />} />
-        
-        {/* Staff Routes */}
-        <Route path="/staffdashboard" element={<StaffDashboard />} />
-        <Route path="/staffrequests" element={<StaffRequests />} />
-        <Route path="/staffsliprequests" element={<StaffSlipRequests token={token} />} />
-        <Route path="/userrequests" element={<UserRequests />} />
-        <Route path="/staffmaintenancerequestform/:id" element={<StaffMaintenanceRequestForm token={token} />} />
-        <Route path="/staffmaintenance" element={<StaffMaintenance token={token} />} />
-        <Route path="/staffjanitorial" element={<StaffJanitorial token={token} />} />
-        <Route path="/staffelectrical" element={<StaffElectrical token={token} />} />
-        <Route path="/staffcarpentry" element={<StaffCarpentry token={token} />} /> 
-        <Route path="/staffairconditioning" element={<StaffAirconditioning token={token} />} />
-        <Route path="/report" element={<Report token={token} />} />
-        <Route path="/staffviewmaintenancerequestform/:id" element={<StaffViewMaintenanceRequestForm token={token} />} />
-        <Route path="/viewuserrequestform/:user_id" element={<ViewUserRequestForm  />} />
+        {/* Admin Routes - wrapped with AdminNotificationProvider */}
+        <Route
+          path="/admindashboard"
+          element={
+            <AdminNotificationProvider>
+              <AdminDashboard />
+            </AdminNotificationProvider>
+          }
+        />
+        <Route
+          path="/adminnotifications"
+          element={
+            <AdminNotificationProvider>
+              <Adminnotifications />
+            </AdminNotificationProvider>
+          }
+        />
+        <Route
+          path="/adminschedules"
+          element={
+            <AdminNotificationProvider>
+              <AdminSchedules />
+            </AdminNotificationProvider>
+          }
+        />
+        <Route
+          path="/adminmaintenance"
+          element={
+            <AdminNotificationProvider>
+              <AdminMaintenance />
+            </AdminNotificationProvider>
+          }
+        />
+        <Route
+          path="/requests"
+          element={
+            <AdminNotificationProvider>
+              <Requests token={token} />
+            </AdminNotificationProvider>
+          }
+        />
+        <Route
+          path="/adminjanitorial"
+          element={
+            <AdminNotificationProvider>
+              <AdminJanitorial token={token} />
+            </AdminNotificationProvider>
+          }
+        />
+        <Route
+          path="/adminelectrical"
+          element={
+            <AdminNotificationProvider>
+              <AdminElectrical token={token} />
+            </AdminNotificationProvider>
+          }
+        />
+        <Route
+          path="/admincarpentry"
+          element={
+            <AdminNotificationProvider>
+              <AdminCarpentry token={token} />
+            </AdminNotificationProvider>
+          }
+        />
+        <Route
+          path="/adminairconditioning"
+          element={
+            <AdminNotificationProvider>
+              <AdminAirconditioning token={token} />
+            </AdminNotificationProvider>
+          }
+        />
+        <Route
+          path="/admincarpentryform/:id"
+          element={
+            <AdminNotificationProvider>
+              <AdminCarpentryform token={token} />
+            </AdminNotificationProvider>
+          }
+        />
+        <Route
+          path="/adminuserrequests"
+          element={
+            <AdminNotificationProvider>
+              <AdminUserRequests token={token} />
+            </AdminNotificationProvider>
+          }
+        />
+        <Route
+          path="/adminuserrequestsform/:user_id"
+          element={
+            <AdminNotificationProvider>
+              <AdminUserRequestsForm />
+            </AdminNotificationProvider>
+          }
+        />
 
-        {/* Head Routes */}
-        <Route path="/headdashboard" element={<HeadDashboard token={token} />} />
-        <Route path="/headmaintenance" element={<HeadMaintenance token={token} />} />
-        <Route path="/headjanitorial" element={<HeadJanitorial token={token} />} />
-        <Route path="/headcarpentry" element={<HeadCarpentry token={token} />} />
-        <Route path="/headelectrical" element={<HeadElectrical token={token} />} />
-        <Route path="/headairconditioning" element={<HeadAirconditioning token={token} />} />
-        <Route path="/headrequests" element={<HeadRequests token={token} />} />
-        <Route path="/headmaintenancerequestform/:id" element={<HeadMaintenanceRequestForm token={token} />} />
+        {/* Staff Routes - wrapped with StaffNotificationProvider */}
+        <Route
+          path="/staffdashboard"
+          element={
+            <StaffNotificationProvider>
+              <StaffDashboard />
+            </StaffNotificationProvider>
+          }
+        />
+        <Route
+          path="/staffrequests"
+          element={
+            <StaffNotificationProvider>
+              <StaffRequests />
+            </StaffNotificationProvider>
+          }
+        />
+        <Route
+          path="/staffsliprequests"
+          element={
+            <StaffNotificationProvider>
+              <StaffSlipRequests token={token} />
+            </StaffNotificationProvider>
+          }
+        />
+        <Route
+          path="/userrequests"
+          element={
+            <StaffNotificationProvider>
+              <UserRequests />
+            </StaffNotificationProvider>
+          }
+        />
+        <Route
+          path="/staffmaintenancerequestform/:id"
+          element={
+            <StaffNotificationProvider>
+              <StaffMaintenanceRequestForm token={token} />
+            </StaffNotificationProvider>
+          }
+        />
+        <Route
+          path="/staffmaintenance"
+          element={
+            <StaffNotificationProvider>
+              <StaffMaintenance token={token} />
+            </StaffNotificationProvider>
+          }
+        />
+        <Route
+          path="/staffjanitorial"
+          element={
+            <StaffNotificationProvider>
+              <StaffJanitorial token={token} />
+            </StaffNotificationProvider>
+          }
+        />
+        <Route
+          path="/staffelectrical"
+          element={
+            <StaffNotificationProvider>
+              <StaffElectrical token={token} />
+            </StaffNotificationProvider>
+          }
+        />
+        <Route
+          path="/staffcarpentry"
+          element={
+            <StaffNotificationProvider>
+              <StaffCarpentry token={token} />
+            </StaffNotificationProvider>
+          }
+        />
+        <Route
+          path="/staffairconditioning"
+          element={
+            <StaffNotificationProvider>
+              <StaffAirconditioning token={token} />
+            </StaffNotificationProvider>
+          }
+        />
+        <Route
+          path="/report"
+          element={
+            <StaffNotificationProvider>
+              <Report token={token} />
+            </StaffNotificationProvider>
+          }
+        />
+        <Route
+          path="/staffviewmaintenancerequestform/:id"
+          element={
+            <StaffNotificationProvider>
+              <StaffViewMaintenanceRequestForm token={token} />
+            </StaffNotificationProvider>
+          }
+        />
+        <Route
+          path="/viewuserrequestform/:user_id"
+          element={
+            <StaffNotificationProvider>
+              <ViewUserRequestForm />
+            </StaffNotificationProvider>
+          }
+        />
+        <Route
+          path="/staffnotifications"
+          element={
+            <StaffNotificationProvider>
+              <StaffNotifications token={token} />
+            </StaffNotificationProvider>
+          }
+        />
 
-        {/* Campus Director Routes */}
-        <Route path="/campusdirectordashboard" element={<CampusDirectorDashboard token={token} />} />
-        <Route path="/campusdirectorrequests" element={<CampusDirectorRequests token={token} />} />
-        <Route path="/campusdirectormaintenancerequestform/:id" element={<CampusDirectorMaintenanceRequestForm token={token} />} />
+        {/* Head Routes - wrapped with HeadNotificationProvider */}
+        <Route
+          path="/headdashboard"
+          element={
+            <HeadNotificationProvider>
+              <HeadDashboard token={token} />
+            </HeadNotificationProvider>
+          }
+        />
+        <Route
+          path="/headmaintenance"
+          element={
+            <HeadNotificationProvider>
+              <HeadMaintenance token={token} />
+            </HeadNotificationProvider>
+          }
+        />
+        <Route
+          path="/headjanitorial"
+          element={
+            <HeadNotificationProvider>
+              <HeadJanitorial token={token} />
+            </HeadNotificationProvider>
+          }
+        />
+        <Route
+          path="/headcarpentry"
+          element={
+            <HeadNotificationProvider>
+              <HeadCarpentry token={token} />
+            </HeadNotificationProvider>
+          }
+        />
+        <Route
+          path="/headelectrical"
+          element={
+            <HeadNotificationProvider>
+              <HeadElectrical token={token} />
+            </HeadNotificationProvider>
+          }
+
+        />
+        <Route
+          path="/headelectrical"
+          element={
+            <HeadNotificationProvider>
+              <HeadElectrical token={token} />
+            </HeadNotificationProvider>
+          }
+
+        />
+        <Route
+          path="/headnotifications"
+          element={
+            <HeadNotificationProvider>
+              <HeadNotifications token={token} />
+            </HeadNotificationProvider>
+          }
+        />
+
+        <Route
+          path="/headrequests"
+          element={
+            <HeadNotificationProvider>
+              <HeadRequests token={token} />
+            </HeadNotificationProvider>
+          }
+        />
+        <Route path="/headmaintenancerequestform/:id" element={<HeadNotificationProvider><HeadMaintenanceRequestForm token={token} /></HeadNotificationProvider>
+        }
+        />
+
+        {/* Campus Director Routes - wrapped with CampusDirectorNotificationProvider */}
+        <Route
+          path="/campusdirectordashboard"
+          element={
+            <CampusDirectorNotificationProvider>
+              <CampusDirectorDashboard token={token} />
+            </CampusDirectorNotificationProvider>
+          }
+        />
+        <Route
+          path="/campusdirectorrequests"
+          element={
+            <CampusDirectorNotificationProvider>
+              <CampusDirectorRequests token={token} />
+            </CampusDirectorNotificationProvider>
+          }
+        />
+        <Route
+          path="/campusdirectormaintenancerequestform/:id"
+          element={
+            <CampusDirectorNotificationProvider>
+              <CampusDirectorMaintenanceRequestForm token={token} />
+            </CampusDirectorNotificationProvider>
+          }
+        />
+        <Route
+          path="/campusdirectornotifications"
+          element={
+            <CampusDirectorNotificationProvider>
+              <CampusDirectorNotifications token={token} />
+            </CampusDirectorNotificationProvider>
+          }
+        />
       </Routes>
     </Router>
   );

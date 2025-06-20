@@ -1,7 +1,7 @@
 import { useReducer, useEffect, useState, memo } from 'react';
 import { NavLink } from 'react-router-dom';
 import Icon from '../../components/Icon';
-import { Sidebar, MENU_ITEMS } from '../../components/Sidebar';
+import { CampusDirectorSidebar,MENU_ITEMS as CAMPUS_DIRECTOR_MENU_ITEMS } from '../../components/CampusDirectorSidebar';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
 
@@ -19,7 +19,7 @@ const sidebarReducer = (state, action) => {
   }
 };
 
-// Header (copied from Dashboard)
+// Header (copied from CampusDirectorDashboard)
 const Header = memo(({ isMobileMenuOpen, onToggleMobileMenu, onCloseMobileMenu }) => (
   <header className="bg-black text-white p-4 flex justify-between items-center relative">
     <span className="text-xl md:text-2xl font-extrabold tracking-tight">
@@ -27,7 +27,7 @@ const Header = memo(({ isMobileMenuOpen, onToggleMobileMenu, onCloseMobileMenu }
     </span>
 
     <div className="hidden md:block text-xl font-bold text-white">
-      Dashboard
+      Campus Director
     </div>
 
     <div className="flex items-center gap-4 md:hidden">
@@ -47,7 +47,7 @@ const Header = memo(({ isMobileMenuOpen, onToggleMobileMenu, onCloseMobileMenu }
       }`}
     >
       <nav className="py-2">
-        {MENU_ITEMS.map((item) => (
+        {CAMPUS_DIRECTOR_MENU_ITEMS.map((item) => (
           <NavLink
             key={item.text}
             to={item.to}
@@ -137,7 +137,7 @@ const DashboardContent = memo(() => {
 });
 
 // Main Component
-const Notifications = () => {
+const CampusDirectorNotifications = () => {
   const [state, dispatch] = useReducer(sidebarReducer, {
     isSidebarCollapsed: true,
     isMobileMenuOpen: false,
@@ -152,10 +152,10 @@ const Notifications = () => {
       />
 
       <div className="flex flex-1 overflow-hidden">
-        <Sidebar
+        <CampusDirectorSidebar
           isSidebarCollapsed={state.isSidebarCollapsed}
           onToggleSidebar={() => dispatch({ type: "TOGGLE_SIDEBAR" })}
-          menuItems={MENU_ITEMS}
+          menuItems={CAMPUS_DIRECTOR_MENU_ITEMS}
         />
         <DashboardContent />
       </div>
@@ -163,4 +163,4 @@ const Notifications = () => {
   );
 };
 
-export default Notifications;
+export default CampusDirectorNotifications;

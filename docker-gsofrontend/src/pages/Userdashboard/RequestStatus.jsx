@@ -256,9 +256,26 @@ const RequestStatus = () => {
     initialize();
   }, [token, navigate]);
 
-  const filtered = requests.filter(
-    (r) => r.status?.trim().toLowerCase() === selectedTab.toLowerCase()
-  );
+  const filtered = requests.filter((r) => {
+    const status = r.status?.trim().toLowerCase();
+
+    if (selectedTab === "Pending") {
+      return status === "pending";
+    }
+
+    if (selectedTab === "Pending Approvals") {
+      return (
+        status === "pending" &&
+        (r.approved_by_1 == null || r.approved_by_2 == null)
+      );
+    }
+
+    if (selectedTab === "Completed") {
+      return status === "completed";
+    }
+
+    return status === selectedTab.toLowerCase();
+  });
 
   // --- Loading and Error UI (copied/adapted from ViewMaintenanceRequestForm) ---
   if (loading) {
@@ -313,7 +330,7 @@ const RequestStatus = () => {
 
           {/* Tabs */}
           <div className="flex space-x-4 mb-6">
-            {["Pending", "Approved", "Disapproved", "Done", "Completed"].map((tab) => (
+            {["Pending", "Pending Approvals", "Approved", "Disapproved", "Done", "Completed"].map((tab) => (
               <button
                 key={tab}
                 onClick={() => setSelectedTab(tab)}
@@ -327,6 +344,8 @@ const RequestStatus = () => {
                       ? "bg-red-500 text-white"
                       : tab === "Completed"
                       ? "bg-blue-700 text-white"
+                      : tab === "Pending Approvals"
+                      ? "bg-orange-500 text-white"
                       : "bg-gray-700 text-white"
                     : "bg-transparent text-gray-700"
                 }`}
@@ -336,9 +355,7 @@ const RequestStatus = () => {
             ))}
           </div>
           <StatusTable
-            requests={selectedTab === "Completed"
-              ? requests.filter(r => r.status?.trim().toLowerCase() === "completed")
-              : filtered}
+            requests={filtered}
             selectedTab={selectedTab}
             userNameParts={userNameParts}
           />

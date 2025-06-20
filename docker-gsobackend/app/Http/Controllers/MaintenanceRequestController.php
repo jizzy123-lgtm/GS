@@ -2,7 +2,7 @@
 
 namespace App\Http\Controllers;
 use App\Models\MaintenanceRequest;
-use App\Models\Notification as SystemNotification;;
+use App\Models\Notification as SystemNotification;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use App\Models\User;
@@ -116,6 +116,25 @@ class MaintenanceRequestController extends Controller
         //     $head->notify(new RequestVerifiedByStaff($maintenanceRequest));
         // }
 
+        SystemNotification::create([
+            'user_id' => $maintenanceRequest->requesting_personnel, // requester
+            'type' => 'maintenance_verified',
+            'message' => 'Your maintenance request has been verified by staff.',
+            'is_read' => false,
+        ]);
+
+
+        $users = User::where('role_id', 2)->get();
+
+        foreach ($users as $user) {
+            SystemNotification::create([
+                'user_id' => $user->id,
+                'type' => 'maintenance_request_verified',
+                'message' =>  'A maintenance request was verified by the staff',
+                'is_read' => false,
+            ]);
+        }
+
         return response()->json([
             'message' => 'Maintenance request reviewed successfully',
             'data' => $maintenanceRequest,
@@ -196,6 +215,26 @@ class MaintenanceRequestController extends Controller
             $director->notify(new RequestApprovedByHead($maintenanceRequest));
         }
 
+        SystemNotification::create([
+            'user_id' => $maintenanceRequest->requesting_personnel, // requester
+            'type' => 'maintenance_request_approved_by_head',
+            'message' => 'Your maintenance request has been approved by the head of GSO.',
+            'is_read' => false,
+        ]);
+
+
+        $users = User::where('role_id', 5)->get();
+
+        foreach ($users as $user) {
+            SystemNotification::create([
+                'user_id' => $user->id,
+                'type' => 'maintenance_request_approved_by_head',
+                'message' =>  'A maintenance request was approved by the head GSO',
+                'is_read' => false,
+            ]);
+        }
+
+
         return response()->json([
             'message' => 'Approved by Head successfully.',
             'maintenance_request' => $maintenanceRequest
@@ -253,29 +292,50 @@ class MaintenanceRequestController extends Controller
 
     //this function gets the data of an specific maintenance request filled up by the requester
     public function staffpov($id)
-        {
-            $request = MaintenanceRequest::select([
-                'date_requested',
-                'details',
-                'requesting_personnel',
-                'position_id',
-                'requesting_office',
-                'contact_number',
-                'status_id',
-                'maintenance_type_id',
-                'verified_by',
-                'approved_by_1',
-                'approved_by_2'
-            ])
-            ->where('id', $id)
-            ->first();
+{
+    $request = MaintenanceRequest::with([
+        'requester',
+        'position',
+        'office',
+        'status',
+        'verifier',
+        'approver1',
+        'approver2',
+        'maintenanceType'
+    ])->find($id);
 
-        if (!$request) {
-            return response()->json(['message' => 'Maintenance request not found'], 404);
-        }
-
-        return response()->json($request);
+    if (!$request) {
+        return response()->json(['message' => 'Maintenance request not found'], 404);
     }
+
+    $requester = optional($request->requester);
+    $fullName = trim(
+        ($requester->last_name ? $requester->last_name . ', ' : '') .
+        ($requester->first_name ?? '') . ' ' .
+        ($requester->middle_name ?? '') . ' ' .
+        ($requester->suffix ?? '')
+    );
+
+    $data = [
+        'request_id' => $request->id,
+        'date_requested' => $request->date_requested,
+        'details' => $request->details,
+        'requester_id' => $request->requesting_personnel,
+        'requesting_personnel' => $fullName,
+        'position' => optional($request->position)->name,
+        'requesting_office' => optional($request->office)->name,
+        'contact_number' => $request->contact_number,
+        'status' => optional($request->status)->name,
+        'maintenance_type' => optional($request->maintenanceType)->type_name,
+        'verified_by' => optional($request->verifier)->last_name,
+        'approved_by_1' => optional($request->approver1)->last_name,
+        'approved_by_2' => optional($request->approver2)->last_name,
+        'created_at' => $request->created_at,
+        'updated_at' => $request->updated_at,
+    ];
+
+    return response()->json($data);
+}
 
 
     //this function shows the used priority numbers
@@ -408,67 +468,104 @@ class MaintenanceRequestController extends Controller
 
     //for display of data purposes only
     public function headpov($id)
-        {
-            $request = MaintenanceRequest::select([
-                'date_requested',
-                'details',
-                'requesting_personnel',
-                'position_id',
-                'requesting_office',
-                'contact_number',
-                'date_received',
-                'time_received',
-                'priority_number',
-                'verified_by',
-                'approved_by_1',
-                'remarks',
-                'maintenance_type_id',
-                'status_id'
+{
+    $request = MaintenanceRequest::with([
+        'requester',
+        'position',
+        'office',
+        'status',
+        'verifier',
+        'approver1',
+        'maintenanceType'
+    ])->find($id);
 
-
-            ])
-            ->where('id', $id)
-            ->first();
-
-        if (!$request) {
-            return response()->json(['message' => 'Maintenance request not found'], 404);
-        }
-
-        return response()->json($request);
+    if (!$request) {
+        return response()->json(['message' => 'Maintenance request not found'], 404);
     }
+
+    $requester = optional($request->requester);
+    $fullName = trim(
+        ($requester->last_name ? $requester->last_name . ', ' : '') .
+        ($requester->first_name ?? '') . ' ' .
+        ($requester->middle_name ?? '') . ' ' .
+        ($requester->suffix ?? '')
+    );
+
+    $data = [
+        'request_id' => $request->id,
+        'date_requested' => $request->date_requested,
+        'details' => $request->details,
+        'requester_id' => $request->requesting_personnel,
+        'requesting_personnel' => $fullName,
+        'position' => optional($request->position)->name,
+        'requesting_office' => optional($request->office)->name,
+        'contact_number' => $request->contact_number,
+        'status' => optional($request->status)->name,
+        'date_received' => $request->date_received,
+        'time_received' => $request->time_received,
+        'priority_number' => $request->priority_number,
+        'remarks' => $request->remarks,
+        'verified_by' => optional($request->verifier)->last_name,
+        'approved_by_1' => optional($request->approver1)->last_name,
+        'maintenance_type' => optional($request->maintenanceType)->type_name,
+        'created_at' => $request->created_at,
+        'updated_at' => $request->updated_at,
+    ];
+
+    return response()->json($data);
+}
+
 
 
     public function directorpov($id)
-    {
-            $request = MaintenanceRequest::select([
-                'date_requested',
-                'details',
-                'requesting_personnel',
-                'position_id',
-                'requesting_office',
-                'contact_number',
-                'date_received',
-                'time_received',
-                'priority_number',
-                'verified_by',
-                'approved_by_1',
-                'approved_by_2',
-                'remarks',
-                'maintenance_type_id',
-                'status_id'
+{
+    $request = MaintenanceRequest::with([
+        'requester',
+        'position',
+        'office',
+        'status',
+        'verifier',
+        'approver1',
+        'approver2',
+        'maintenanceType'
+    ])->find($id);
 
-
-            ])
-            ->where('id', $id)
-            ->first();
-
-        if (!$request) {
-            return response()->json(['message' => 'Maintenance request not found'], 404);
-        }
-
-        return response()->json($request);
+    if (!$request) {
+        return response()->json(['message' => 'Maintenance request not found'], 404);
     }
 
+    $requester = optional($request->requester);
+    $fullName = trim(
+        ($requester->last_name ? $requester->last_name . ', ' : '') .
+        ($requester->first_name ?? '') . ' ' .
+        ($requester->middle_name ?? '') . ' ' .
+        ($requester->suffix ?? '')
+    );
+
+    $data = [
+        'request_id' => $request->id,
+        'date_requested' => $request->date_requested,
+        'details' => $request->details,
+        'requester_id' => $request->requesting_personnel,
+        'requesting_personnel' => $fullName,
+        'position' => optional($request->position)->name,
+        'requesting_office' => optional($request->office)->name,
+        'contact_number' => $request->contact_number,
+        'status' => optional($request->status)->name,
+        'date_received' => $request->date_received,
+        'time_received' => $request->time_received,
+        'priority_number' => $request->priority_number,
+        'remarks' => $request->remarks,
+        'verified_by' => optional($request->verifier)->last_name,
+        'approved_by_1' => optional($request->approver1)->last_name,
+        'approved_by_2' => optional($request->approver2)->last_name,
+        'maintenance_type' => optional($request->maintenanceType)->type_name,
+        'created_at' => $request->created_at,
+        'updated_at' => $request->updated_at,
+    ];
+
+    return response()->json($data);
+}
 
 
 

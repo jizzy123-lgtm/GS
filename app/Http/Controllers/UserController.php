@@ -15,6 +15,7 @@ use Illuminate\Support\Facades\Hash;
 use Illuminate\Validation\ValidationException;
 use App\Notifications\NewUserRegistered;
 use App\Notifications\AccountApproved;
+use App\Models\Notification as SystemNotification;
 
 
 class UserController extends Controller
@@ -57,6 +58,17 @@ class UserController extends Controller
             if ($notifiableUser->email) {
                 $notifiableUser->notify(new NewUserRegistered($user));
             }
+        }
+
+        $adminUsers = User::where('role_id', 1)->get();
+
+        foreach ($adminUsers as $admin) {
+            SystemNotification::create([
+                'user_id' => $admin->id,
+                'type' => 'account_request_created',
+                'message' =>  $user->first_name . ' ' . $user->last_name  . ' submitted a request for an account regisration',
+                'is_read' => false,
+            ]);
         }
 
         return response()->json(['message' => 'User registered successfully'], 201);

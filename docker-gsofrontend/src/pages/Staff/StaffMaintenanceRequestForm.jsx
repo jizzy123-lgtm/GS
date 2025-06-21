@@ -25,15 +25,8 @@ const StaffMaintenanceRequestForm = () => {
 
   const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
 
-  // State for reference data
-  const [offices, setOffices] = useState([]);
-  const [positions, setPositions] = useState([]);
-  const [statuses, setStatuses] = useState([]);
-  const [maintenanceTypes, setMaintenanceTypes] = useState([]);
-
   // State for request details
   const [requestDetails, setRequestDetails] = useState({});
-  const [enhancedRequestDetails, setEnhancedRequestDetails] = useState({});
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(true);
   const [token, setToken] = useState("");
@@ -70,50 +63,6 @@ const StaffMaintenanceRequestForm = () => {
     }
   }, [navigate]);
 
-  // Function to fetch user name parts by ID
-  const fetchUserNameParts = async (userId) => {
-    const res = await fetch(`${API_BASE_URL}/users/${userId}/fullname`, {
-      method: 'GET',
-      headers: { Authorization: `Bearer ${token}` },
-    });
-
-    if (!res.ok) {
-      throw new Error(`Failed to fetch user data: ${res.status}`);
-    }
-
-    const userData = await res.json();
-
-    // Expecting userData to have last_name, first_name, middle_name, suffix
-    if (
-      userData &&
-      (userData.last_name || userData.first_name)
-    ) {
-      return {
-        last_name: userData.last_name || "",
-        first_name: userData.first_name || "",
-        middle_name: userData.middle_name || "",
-        suffix: userData.suffix || "",
-      };
-    } else if (userData.data) {
-      // Fallback for different format
-      const d = userData.data;
-      return {
-        last_name: d.last_name || "",
-        first_name: d.first_name || "",
-        middle_name: d.middle_name || "",
-        suffix: d.suffix || "",
-      };
-    } else {
-      // Generic fallback
-      return {
-        last_name: "",
-        first_name: `User ${userId}`,
-        middle_name: "",
-        suffix: "",
-      };
-    }
-  };
-
   // Generate priority number using backend API
   const generatePriorityNumberFromAPI = async (maintenanceTypeId) => {
     if (!maintenanceTypeId) return "";
@@ -137,60 +86,9 @@ const StaffMaintenanceRequestForm = () => {
     }
   };
 
-  // Fetch reference data
-  useEffect(() => {
-    const fetchReferenceData = async () => {
-      if (!token) return;
-
-      try {
-        // Fetch statuses
-        const statusesRes = await fetch(`${API_BASE_URL}/statuses`, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        const statusesData = await statusesRes.json();
-        console.log("Statuses API Response:", statusesData);
-        setStatuses(Array.isArray(statusesData.data) ? statusesData.data : 
-                   Array.isArray(statusesData) ? statusesData : []);
-
-        // Fetch offices
-        const officesRes = await fetch(`${API_BASE_URL}/offices`, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        const officesData = await officesRes.json();
-        console.log("Offices API Response:", officesData);
-        setOffices(Array.isArray(officesData.data) ? officesData.data : 
-                  Array.isArray(officesData) ? officesData : []);
-
-        // Fetch maintenance types
-        const maintenanceTypesRes = await fetch(`${API_BASE_URL}/maintenance-types`, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        const maintenanceTypesData = await maintenanceTypesRes.json();
-        console.log("Maintenance Types API Response:", maintenanceTypesData);
-        setMaintenanceTypes(Array.isArray(maintenanceTypesData.data) ? maintenanceTypesData.data : 
-                           Array.isArray(maintenanceTypesData) ? maintenanceTypesData : []);
-
-        // Fetch positions
-        const positionsRes = await fetch(`${API_BASE_URL}/positions`, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        const positionsData = await positionsRes.json();
-        console.log("Positions API Response:", positionsData);
-        setPositions(Array.isArray(positionsData.data) ? positionsData.data : 
-                    Array.isArray(positionsData) ? positionsData : []);
-      } catch (err) {
-        console.error("Error fetching reference data:", err);
-        setError("Failed to load reference data. Please refresh the page.");
-      }
-    };
-
-    fetchReferenceData();
-  }, [token, API_BASE_URL]);
-
   // Fetch the user's full name and ID
   const fetchUserInfo = async (authToken) => {
     try {
-      console.log("Fetching current user info from:", `${API_BASE_URL}/users/idfullname`);
       const response = await fetch(`${API_BASE_URL}/users/idfullname`, {
         method: "GET",
         headers: {
@@ -199,9 +97,7 @@ const StaffMaintenanceRequestForm = () => {
         },
       });
       const data = await response.json();
-      console.log("Fetched user info response:", data);
       if (!response.ok) throw new Error(data.message || "Failed to fetch user details");
-      // Return all name parts and user_id
       return {
         id: data.user_id || null,
         last_name: data.last_name || "",
@@ -210,77 +106,7 @@ const StaffMaintenanceRequestForm = () => {
         suffix: data.suffix || "",
       };
     } catch (err) {
-      console.error("Error fetching user details:", err);
       return { id: null, last_name: "", first_name: "", middle_name: "", suffix: "" };
-    }
-  };
-
-  // Enhanced function to find reference data by ID
-  const findReferenceData = (dataArray, id, fallbackName = "Unknown") => {
-    if (!Array.isArray(dataArray) || !id) return fallbackName;
-    
-    const item = dataArray.find(item => {
-      // Handle different possible ID field names
-      return item.id === id || item.status_id === id || item.type_id === id || 
-             item.office_id === id || item.position_id === id;
-    });
-    
-    if (!item) return `${fallbackName} (ID: ${id})`;
-    
-    // Handle different possible name field names
-    return item.name || item.type_name || item.status_name || 
-           item.office_name || item.position_name || `${fallbackName} (ID: ${id})`;
-  };
-
-  // Enhance request details with reference data
-  const enhanceRequestDetails = async (request) => {
-    try {
-      console.log("Request to enhance:", request);
-      console.log("Available statuses:", statuses);
-      console.log("Available maintenance types:", maintenanceTypes);
-      console.log("Available offices:", offices);
-      console.log("Available positions:", positions);
-
-      // Find office name
-      const office_name = findReferenceData(offices, request.requesting_office, "Unknown Office");
-      
-      // Find maintenance type name
-      const maintenance_type_name = findReferenceData(maintenanceTypes, request.maintenance_type_id, "Unknown Type");
-      
-      // Find status name
-      const status_name = findReferenceData(statuses, request.status_id, "Unknown Status");
-      
-      // Find position name
-      const position_name = findReferenceData(positions, request.position_id, "Unknown Position");
-      
-      // Fetch personnel name parts
-      const personnelNameParts = await fetchUserNameParts(request.requesting_personnel);
-
-      // Create enhanced request object
-      const enhanced = {
-        ...request,
-        office_name,
-        maintenance_type_name,
-        status_name,
-        position_name,
-        personnel_last_name: personnelNameParts.last_name,
-        personnel_first_name: personnelNameParts.first_name,
-        personnel_middle_name: personnelNameParts.middle_name,
-        personnel_suffix: personnelNameParts.suffix,
-      };
-      
-      console.log("Enhanced request:", enhanced);
-      return enhanced;
-    } catch (err) {
-      console.error("Error enhancing request details:", err);
-      return {
-        ...request,
-        office_name: "Error loading office",
-        maintenance_type_name: "Error loading type",
-        status_name: "Error loading status",
-        position_name: "Error loading position",
-        personnel_fullname: "Error loading personnel"
-      };
     }
   };
 
@@ -341,45 +167,27 @@ const StaffMaintenanceRequestForm = () => {
     fetchRequestDetails();
   }, [id, token, API_BASE_URL]);
 
-  // Enhance request details when reference data is loaded
-  useEffect(() => {
-    const enhanceWhenReady = async () => {
-      if (requestDetails && Object.keys(requestDetails).length > 0 && 
-          statuses.length > 0 && maintenanceTypes.length > 0 && 
-          offices.length > 0 && positions.length > 0) {
-        try {
-          const enhanced = await enhanceRequestDetails(requestDetails);
-          setEnhancedRequestDetails(enhanced);
-        } catch (err) {
-          console.error("Error enhancing request details:", err);
-        }
-      }
-    };
-
-    enhanceWhenReady();
-  }, [requestDetails, statuses, maintenanceTypes, offices, positions, token]);
-
-  // Auto-generate priority number when enhanced request details are available
+  // Auto-generate priority number when requestDetails are available
   useEffect(() => {
     const generatePriority = async () => {
       if (
-        enhancedRequestDetails &&
-        Object.keys(enhancedRequestDetails).length > 0 &&
+        requestDetails &&
+        Object.keys(requestDetails).length > 0 &&
         !priority_number &&
-        enhancedRequestDetails.approved_by_2 &&
-        enhancedRequestDetails.maintenance_type_id
+        requestDetails.approved_by_2 &&
+        requestDetails.maintenance_type_id
       ) {
         try {
-          const generatedCode = await generatePriorityNumberFromAPI(enhancedRequestDetails.maintenance_type_id);
+          const generatedCode = await generatePriorityNumberFromAPI(requestDetails.maintenance_type_id);
           setPriorityNumber(generatedCode);
         } catch (err) {
-          console.error("Error auto-generating priority code:", err);
+          // error handled in generatePriorityNumberFromAPI
         }
       }
     };
 
     generatePriority();
-  }, [enhancedRequestDetails, priority_number]);
+  }, [requestDetails, priority_number]);
 
   const formatTimeTo24Hour = (time) => {
     if (!time) return "";
@@ -402,10 +210,10 @@ const StaffMaintenanceRequestForm = () => {
 
       // Check if approved_by_2 is NOT null or undefined
       if (
-        enhancedRequestDetails &&
-        (enhancedRequestDetails.approved_by_2 !== null && enhancedRequestDetails.approved_by_2 !== undefined)
+        requestDetails &&
+        (requestDetails.approved_by_2 !== null && requestDetails.approved_by_2 !== undefined)
       ) {
-        // Use assign-priority endpoint
+        // Use  -priority endpoint
         const endpoint = `${API_BASE_URL}/maintenance-requests/${id}/assign-priority`;
         const payload = {
           priority_number,
@@ -482,12 +290,12 @@ const StaffMaintenanceRequestForm = () => {
   // Function to manually regenerate priority code
   const handleRegeneratePriority = async () => {
     if (
-      enhancedRequestDetails &&
-      Object.keys(enhancedRequestDetails).length > 0 &&
-      enhancedRequestDetails.maintenance_type_id
+      requestDetails &&
+      Object.keys(requestDetails).length > 0 &&
+      requestDetails.maintenance_type_id
     ) {
       try {
-        const generatedCode = await generatePriorityNumberFromAPI(enhancedRequestDetails.maintenance_type_id);
+        const generatedCode = await generatePriorityNumberFromAPI(requestDetails.maintenance_type_id);
         setPriorityNumber(generatedCode);
       } catch (err) {
         console.error("Error regenerating priority code:", err);
@@ -497,9 +305,7 @@ const StaffMaintenanceRequestForm = () => {
   };
 
   // Function to get the details to display
-  const getDisplayDetails = () => {
-    return Object.keys(enhancedRequestDetails).length > 0 ? enhancedRequestDetails : requestDetails;
-  };
+  const getDisplayDetails = () => requestDetails;
 
   const [sidebarState, sidebarDispatch] = useReducer(
     (state, action) => {
@@ -624,7 +430,6 @@ const handleMarkOnhold = async () => {
               {!isLoading && (
                 <div className="space-y-4 mb-6">
                   <h3 className="text-lg font-semibold text-gray-800 border-b pb-2">Request Details</h3>
-                  
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
                       <label className="block text-sm font-semibold text-gray-700 mb-1">
@@ -633,12 +438,11 @@ const handleMarkOnhold = async () => {
                       <input
                         type="text"
                         className="w-full border border-gray-300 rounded-lg px-4 py-2 bg-gray-100"
-                        value={getDisplayDetails().date_requested ? 
-                          new Date(getDisplayDetails().date_requested).toLocaleDateString() : "N/A"}
+                        value={requestDetails.date_requested ? 
+                          new Date(requestDetails.date_requested).toLocaleDateString() : "N/A"}
                         disabled
                       />
                     </div>
-
                     <div>
                       <label className="block text-sm font-semibold text-gray-700 mb-1">
                         Personnel Name:
@@ -646,15 +450,10 @@ const handleMarkOnhold = async () => {
                       <input
                         type="text"
                         className="w-full border border-gray-300 rounded-lg px-4 py-2 bg-gray-100"
-                        value={
-                          getDisplayDetails().personnel_last_name
-                            ? `${getDisplayDetails().personnel_last_name}, ${getDisplayDetails().personnel_first_name}${getDisplayDetails().personnel_middle_name ? " " + getDisplayDetails().personnel_middle_name.charAt(0) + "." : ""}${getDisplayDetails().personnel_suffix ? " " + getDisplayDetails().personnel_suffix : ""}`
-                            : (getDisplayDetails().requesting_personnel ? `User ID: ${getDisplayDetails().requesting_personnel}` : "N/A")
-                        }
+                        value={requestDetails.requesting_personnel || "N/A"}
                         disabled
                       />
                     </div>
-
                     <div>
                       <label className="block text-sm font-semibold text-gray-700 mb-1">
                         Position:
@@ -662,12 +461,10 @@ const handleMarkOnhold = async () => {
                       <input
                         type="text"
                         className="w-full border border-gray-300 rounded-lg px-4 py-2 bg-gray-100"
-                        value={getDisplayDetails().position_name || 
-                               (getDisplayDetails().position_id ? `Position ID: ${getDisplayDetails().position_id}` : "N/A")}
+                        value={requestDetails.position || "N/A"}
                         disabled
                       />
                     </div>
-
                     <div>
                       <label className="block text-sm font-semibold text-gray-700 mb-1">
                         Office:
@@ -675,12 +472,10 @@ const handleMarkOnhold = async () => {
                       <input
                         type="text"
                         className="w-full border border-gray-300 rounded-lg px-4 py-2 bg-gray-100"
-                        value={getDisplayDetails().office_name || 
-                               (getDisplayDetails().requesting_office ? `Office ID: ${getDisplayDetails().requesting_office}` : "N/A")}
+                        value={requestDetails.requesting_office || "N/A"}
                         disabled
                       />
                     </div>
-
                     <div>
                       <label className="block text-sm font-semibold text-gray-700 mb-1">
                         Maintenance Type:
@@ -688,12 +483,10 @@ const handleMarkOnhold = async () => {
                       <input
                         type="text"
                         className="w-full border border-gray-300 rounded-lg px-4 py-2 bg-gray-100"
-                        value={getDisplayDetails().maintenance_type_name || 
-                               (getDisplayDetails().maintenance_type_id ? `Type ID: ${getDisplayDetails().maintenance_type_id}` : "N/A")}
+                        value={requestDetails.maintenance_type || "N/A"}
                         disabled
                       />
                     </div>
-
                     <div>
                       <label className="block text-sm font-semibold text-gray-700 mb-1">
                         Status:
@@ -701,12 +494,10 @@ const handleMarkOnhold = async () => {
                       <input
                         type="text"
                         className="w-full border border-gray-300 rounded-lg px-4 py-2 bg-gray-100"
-                        value={getDisplayDetails().status_name || 
-                               (getDisplayDetails().status_id ? `Status ID: ${getDisplayDetails().status_id}` : "N/A")}
+                        value={requestDetails.status || "N/A"}
                         disabled
                       />
                     </div>
-
                     <div>
                       <label className="block text-sm font-semibold text-gray-700 mb-1">
                         Contact Number:
@@ -714,12 +505,50 @@ const handleMarkOnhold = async () => {
                       <input
                         type="text"
                         className="w-full border border-gray-300 rounded-lg px-4 py-2 bg-gray-100"
-                        value={getDisplayDetails().contact_number || "N/A"}
+                        value={requestDetails.contact_number || "N/A"}
+                        disabled
+                      />
+                    </div>
+                    {/* Only display Approved By 1 if not null */}
+                    {requestDetails.approved_by_1 && (
+                      <div>
+                        <label className="block text-sm font-semibold text-gray-700 mb-1">
+                          Approved By Head:
+                        </label>
+                        <input
+                          type="text"
+                          className="w-full border border-gray-300 rounded-lg px-4 py-2 bg-gray-100"
+                          value={requestDetails.approved_by_1}
+                          disabled
+                        />
+                      </div>
+                    )}
+                    {/* Only display Approved By 2 if not null */}
+                    {requestDetails.approved_by_2 && (
+                      <div>
+                        <label className="block text-sm font-semibold text-gray-700 mb-1">
+                          Approved By Campus Director:
+                        </label>
+                        <input
+                          type="text"
+                          className="w-full border border-gray-300 rounded-lg px-4 py-2 bg-gray-100"
+                          value={requestDetails.approved_by_2}
+                          disabled
+                        />
+                      </div>
+                    )}
+                    <div>
+                      <label className="block text-sm font-semibold text-gray-700 mb-1">
+                        Verified By:
+                      </label>
+                      <input
+                        type="text"
+                        className="w-full border border-gray-300 rounded-lg px-4 py-2 bg-gray-100"
+                        value={requestDetails.verified_by || "N/A"}
                         disabled
                       />
                     </div>
                   </div>
-
                   <div>
                     <label className="block text-sm font-semibold text-gray-700 mb-1">
                       Description:
@@ -727,7 +556,7 @@ const handleMarkOnhold = async () => {
                     <textarea
                       className="w-full border border-gray-300 rounded-lg px-4 py-2 bg-gray-100"
                       rows="4"
-                      value={getDisplayDetails().details || "N/A"}
+                      value={requestDetails.details || "N/A"}
                       disabled
                     />
                   </div>

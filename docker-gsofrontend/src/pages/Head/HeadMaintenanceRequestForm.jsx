@@ -47,14 +47,6 @@ const HeadMaintenanceRequestForm = () => {
   const [head1Input, setHead1Input] = useState("");
   const [head2Input, setHead2Input] = useState("");
   const [approvedBy1, setApprovedBy1] = useState(null);
-  const [userNames, setUserNames] = useState({});
-
-  const [offices, setOffices] = useState([]);
-  const [positions, setPositions] = useState([]);
-  const [personnelName, setPersonnelName] = useState("");
-  const [verifiedByName, setVerifiedByName] = useState("");
-  const [maintenanceTypes, setMaintenanceTypes] = useState([]);
-  const [statuses, setStatuses] = useState([]);
 
   const fetchCurrentUser = async (authToken) => {
     try {
@@ -124,24 +116,6 @@ const HeadMaintenanceRequestForm = () => {
     }
   };
 
-  const fetchUserInfoById = async (userId, authToken) => {
-    try {
-      const response = await fetch(`${API_BASE_URL}/users/${userId}/fullname`, {
-        method: "GET",
-        headers: {
-          Authorization: `Bearer ${authToken}`,
-          Accept: "application/json",
-        },
-      });
-      const data = await response.json();
-      if (!response.ok) throw new Error(data.message || "Failed to fetch user details");
-      return data.full_name || "Unknown User";
-    } catch (err) {
-      console.error("Error fetching user details:", err);
-      return "Unknown User";
-    }
-  };
-
   useEffect(() => {
     const fetchRequestDetails = async () => {
       if (!id) {
@@ -165,14 +139,11 @@ const HeadMaintenanceRequestForm = () => {
         const responseData = data.data || data;
         setRequestDetails(responseData);
 
-        // Debug
-        console.log("requestDetails", responseData);
-
         setDateReceived((prev) => prev || responseData.date_received || new Date().toISOString().split("T")[0]);
         setTimeReceived((prev) => prev || responseData.time_received || new Date().toTimeString().slice(0, 5));
         setPriorityNumber(responseData.priority_number || "");
         setRemarks("");
-        setApprovedBy1(responseData.approved_by_1 || null); // Set approved_by_1 directly
+        setApprovedBy1(responseData.approved_by_1 || null);
 
         const userInfo = await fetchUserInfo(token);
         setApprovedByName(userInfo.full_name);
@@ -187,108 +158,6 @@ const HeadMaintenanceRequestForm = () => {
 
     if (token) fetchRequestDetails();
   }, [id, token, API_BASE_URL]);
-
-  useEffect(() => {
-    const fetchUserNames = async () => {
-      if (!token || !requestDetails) return;
-
-      const fieldsToFetch = ["verified_by", "approved_by_1"];
-      const namesMap = {};
-
-      await Promise.all(
-        fieldsToFetch.map(async (field) => {
-          const userId = requestDetails[field];
-          if (userId) {
-            const name = await fetchUserInfoById(userId, token);
-            namesMap[field] = name;
-          }
-        })
-      );
-
-      setUserNames(namesMap);
-    };
-
-    fetchUserNames();
-  }, [token, requestDetails]);
-
-  useEffect(() => {
-    if (!token) return;
-    const fetchReferenceData = async () => {
-      try {
-        const res = await fetch(`${API_BASE_URL}/common-datas`, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        const data = await res.json();
-
-        setOffices(Array.isArray(data.offices) ? data.offices : []);
-        setPositions(Array.isArray(data.positions) ? data.positions : []);
-        setMaintenanceTypes(Array.isArray(data.maintenance_types) ? data.maintenance_types : []);
-        setStatuses(Array.isArray(data.statuses) ? data.statuses : []);
-
-        // Debug
-        console.log("maintenanceTypes", data.maintenance_types);
-        console.log("statuses", data.statuses);
-      } catch (err) {
-        // Optionally handle error
-        console.error("Error fetching reference data:", err);
-      }
-    };
-    fetchReferenceData();
-  }, [token, API_BASE_URL]);
-
-  useEffect(() => {
-    if (!token || !requestDetails) return;
-    const fetchName = async (userId) => {
-      if (!userId) return "N/A";
-      try {
-        const res = await fetch(`${API_BASE_URL}/users/${userId}/fullname`, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        const data = await res.json();
-        if (data.last_name || data.first_name) {
-          let name = `${data.last_name || ""}, ${data.first_name || ""}`;
-          if (data.middle_name) name += ` ${data.middle_name.charAt(0)}.`;
-          if (data.suffix) name += ` ${data.suffix}`;
-          return name.trim();
-        }
-        if (data.full_name) return data.full_name;
-        return "N/A";
-      } catch {
-        return "N/A";
-      }
-    };
-    // Requesting personnel
-    fetchName(requestDetails.requesting_personnel).then(setPersonnelName);
-    // Verified by
-    fetchName(requestDetails.verified_by).then(setVerifiedByName);
-  }, [requestDetails, token, API_BASE_URL]);
-
-  const getOfficeName = () => {
-    if (!requestDetails.requesting_office) return "N/A";
-    const office = offices.find((o) => o.id === requestDetails.requesting_office);
-    return office ? office.name : `Office ID: ${requestDetails.requesting_office}`;
-  };
-  const getPositionName = () => {
-    if (!requestDetails.position_id) return "N/A";
-    const position = positions.find((p) => p.id === requestDetails.position_id);
-    return position ? position.name : `Position ID: ${requestDetails.position_id}`;
-  };
-
-  const getMaintenanceTypeName = () => {
-    if (!requestDetails.maintenance_type_id || maintenanceTypes.length === 0) return "N/A";
-    const type = maintenanceTypes.find(
-      (t) => String(t.id) === String(requestDetails.maintenance_type_id)
-    );
-    return type ? type.type_name : `Type ID: ${requestDetails.maintenance_type_id}`;
-  };
-
-  const getStatusName = () => {
-    if (!requestDetails.status_id || statuses.length === 0) return "N/A";
-    const status = statuses.find(
-      (s) => String(s.id) === String(requestDetails.status_id)
-    );
-    return status ? status.name : `Status ID: ${requestDetails.status_id}`;
-  };
 
   const formatTimeTo24Hour = (time) => {
     if (!time) return "";
@@ -414,7 +283,6 @@ const HeadMaintenanceRequestForm = () => {
                 <div className="space-y-4 mb-6">
                   <h3 className="text-lg font-semibold text-gray-800 border-b pb-2">Request Details</h3>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {/* Repeat for each field as in Staff form */}
                     <div>
                       <label className="block text-sm font-semibold text-gray-700 mb-1">
                         Request Date:
@@ -422,11 +290,8 @@ const HeadMaintenanceRequestForm = () => {
                       <input
                         type="text"
                         className="w-full border border-gray-300 rounded-lg px-4 py-2 bg-gray-100"
-                        value={
-                          requestDetails.date_requested
-                            ? new Date(requestDetails.date_requested).toLocaleDateString()
-                            : "N/A"
-                        }
+                        value={requestDetails.date_requested ? 
+                          new Date(requestDetails.date_requested).toLocaleDateString() : "N/A"}
                         disabled
                       />
                     </div>
@@ -437,7 +302,7 @@ const HeadMaintenanceRequestForm = () => {
                       <input
                         type="text"
                         className="w-full border border-gray-300 rounded-lg px-4 py-2 bg-gray-100"
-                        value={personnelName || (requestDetails.requesting_personnel ? `User ID: ${requestDetails.requesting_personnel}` : "N/A")}
+                        value={requestDetails.requesting_personnel || "N/A"}
                         disabled
                       />
                     </div>
@@ -448,7 +313,7 @@ const HeadMaintenanceRequestForm = () => {
                       <input
                         type="text"
                         className="w-full border border-gray-300 rounded-lg px-4 py-2 bg-gray-100"
-                        value={getPositionName()}
+                        value={requestDetails.position || "N/A"}
                         disabled
                       />
                     </div>
@@ -459,7 +324,7 @@ const HeadMaintenanceRequestForm = () => {
                       <input
                         type="text"
                         className="w-full border border-gray-300 rounded-lg px-4 py-2 bg-gray-100"
-                        value={getOfficeName()}
+                        value={requestDetails.requesting_office || "N/A"}
                         disabled
                       />
                     </div>
@@ -470,7 +335,7 @@ const HeadMaintenanceRequestForm = () => {
                       <input
                         type="text"
                         className="w-full border border-gray-300 rounded-lg px-4 py-2 bg-gray-100"
-                        value={getMaintenanceTypeName()}
+                        value={requestDetails.maintenance_type || "N/A"}
                         disabled
                       />
                     </div>
@@ -481,7 +346,7 @@ const HeadMaintenanceRequestForm = () => {
                       <input
                         type="text"
                         className="w-full border border-gray-300 rounded-lg px-4 py-2 bg-gray-100"
-                        value={getStatusName()}
+                        value={requestDetails.status || "N/A"}
                         disabled
                       />
                     </div>
@@ -496,17 +361,34 @@ const HeadMaintenanceRequestForm = () => {
                         disabled
                       />
                     </div>
-                    <div>
-                      <label className="block text-sm font-semibold text-gray-700 mb-1">
-                        Verified By:
-                      </label>
-                      <input
-                        type="text"
-                        className="w-full border border-gray-300 rounded-lg px-4 py-2 bg-gray-100"
-                        value={verifiedByName || "N/A"}
-                        disabled
-                      />
-                    </div>
+                    {/* Only show Approved By 1 if present */}
+                    {requestDetails.approved_by_1 && (
+                      <div>
+                        <label className="block text-sm font-semibold text-gray-700 mb-1">
+                          Approved By Head:
+                        </label>
+                        <input
+                          type="text"
+                          className="w-full border border-gray-300 rounded-lg px-4 py-2 bg-gray-100"
+                          value={requestDetails.approved_by_1}
+                          disabled
+                        />
+                      </div>
+                    )}
+                    {/* Only show Verified By if present */}
+                    {requestDetails.verified_by && (
+                      <div>
+                        <label className="block text-sm font-semibold text-gray-700 mb-1">
+                          Verified By:
+                        </label>
+                        <input
+                          type="text"
+                          className="w-full border border-gray-300 rounded-lg px-4 py-2 bg-gray-100"
+                          value={requestDetails.verified_by}
+                          disabled
+                        />
+                      </div>
+                    )}
                     <div>
                       <label className="block text-sm font-semibold text-gray-700 mb-1">
                         Date Received:
@@ -560,7 +442,6 @@ const HeadMaintenanceRequestForm = () => {
                 <form className="space-y-4" onSubmit={(e) => handleDecision(e, "approve")}>
                   <h3 className="text-lg font-semibold text-gray-800 border-b pb-2">Action Required</h3>
 
-                  {/* Optional: Head/Supervisor fields as in your logic */}
                   {approvedById === HEAD1_ID && (
                     <div>
                       <label className="block font-medium text-gray-700 mb-1">Approved by Head</label>
@@ -575,7 +456,7 @@ const HeadMaintenanceRequestForm = () => {
                   )}
                   {approvedById === HEAD2_ID && (
                     <div>
-                      <label className="block font-medium text-gray-700 mb-1">Approved by Supervisor</label>
+                      <label className="block font-medium text-gray-700 mb-1">Approved by Campus Director</label>
                       <input
                         type="text"
                         value={head2Input}
@@ -592,7 +473,7 @@ const HeadMaintenanceRequestForm = () => {
 
                   <div>
                     <label className="block text-sm font-semibold text-gray-700 mb-1">
-                      Approved by:
+                      Approved by Head:
                     </label>
                     <input
                       type="text"

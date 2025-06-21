@@ -16,7 +16,6 @@ const CampusDirectorMaintenanceRequestForm = () => {
   const { id } = useParams();
 
   const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
-
   const DIRECTOR_ID = 10;
 
   const [currentUser, setCurrentUser] = useState({
@@ -40,17 +39,9 @@ const CampusDirectorMaintenanceRequestForm = () => {
   const [approvedById, setApprovedById] = useState("");
   const [directorInput, setDirectorInput] = useState("");
   const [approvedBy1, setApprovedBy1] = useState(null);
-  const [userNames, setUserNames] = useState({});
-
-  const [offices, setOffices] = useState([]);
-  const [positions, setPositions] = useState([]);
-  const [personnelName, setPersonnelName] = useState("");
-  const [verifiedByName, setVerifiedByName] = useState("");
-  const [maintenanceTypes, setMaintenanceTypes] = useState([]);
-  const [statuses, setStatuses] = useState([]);
 
   const [sidebarState, sidebarDispatch] = useReducer(sidebarReducer, {
-    isSidebarCollapsed: true, // Collapsed by default
+    isSidebarCollapsed: true,
   });
 
   const fetchCurrentUser = async (authToken) => {
@@ -101,8 +92,7 @@ const CampusDirectorMaintenanceRequestForm = () => {
     try {
       const response = await fetch(`${API_BASE_URL}/users/idfullname`, {
         method: "GET",
-        headers:
-         {
+        headers: {
           Authorization: `Bearer ${authToken}`,
           Accept: "application/json",
         },
@@ -118,24 +108,6 @@ const CampusDirectorMaintenanceRequestForm = () => {
     } catch (err) {
       console.error("Error fetching user details:", err);
       return { id: null, full_name: "Unknown User" };
-    }
-  };
-
-  const fetchUserInfoById = async (userId, authToken) => {
-    try {
-      const response = await fetch(`${API_BASE_URL}/users/${userId}/fullname`, {
-        method: "GET",
-        headers: {
-          Authorization: `Bearer ${authToken}`,
-          Accept: "application/json",
-        },
-      });
-      const data = await response.json();
-      if (!response.ok) throw new Error(data.message || "Failed to fetch user details");
-      return data.full_name || "Unknown User";
-    } catch (err) {
-      console.error("Error fetching user details:", err);
-      return "Unknown User";
     }
   };
 
@@ -157,8 +129,6 @@ const CampusDirectorMaintenanceRequestForm = () => {
         });
 
         const data = await response.json();
-        console.log("API /directorpov/:id response:", data); 
-
         if (!response.ok) throw new Error(data.message || "Failed to fetch request details");
 
         const responseData = data.data || data;
@@ -183,103 +153,6 @@ const CampusDirectorMaintenanceRequestForm = () => {
 
     if (token) fetchRequestDetails();
   }, [id, token, API_BASE_URL]);
-
-  useEffect(() => {
-    const fetchUserNames = async () => {
-      if (!token || !requestDetails) return;
-
-      const fieldsToFetch = ["verified_by", "approved_by_1"];
-      const namesMap = {};
-
-      await Promise.all(
-        fieldsToFetch.map(async (field) => {
-          const userId = requestDetails[field];
-          if (userId) {
-            const name = await fetchUserInfoById(userId, token);
-            namesMap[field] = name;
-          }
-        })
-      );
-
-      setUserNames(namesMap);
-    };
-
-    fetchUserNames();
-  }, [token, requestDetails]);
-
-  useEffect(() => {
-    if (!token) return;
-    const fetchReferenceData = async () => {
-      try {
-        const res = await fetch(`${API_BASE_URL}/common-datas`, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        const data = await res.json();
-        setOffices(Array.isArray(data.offices) ? data.offices : []);
-        setPositions(Array.isArray(data.positions) ? data.positions : []);
-        setMaintenanceTypes(Array.isArray(data.maintenance_types) ? data.maintenance_types : []);
-        setStatuses(Array.isArray(data.statuses) ? data.statuses : []);
-      } catch (err) {
-        // Optionally handle error
-        console.error("Error fetching reference data:", err);
-      }
-    };
-    fetchReferenceData();
-  }, [token, API_BASE_URL]);
-
-  useEffect(() => {
-    if (!token || !requestDetails) return;
-    const fetchName = async (userId) => {
-      if (!userId) return "N/A";
-      try {
-        const res = await fetch(`${API_BASE_URL}/users/${userId}/fullname`, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        const data = await res.json();
-        if (data.last_name || data.first_name) {
-          let name = `${data.last_name || ""}, ${data.first_name || ""}`;
-          if (data.middle_name) name += ` ${data.middle_name.charAt(0)}.`;
-          if (data.suffix) name += ` ${data.suffix}`;
-          return name.trim();
-        }
-        if (data.full_name) return data.full_name;
-        return "N/A";
-      } catch {
-        return "N/A";
-      }
-    };
-    // Requesting personnel
-    fetchName(requestDetails.requesting_personnel).then(setPersonnelName);
-    // Verified by
-    fetchName(requestDetails.verified_by).then(setVerifiedByName);
-  }, [requestDetails, token, API_BASE_URL]);
-
-  const getOfficeName = () => {
-    if (!requestDetails.requesting_office) return "N/A";
-    const office = offices.find((o) => o.id === requestDetails.requesting_office);
-    return office ? office.name : `Office ID: ${requestDetails.requesting_office}`;
-  };
-  const getPositionName = () => {
-    if (!requestDetails.position_id) return "N/A";
-    const position = positions.find((p) => p.id === requestDetails.position_id);
-    return position ? position.name : `Position ID: ${requestDetails.position_id}`;
-  };
-
-  const getMaintenanceTypeName = () => {
-    if (!requestDetails.maintenance_type_id || maintenanceTypes.length === 0) return "N/A";
-    const type = maintenanceTypes.find(
-      (t) => String(t.id) === String(requestDetails.maintenance_type_id)
-    );
-    return type ? type.type_name : `Type ID: ${requestDetails.maintenance_type_id}`;
-  };
-
-  const getStatusName = () => {
-    if (!requestDetails.status_id || statuses.length === 0) return "N/A";
-    const status = statuses.find(
-      (s) => String(s.id) === String(requestDetails.status_id)
-    );
-    return status ? status.name : `Status ID: ${requestDetails.status_id}`;
-  };
 
   const formatTimeTo24Hour = (time) => {
     if (!time) return "";
@@ -402,11 +275,8 @@ const CampusDirectorMaintenanceRequestForm = () => {
                       <input
                         type="text"
                         className="w-full border border-gray-300 rounded-lg px-4 py-2 bg-gray-100"
-                        value={
-                          requestDetails.date_requested
-                            ? new Date(requestDetails.date_requested).toLocaleDateString()
-                            : "N/A"
-                        }
+                        value={requestDetails.date_requested ? 
+                          new Date(requestDetails.date_requested).toLocaleDateString() : "N/A"}
                         disabled
                       />
                     </div>
@@ -417,7 +287,7 @@ const CampusDirectorMaintenanceRequestForm = () => {
                       <input
                         type="text"
                         className="w-full border border-gray-300 rounded-lg px-4 py-2 bg-gray-100"
-                        value={personnelName || (requestDetails.requesting_personnel ? `User ID: ${requestDetails.requesting_personnel}` : "N/A")}
+                        value={requestDetails.requesting_personnel || "N/A"}
                         disabled
                       />
                     </div>
@@ -428,7 +298,7 @@ const CampusDirectorMaintenanceRequestForm = () => {
                       <input
                         type="text"
                         className="w-full border border-gray-300 rounded-lg px-4 py-2 bg-gray-100"
-                        value={getPositionName()}
+                        value={requestDetails.position || "N/A"}
                         disabled
                       />
                     </div>
@@ -439,7 +309,7 @@ const CampusDirectorMaintenanceRequestForm = () => {
                       <input
                         type="text"
                         className="w-full border border-gray-300 rounded-lg px-4 py-2 bg-gray-100"
-                        value={getOfficeName()}
+                        value={requestDetails.requesting_office || "N/A"}
                         disabled
                       />
                     </div>
@@ -450,7 +320,7 @@ const CampusDirectorMaintenanceRequestForm = () => {
                       <input
                         type="text"
                         className="w-full border border-gray-300 rounded-lg px-4 py-2 bg-gray-100"
-                        value={getMaintenanceTypeName()}
+                        value={requestDetails.maintenance_type || "N/A"}
                         disabled
                       />
                     </div>
@@ -461,7 +331,7 @@ const CampusDirectorMaintenanceRequestForm = () => {
                       <input
                         type="text"
                         className="w-full border border-gray-300 rounded-lg px-4 py-2 bg-gray-100"
-                        value={getStatusName()}
+                        value={requestDetails.status || "N/A"}
                         disabled
                       />
                     </div>
@@ -478,15 +348,57 @@ const CampusDirectorMaintenanceRequestForm = () => {
                     </div>
                     <div>
                       <label className="block text-sm font-semibold text-gray-700 mb-1">
-                        Verified By:
+                        Priority Number:
                       </label>
                       <input
                         type="text"
                         className="w-full border border-gray-300 rounded-lg px-4 py-2 bg-gray-100"
-                        value={verifiedByName || "N/A"}
+                        value={requestDetails.priority_number || "N/A"}
                         disabled
                       />
                     </div>
+                    {/* Only show Approved By 1 if present */}
+                    {requestDetails.approved_by_1 && (
+                      <div>
+                        <label className="block text-sm font-semibold text-gray-700 mb-1">
+                          Approved By Head:
+                        </label>
+                        <input
+                          type="text"
+                          className="w-full border border-gray-300 rounded-lg px-4 py-2 bg-gray-100"
+                          value={requestDetails.approved_by_1}
+                          disabled
+                        />
+                      </div>
+                    )}
+                    {/* Only show Approved By 2 if present */}
+                    {requestDetails.approved_by_2 && (
+                      <div>
+                        <label className="block text-sm font-semibold text-gray-700 mb-1">
+                          Approved By Campus Director:
+                        </label>
+                        <input
+                          type="text"
+                          className="w-full border border-gray-300 rounded-lg px-4 py-2 bg-gray-100"
+                          value={requestDetails.approved_by_2}
+                          disabled
+                        />
+                      </div>
+                    )}
+                    {/* Only show Verified By if present */}
+                    {requestDetails.verified_by && (
+                      <div>
+                        <label className="block text-sm font-semibold text-gray-700 mb-1">
+                          Verified By:
+                        </label>
+                        <input
+                          type="text"
+                          className="w-full border border-gray-300 rounded-lg px-4 py-2 bg-gray-100"
+                          value={requestDetails.verified_by}
+                          disabled
+                        />
+                      </div>
+                    )}
                     <div>
                       <label className="block text-sm font-semibold text-gray-700 mb-1">
                         Date Received:

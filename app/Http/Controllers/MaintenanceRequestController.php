@@ -767,7 +767,7 @@ class MaintenanceRequestController extends Controller
         SystemNotification::create([
             'user_id' => $maintenanceRequest->requesting_personnel, // requester
             'type' => 'maintenance_request_completely_approved',
-            'message' => 'Your maintenance request completed the approval process and has a priority number now, please wait for the service.',
+            'message' => 'Your maintenance request completed the approval process and has a priority number now!, please wait for the service.',
             'is_read' => false,
         ]);
 

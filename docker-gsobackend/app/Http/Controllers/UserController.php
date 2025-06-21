@@ -66,7 +66,7 @@ class UserController extends Controller
             SystemNotification::create([
                 'user_id' => $admin->id,
                 'type' => 'account_request_created',
-                'message' =>  $user->first_name . ' ' . $user->last_name  . ' submitted a request for an account regisration',
+                'message' =>  $user->first_name . ' ' . $user->last_name  . ' registered an account and is waiting for approval.',
                 'is_read' => false,
             ]);
         }

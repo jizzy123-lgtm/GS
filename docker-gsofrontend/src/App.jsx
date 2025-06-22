@@ -20,7 +20,6 @@ import AdminCarpentry from "./pages/Admin/adminMaintenance/AdminCarpentry";
 import AdminAirconditioning from "./pages/Admin/adminMaintenance/AdminAirconditioning";
 import AdminCarpentryform from "./pages/Admin/AdminCarpentryform";
 import StaffDashboard from "./pages/Staff/StaffDashboard.jsx";
-import StaffRequests from "./pages/Staff/StaffRequests.jsx";
 import StaffSlipRequests from "./pages/Staff/StaffSlipRequests.jsx";
 import UserRequests from "./pages/Staff/UserRequests.jsx";
 import StaffViewMaintenanceRequestForm from "./pages/Staff/StaffViewMaintenanceRequestForm.jsx";
@@ -58,6 +57,8 @@ import { AdminNotificationProvider } from "./components/AdminSidebar.jsx";
 import { UserNotificationProvider } from "./components/Sidebar.jsx";
 import { HeadNotificationProvider } from "./components/HeadSidebar.jsx";
 import { CampusDirectorNotificationProvider } from "./components/CampusDirectorSidebar.jsx";
+import StaffRequestStatus from "./pages/Staff/StaffRequestStatus";
+import StaffFeedback from "./pages/Staff/StaffFeedback.jsx";
 
 
 function App() {
@@ -287,13 +288,23 @@ function App() {
           }
         />
         <Route
-          path="/staffrequests"
+          path="/staffrequeststatus"
           element={
             <StaffNotificationProvider>
-              <StaffRequests />
+              <StaffRequestStatus />
             </StaffNotificationProvider>
           }
         />
+
+         <Route
+          path="/stafffeedback/:id"
+          element={
+            <StaffNotificationProvider>
+              <StaffFeedback />
+            </StaffNotificationProvider>
+          }
+        />
+
         <Route
           path="/staffsliprequests"
           element={

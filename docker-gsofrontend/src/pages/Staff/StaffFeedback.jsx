@@ -1,8 +1,7 @@
 import { useState, useEffect, useReducer, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { Sidebar, MENU_ITEMS } from "../../components/Sidebar";
+import { StaffSidebar, MENU_ITEMS as SIDEBAR_MENU_ITEMS } from "../../components/StaffSidebar"; // <-- Use StaffSidebar
 
-// --- Header component (copied from Dashboard.jsx) ---
 const useClickOutside = (ref, handler) => {
   useEffect(() => {
     const listener = (event) => {
@@ -18,7 +17,7 @@ const Header = ({
   isMobileMenuOpen, 
   onToggleMobileMenu,
   onCloseMobileMenu,
-  userTitle = "User"
+  userTitle = "Staff"
 }) => {
   const mobileMenuRef = useRef(null);
   useClickOutside(mobileMenuRef, () => {
@@ -52,14 +51,14 @@ const Header = ({
         }`}
       >
         <nav className="py-2">
-          {MENU_ITEMS.map((item) => (
+          {SIDEBAR_MENU_ITEMS.map((item) => (
             <a
               key={item.text}
               href={item.to}
               className="flex items-center px-4 py-3 text-sm hover:bg-slate-700/50 transition-colors"
               onClick={onCloseMobileMenu}
             >
-              {item.icon && <span className="w-5 h-5 mr-3">{/* icon here if needed */}</span>}
+              {item.icon && <span className="w-5 h-5 mr-3"></span>}
               {item.text}
             </a>
           ))}
@@ -72,7 +71,7 @@ const Header = ({
   );
 };
 
-// --- Sidebar reducer logic (copied from Dashboard.jsx) ---
+
 const sidebarReducer = (state, action) => {
   switch (action.type) {
     case 'TOGGLE_SIDEBAR':
@@ -88,7 +87,7 @@ const sidebarReducer = (state, action) => {
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
 
-const UserFeedback = () => {
+const StaffFeedback = () => {
   // --- Sidebar/menu state ---
   const [state, dispatch] = useReducer(sidebarReducer, {
     isSidebarCollapsed: true,
@@ -174,7 +173,7 @@ const UserFeedback = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setFormError(""); // Clear previous errors
+    setFormError(""); 
 
     if (isRequestDateLoading) {
       setFormError("Please wait, loading request date...");
@@ -275,8 +274,8 @@ const UserFeedback = () => {
       maintenance_request_id: formData.maintenance_request_id,
       client_type: formData.client_type,
       service_type: formData.service_type,
-      request_date: requestDate, // Use fetched request_date
-      date: formData.date, // User input
+      request_date: requestDate, 
+      date: formData.date, 
       sex: formData.sex,
       region: formData.region || null,
       age: formData.age ? parseInt(formData.age, 10) : null,
@@ -329,7 +328,7 @@ const UserFeedback = () => {
 
       const result = await response.json();
       setSubmitted(true);
-      navigate("/requeststatus");
+      navigate("/staffrequeststatus");
 
     } catch (error) {
       setFormError("There was an error submitting your feedback. Please try again.");
@@ -401,9 +400,9 @@ const UserFeedback = () => {
         mode: "cors",
       });
       localStorage.removeItem("authToken");
-      localStorage.removeItem("user");
+      localStorage.removeItem("staff");
       sessionStorage.removeItem("authToken");
-      sessionStorage.removeItem("user");
+      sessionStorage.removeItem("staff");
       navigate("/loginpage", { replace: true });
     } catch (err) {
       console.error(err.message || "An error occurred during logout");
@@ -417,13 +416,13 @@ const UserFeedback = () => {
         isMobileMenuOpen={state.isMobileMenuOpen}
         onToggleMobileMenu={() => dispatch({ type: 'TOGGLE_MOBILE_MENU' })}
         onCloseMobileMenu={() => dispatch({ type: 'CLOSE_MOBILE_MENU' })}
-        userTitle="User"
+        userTitle="Staff"
       />
       <div className="flex flex-1 overflow-hidden">
-        <Sidebar
+        <StaffSidebar
           isSidebarCollapsed={state.isSidebarCollapsed}
           onToggleSidebar={() => dispatch({ type: 'TOGGLE_SIDEBAR' })}
-          menuItems={MENU_ITEMS}
+          menuItems={SIDEBAR_MENU_ITEMS}
           onLogout={handleLogout}
         />
         <main className="flex-1 overflow-auto p-4">
@@ -738,4 +737,4 @@ const UserFeedback = () => {
   );
 };
 
-export default UserFeedback;
+export default StaffFeedback;

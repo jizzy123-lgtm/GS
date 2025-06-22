@@ -218,7 +218,7 @@ function LoginPage() {
       
       {/* Verion Number */}
       <div className="text-center text-xs text-gray-500 pb-6">
-       --1.7--
+       --1.8--
       </div>
 
       {/* Footer */}

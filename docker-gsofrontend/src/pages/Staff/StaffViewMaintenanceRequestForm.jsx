@@ -169,22 +169,10 @@ const StaffViewMaintenanceRequestForm = () => {
       <header className="bg-gradient-to-r from-slate-900 to-slate-800 text-white p-4 shadow-lg border-b border-slate-700">
         <div className="flex justify-between items-center">
           <div className="flex items-center space-x-3">
-            <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center">
-              <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
-            </div>
-            <span className="text-xl md:text-2xl font-bold tracking-tight">
-              ManageIT
-            </span>
+            <span className="text-xl md:text-2xl font-extrabold">ManageIT</span>
           </div>
           <div className="hidden md:flex items-center space-x-3">
-            <div className="w-8 h-8 bg-slate-700 rounded-full flex items-center justify-center">
-              <svg className="w-4 h-4 text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-              </svg>
-            </div>
-            <span className="text-sm font-medium text-slate-200">Staff</span>
+            <div className="hidden md:block text-xl font-bold">Staff</div>
           </div>
         </div>
       </header>
@@ -268,7 +256,7 @@ const StaffViewMaintenanceRequestForm = () => {
                       </div>
                       <div className="flex gap-3">
                         {/* Mark as Done Button */}
-                        {requestDetails.priority_number && (
+                        {requestDetails.priority_number && requestDetails.status?.toLowerCase() === "approved" && (
                           <button
                             className="bg-green-600 hover:bg-green-700 text-white font-semibold px-5 py-2 rounded-lg transition"
                             onClick={handleMarkAsDone}

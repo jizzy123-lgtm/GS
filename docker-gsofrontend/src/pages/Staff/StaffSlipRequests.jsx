@@ -237,11 +237,12 @@ const getTabs = (statuses) => {
 
   const filtered = sortUrgentFirst(requests.filter((r) => {
   if (selectedTab === "Pending Approvals") {
-    // Show requests where status is "Pending" and either approved_by_1 or approved_by_2 is null/undefined
+    // Only show requests where verified_by is NOT null
     return (
       (r.status_name?.toLowerCase() === "pending" || r.status_id === 1) &&
       (r.approved_by_1 === null || r.approved_by_1 === undefined ||
-       r.approved_by_2 === null || r.approved_by_2 === undefined)
+       r.approved_by_2 === null || r.approved_by_2 === undefined) &&
+      r.verified_by !== null && r.verified_by !== undefined
     );
   }
 
@@ -253,12 +254,19 @@ const getTabs = (statuses) => {
   }
 
   if (selectedTab === "Approved") {
-    return r.priority_number !== null && r.priority_number !== undefined;
+    return (
+      r.status_name?.toLowerCase() === "approved" &&
+      r.priority_number !== null &&
+      r.priority_number !== undefined
+    );
   }
 
-  // Only show requests with status_name "Completed" (case-insensitive) for the Completed tab
   if (selectedTab.toLowerCase() === "completed") {
     return r.status_name && r.status_name.toLowerCase() === "completed";
+  }
+
+  if (selectedTab.toLowerCase() === "done") {
+    return r.status_name && r.status_name.toLowerCase() === "done";
   }
 
   if (r.verified_by !== null && r.verified_by !== undefined) return false;
@@ -267,7 +275,6 @@ const getTabs = (statuses) => {
     return (r.status_id === 1 || r.status_name?.toLowerCase() === "pending") && (r.approved_by_2 === null || r.approved_by_2 === undefined);
   }
 
-  // For other tabs, match by status name and make sure not approved_by_2
   return r.status_name === selectedTab && (r.approved_by_2 === null || r.approved_by_2 === undefined);
 }));
 

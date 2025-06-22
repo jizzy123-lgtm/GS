@@ -161,5 +161,16 @@ class FeedbackController extends Controller
         ]);
     }
 
+      public function getByRequest($maintenance_request_id)
+    {
+        $feedback = Feedback::where('maintenance_request_id', $maintenance_request_id)->first();
+
+        if (!$feedback) {
+            return response()->json(['message' => 'Feedback not found for this request.'], 404);
+        }
+
+        return response()->json($feedback);
+    }
+
 
 }

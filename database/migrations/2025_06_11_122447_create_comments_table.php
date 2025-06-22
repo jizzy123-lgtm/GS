@@ -10,7 +10,7 @@ class CreateCommentsTable extends Migration
     {
         Schema::create('comments', function (Blueprint $table) {
             $table->id(); // auto-incrementing primary key
-            $table->text('comment');  // Text field for the actual comment
+            $table->text('comment')->nullable();  // Text field for the actual comment
             $table->unsignedBigInteger('request_id');
             $table->unsignedBigInteger('user_id');
             $table->unsignedBigInteger('role_id');

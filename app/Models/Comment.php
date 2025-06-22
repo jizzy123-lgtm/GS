@@ -15,7 +15,7 @@ class Comment extends Model
         'role_id',
         'date',
         'time',
-        'comment_text',  // Add this here
+        'comment',  // Add this here
     ];
 
     // Define the relationship with the Request model
@@ -31,8 +31,20 @@ class Comment extends Model
     }
 
     // Define the relationship with the Role model
+    // public function role()
+    // {
+    //     return $this->belongsTo(Role::class);
+    // }
+
+    public function maintenanceRequest()
+    {
+        return $this->belongsTo(MaintenanceRequest::class);
+    }
+
     public function role()
     {
-        return $this->belongsTo(Role::class);
+        return $this->belongsTo(Role::class, 'role_id');
     }
+
+
 }

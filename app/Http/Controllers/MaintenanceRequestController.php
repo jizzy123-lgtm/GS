@@ -17,7 +17,8 @@ use App\Notifications\RequestApprovedByHead;
 use App\Notifications\RequestApprovedByCampusDirector;
 use App\Notifications\AssignPriorityToRequest;
 use App\Notifications\RequestAssignedPriority;
-
+use Carbon\Carbon;
+use App\Models\Comment;
 class MaintenanceRequestController extends Controller
 {
     public function index()
@@ -90,6 +91,7 @@ class MaintenanceRequestController extends Controller
             'priority_number' => 'nullable|string',
             'remarks' => 'nullable|string',
             'verified_by' => 'required|exists:users,id', // Staff ID must exist in users table
+            'comment' => 'nullable|string|max:500'  // ✅ Optional comment field
         ]);
 
         $maintenanceRequest = MaintenanceRequest::findOrFail($id);
@@ -104,6 +106,18 @@ class MaintenanceRequestController extends Controller
             // 'status_id' => 8,
 
         ]);
+
+        // ✅ Optional: Create comment if provided
+        if ($request->filled('comment')) {
+            Comment::create([
+                'comment' => $request->comment,
+                'request_id' => $maintenanceRequest->id,
+                'user_id' => $request->verified_by,
+                'role_id' => Auth::user()->role_id,
+                'date' => Carbon::now()->toDateString(),
+                'time' => Carbon::now()->toTimeString(),
+            ]);
+        }
 
         // $requester = User::where('id', $maintenanceRequest->requesting_personnel)->first();
         // if ($requester && $requester->email) {
@@ -198,6 +212,21 @@ class MaintenanceRequestController extends Controller
             return response()->json(['message' => 'Already approved by a Head.'], 400);
         }
 
+        $request->validate([
+            'comment' => 'nullable|string|max:500'  // ✅ Optional comment field
+        ]);
+
+        // ✅ Optional: Create comment if provided
+        if ($request->filled('comment')) {
+            Comment::create([
+                'comment' => $request->comment,
+                'request_id' => $maintenanceRequest->id,
+                'user_id' => Auth::user()->id,
+                'role_id' => Auth::user()->role_id,
+                'date' => Carbon::now()->toDateString(),
+                'time' => Carbon::now()->toTimeString(),
+            ]);
+        }
         $maintenanceRequest->approved_by_1 = $user->id;
         // $maintenanceRequest->status_id = 9;
         $maintenanceRequest->save();
@@ -261,6 +290,23 @@ class MaintenanceRequestController extends Controller
             return response()->json(['message' => 'Already approved by the Campus Director.'], 400);
         }
 
+
+         $request->validate([
+            'comment' => 'nullable|string|max:500'  // ✅ Optional comment field
+        ]);
+
+        // ✅ Optional: Create comment if provided
+        if ($request->filled('comment')) {
+            Comment::create([
+                'comment' => $request->comment,
+                'request_id' => $maintenanceRequest->id,
+                'user_id' => Auth::user()->id,
+                'role_id' => Auth::user()->role_id,
+                'date' => Carbon::now()->toDateString(),
+                'time' => Carbon::now()->toTimeString(),
+            ]);
+        }
+
         $maintenanceRequest->approved_by_2 = $user->id;
         // $maintenanceRequest->status_id = 10;
         $maintenanceRequest->save();
@@ -309,7 +355,7 @@ class MaintenanceRequestController extends Controller
 
 
     //this function gets the data of an specific maintenance request filled up by the requester
-    public function staffpov($id)
+  public function staffpov($id)
 {
     $request = MaintenanceRequest::with([
         'requester',
@@ -319,7 +365,9 @@ class MaintenanceRequestController extends Controller
         'verifier',
         'approver1',
         'approver2',
-        'maintenanceType'
+        'maintenanceType',
+        'comments.user',     // include comment user
+        'comments.role'      // if you want to show role name too
     ])->find($id);
 
     if (!$request) {
@@ -351,6 +399,18 @@ class MaintenanceRequestController extends Controller
         'approved_by_2' => optional($request->approver2)->last_name,
         'created_at' => $request->created_at,
         'updated_at' => $request->updated_at,
+
+        // Include comments
+        'comments' => $request->comments->map(function ($comment) {
+            return [
+                'id' => $comment->id,
+                'comment' => $comment->comment,
+                'user' => optional($comment->user)->first_name . ' ' . optional($comment->user)->last_name,
+                'role' => optional($comment->role)->role_name,
+                'date' => $comment->date,
+                'time' => $comment->time,
+            ];
+        }),
     ];
 
     return response()->json($data);
@@ -390,20 +450,39 @@ class MaintenanceRequestController extends Controller
         $request->validate([
             'date_received' => 'required|date',
             'time_received' => 'required|date_format:H:i:s',
-            'remarks' => 'required|string|max:255',
+            'comment' => 'required|string|max:1000',
+            // 'remarks' => 'required|string|max:255',
+
         ]);
 
         // Update the request status and remarks
         $maintenanceRequest->update([
             'date_received' => $request->date_received,
             'time_received' => $request->time_received,
-            'remarks' => $request->remarks,
+            // 'remarks' => $request->remarks,
             'status_id' => 3, //3 means dissaproved
             'priority_number'=> null,
         ]);
 
+        // Create comment (reason for disapproval)
+        Comment::create([
+            'comment' => $request->comment,
+            'request_id' => $maintenanceRequest->id,
+            'user_id' => Auth::user()->id,
+            'role_id' => Auth::user()->role_id,
+            'date' => \Carbon\Carbon::now()->toDateString(),
+            'time' => \Carbon\Carbon::now()->toTimeString(),
+        ]);
+
+        SystemNotification::create([
+            'user_id' => $maintenanceRequest->requesting_personnel, // requester
+            'type' => 'maintenance_request_denied',
+            'message' => 'Your maintenance request was denied by '. Auth::user()->first_name . ' '. Auth::user()->last_name,
+            'is_read' => false,
+        ]);
+
         return response()->json([
-            'message' => 'Maintenance request has been disapproved.',
+            'message' => 'Maintenance request has been denied.',
             'data' => $maintenanceRequest
         ], 200); // Alternative to Response::HTTP_OK
     }
@@ -459,31 +538,55 @@ class MaintenanceRequestController extends Controller
 
     //head dissapproves the request
     public function disapprove(Request $request, $id)
-    {
-        $maintenanceRequest = MaintenanceRequest::find($id);
+{
+    $maintenanceRequest = MaintenanceRequest::find($id);
 
-        if (!$maintenanceRequest) {
-            return response()->json(['message' => 'Maintenance request not found.'], 404);
-        }
-
-        // Ensure only heads (role_id = 2) can disapprove
-        // if (Auth::user()->role_id !== 2) {
-        //     return response()->json(['message' => 'Unauthorized'], 403);
-        // }
-        $request->validate([
-            'remarks' => 'required|string|max:255',
-        ]);
-        // Update request status to "Disapproved"
-        $maintenanceRequest->update([
-            'status_id' => 3,
-            'remarks' => $request->remarks,
-            'priority_number' => null,
-        ]);
-
-        return response()->json([
-            'message' => 'Maintenance request has been disapproved by ' . Auth::user()->full_name . '.',
-        ], 200);
+    if (!$maintenanceRequest) {
+        return response()->json(['message' => 'Maintenance request not found.'], 404);
     }
+
+    // Only heads (role_id = 2) can disapprove — uncomment if needed
+    // if (Auth::user()->role_id !== 2) {
+    //     return response()->json(['message' => 'Unauthorized'], 403);
+    // }
+
+    // Require omment
+    $request->validate([
+        // 'remarks' => 'required|string|max:255',
+        'comment' => 'required|string|max:1000',
+    ]);
+
+    // Update request status to "Disapproved"
+    $maintenanceRequest->update([
+        'status_id' => 3,
+        //'remarks' => $request->remarks,
+        'priority_number' => null,
+    ]);
+
+    // Create comment (reason for disapproval)
+    Comment::create([
+        'comment' => $request->comment,
+        'request_id' => $maintenanceRequest->id,
+        'user_id' => Auth::user()->id,
+        'role_id' => Auth::user()->role_id,
+        'date' => \Carbon\Carbon::now()->toDateString(),
+        'time' => \Carbon\Carbon::now()->toTimeString(),
+    ]);
+
+    // Notify the requester
+    SystemNotification::create([
+        'user_id' => $maintenanceRequest->requesting_personnel,
+        'type' => 'maintenance_request_disapproved',
+        'message' => 'Your maintenance request was disapproved by ' . Auth::user()->first_name . ' ' . Auth::user()->last_name,
+        'is_read' => false,
+    ]);
+
+    return response()->json([
+        'message' => 'Maintenance request has been disapproved.',
+    ], 200);
+}
+
+
 
     //for display of data purposes only
     public function headpov($id)
@@ -495,7 +598,9 @@ class MaintenanceRequestController extends Controller
         'status',
         'verifier',
         'approver1',
-        'maintenanceType'
+        'maintenanceType',
+        'comments.user',
+        'comments.role'
     ])->find($id);
 
     if (!$request) {
@@ -529,6 +634,18 @@ class MaintenanceRequestController extends Controller
         'maintenance_type' => optional($request->maintenanceType)->type_name,
         'created_at' => $request->created_at,
         'updated_at' => $request->updated_at,
+
+        // Include comments
+        'comments' => $request->comments->map(function ($comment) {
+            return [
+                'id' => $comment->id,
+                'comment' => $comment->comment,
+                'user' => optional($comment->user)->first_name . ' ' . optional($comment->user)->last_name,
+                'role' => optional($comment->role)->role_name,
+                'date' => $comment->date,
+                'time' => $comment->time,
+            ];
+        }),
     ];
 
     return response()->json($data);
@@ -546,7 +663,9 @@ class MaintenanceRequestController extends Controller
         'verifier',
         'approver1',
         'approver2',
-        'maintenanceType'
+        'maintenanceType',
+        'comments.user',
+        'comments.role'
     ])->find($id);
 
     if (!$request) {
@@ -581,6 +700,18 @@ class MaintenanceRequestController extends Controller
         'maintenance_type' => optional($request->maintenanceType)->type_name,
         'created_at' => $request->created_at,
         'updated_at' => $request->updated_at,
+
+        // Include comments
+        'comments' => $request->comments->map(function ($comment) {
+            return [
+                'id' => $comment->id,
+                'comment' => $comment->comment,
+                'user' => optional($comment->user)->first_name . ' ' . optional($comment->user)->last_name,
+                'role' => optional($comment->role)->role_name,
+                'date' => $comment->date,
+                'time' => $comment->time,
+            ];
+        }),
     ];
 
     return response()->json($data);
@@ -621,39 +752,100 @@ class MaintenanceRequestController extends Controller
     }
 
 
-    public function markAsUrgent($id)
+    public function markAsUrgent(Request $request, $id)
     {
-        $request = MaintenanceRequest::find($id);
+        $user = Auth::user();
+        if (!$user) {
+            return response()->json(['message' => 'Unauthenticated.'], 401);
+        }
 
-        if (!$request) {
+        $maintenanceRequest = MaintenanceRequest::find($id);
+
+        if (!$maintenanceRequest) {
             return response()->json(['message' => 'Maintenance request not found.'], 404);
         }
 
-        $request->status_id = 6; // 6 = Urgent
-        $request->save();
+        // ✅ Validate the request input
+        $request->validate([
+            'comment' => 'required|string|max:1000',
+        ]);
+
+        // ✅ Store the comment
+        Comment::create([
+            'comment' => $request->comment,
+            'request_id' => $maintenanceRequest->id,
+            'user_id' => Auth::user()->id,
+            'role_id' => Auth::user()->role_id,
+            'date' => \Carbon\Carbon::now()->toDateString(),
+            'time' => \Carbon\Carbon::now()->toTimeString(),
+        ]);
+
+        // ✅ Update the request to "Urgent"
+        $maintenanceRequest->status_id = 6;
+        $maintenanceRequest->save();
+
+        // ✅ Notify the requester
+        SystemNotification::create([
+            'user_id' => $maintenanceRequest->requesting_personnel,
+            'type' => 'maintenance_request_urgent',
+            'message' => 'Your maintenance request was marked as urgent.',
+            'is_read' => false,
+        ]);
 
         return response()->json([
             'message' => 'Maintenance request marked as urgent.',
-            'data' => $request
+            'data' => $maintenanceRequest
         ]);
     }
 
-    public function markAsOnHold($id)
-    {
-        $request = MaintenanceRequest::find($id);
 
-        if (!$request) {
+
+    public function markAsOnHold(Request $request, $id)
+    {
+
+        $user = Auth::user();
+        if (!$user) {
+            return response()->json(['message' => 'Unauthenticated.'], 401);
+        }
+        $maintenanceRequest = MaintenanceRequest::find($id);
+
+        if (!$maintenanceRequest) {
             return response()->json(['message' => 'Maintenance request not found.'], 404);
         }
 
-        $request->status_id = 7; // 7 = On Hold
-        $request->save();
+        // ✅ Validate optional comment
+        $request->validate([
+            'comment' => 'required|string|max:1000',
+        ]);
+
+        // ✅ Save comment
+        Comment::create([
+            'comment' => $request->comment,
+            'request_id' => $maintenanceRequest->id,
+            'user_id' => Auth::user()->id,
+            'role_id' => Auth::user()->role_id,
+            'date' => Carbon::now()->toDateString(),
+            'time' => Carbon::now()->toTimeString(),
+        ]);
+
+        // ✅ Update status to On Hold
+        $maintenanceRequest->status_id = 7;
+        $maintenanceRequest->save();
+
+        // ✅ Create system notification for requester
+        SystemNotification::create([
+            'user_id' => $maintenanceRequest->requesting_personnel,
+            'type' => 'maintenance_request_onhold',
+            'message' => 'Your maintenance request was marked as on hold.',
+            'is_read' => false,
+        ]);
 
         return response()->json([
             'message' => 'Maintenance request marked as on hold.',
-            'data' => $request
+            'data' => $maintenanceRequest
         ]);
     }
+
 
 
     //this cancels the request of the user
@@ -686,7 +878,9 @@ class MaintenanceRequestController extends Controller
             'verifier',
             'approver1',
             'approver2',
-            'maintenanceType'
+            'maintenanceType',
+             'comments.user',     // include comment user
+            'comments.role'      // if you want to show role name too
         ])->get();
 
         $data = $requests->map(function ($request) {
@@ -712,13 +906,25 @@ class MaintenanceRequestController extends Controller
                 'date_received' => $request->date_received,
                 'time_received' => $request->time_received,
                 'priority_number' => $request->priority_number,
-                'remarks' => $request->remarks,
+                // 'remarks' => $request->remarks,
                 'verified_by' => optional($request->verifier)->last_name,
                 'approved_by_1' => optional($request->approver1)->last_name,
                 'approved_by_2' => optional($request->approver2)->last_name,
                 'maintenance_type' => optional($request->maintenanceType)->type_name,
                 'created_at' => $request->created_at,
                 'updated_at'=> $request->updated_at,
+
+                // Include comments
+                'comments' => $request->comments->map(function ($comment) {
+                    return [
+                        'id' => $comment->id,
+                        'comment' => $comment->comment,
+                        'user' => optional($comment->user)->first_name . ' ' . optional($comment->user)->last_name,
+                        'role' => optional($comment->role)->role_name,
+                        'date' => $comment->date,
+                        'time' => $comment->time,
+                    ];
+                }),
             ];
         });
 
@@ -787,6 +993,14 @@ class MaintenanceRequestController extends Controller
 
         $request->status_id = 4; // 4 = done
         $request->save();
+
+
+        SystemNotification::create([
+            'user_id' => $request->requesting_personnel, // requester
+            'type' => 'maintenance_request_done',
+            'message' => 'Your maintenance request has been successfully done. Kindly share your feedback to help us improve our service..',
+            'is_read' => false,
+        ]);
 
         return response()->json([
             'message' => 'Maintenance request marked as done.',

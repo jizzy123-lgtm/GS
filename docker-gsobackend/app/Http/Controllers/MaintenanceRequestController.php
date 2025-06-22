@@ -277,6 +277,24 @@ class MaintenanceRequestController extends Controller
             $staff->notify(new AssignPriorityToRequest($maintenanceRequest));
         }
 
+        SystemNotification::create([
+            'user_id' => $maintenanceRequest->requesting_personnel, // requester
+            'type' => 'maintenance_request_approved_by_campus_director',
+            'message' => 'Your maintenance request has been approved by the campus director, please wait for priority number.',
+            'is_read' => false,
+        ]);
+
+        $staffUsers = User::where('role_id', 3)->get();
+
+        foreach ($staffUsers as $staff) {
+            SystemNotification::create([
+                'user_id' => $staff->id,
+                'type' => 'maintenance_request_approved_by_campus_director',
+                'message' => 'A maintenance request was approved by the campus director, please view and assign a priority number ',
+                'is_read' => false,
+            ]);
+        }
+
         return response()->json([
             'message' => 'Approved by Campus Director successfully. Request is now fully approved.',
             'maintenance_request' => $maintenanceRequest
@@ -327,6 +345,7 @@ class MaintenanceRequestController extends Controller
         'contact_number' => $request->contact_number,
         'status' => optional($request->status)->name,
         'maintenance_type' => optional($request->maintenanceType)->type_name,
+        'maintenance_type_id' => $request->maintenance_type_id,
         'verified_by' => optional($request->verifier)->last_name,
         'approved_by_1' => optional($request->approver1)->last_name,
         'approved_by_2' => optional($request->approver2)->last_name,
@@ -743,6 +762,14 @@ class MaintenanceRequestController extends Controller
         if ($requester && $requester->email) {
             $requester->notify(new RequestAssignedPriority($maintenanceRequest));
         }
+
+
+        SystemNotification::create([
+            'user_id' => $maintenanceRequest->requesting_personnel, // requester
+            'type' => 'maintenance_request_completely_approved',
+            'message' => 'Your request completed the approval process and has a priority number now!, please wait for the service.',//notify the user
+            'is_read' => false,
+        ]);
 
         return response()->json([
             'message' => 'Priority number assigned successfully.',

@@ -1,3 +1,13 @@
+Release 1.7
+-notifications of staff, head, campus director, and user are all working
+
+Release 1.6
+-Automated priority no.
+-Contact no. Restrict not starting 09 then 11 digit na sya
+-There is notif in staff but it can't still be read
+-Onhold, Urgent, verified, completed once done feedback (working)
+-Feedback
+
 Release 1.4
 backend:
 -Api for (facebook or messenger type of red notifs) numbers of notifications:

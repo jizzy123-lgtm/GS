@@ -65,5 +65,10 @@ class MaintenanceRequest extends Model
         return $this->belongsTo(MaintenanceType::class);
     }
 
+    public function comments()
+    {
+        return $this->hasMany(Comment::class, 'request_id');
+    }
+
 }
 

@@ -118,6 +118,8 @@ Route::middleware(['auth:sanctum'])->post('/addservice',[MaintenanceTypeControll
 Route::middleware(['auth:sanctum'])->post('/feedback', [FeedbackController::class, 'store']);
 //get the details of the feedback
 Route::middleware('auth:sanctum')->get('/feedbacks/{id}/details', [FeedbackController::class, 'showFeedbackDetails']);
+Route::get('/feedbacks/{id}', [FeedbackController::class, 'show']);
+Route::get('/feedbacks/request/{maintenance_request_id}', [FeedbackController::class, 'getByRequest']);
 
 Route::get('/feedbacks', [FeedbackController::class, 'index']);
 
@@ -173,9 +175,12 @@ Route::apiResource('statuses', StatusController::class);
 Route::apiResource('maintenance-types', MaintenanceTypeController::class);
 
 
-Route::put('/maintenance-requests/{id}/mark-urgent', [MaintenanceRequestController::class, 'markAsUrgent']);
-Route::put('/maintenance-requests/{id}/mark-onhold', [MaintenanceRequestController::class, 'markAsOnHold']);
-Route::put('/maintenance-requests/{id}/mark-done', [MaintenanceRequestController::class, 'markAsDone']);
+Route::middleware('auth:sanctum')->group(function () {
+    Route::put('/maintenance-requests/{id}/mark-urgent', [MaintenanceRequestController::class, 'markAsUrgent']);
+    Route::put('/maintenance-requests/{id}/mark-onhold', [MaintenanceRequestController::class, 'markAsOnHold']);
+    Route::put('/maintenance-requests/{id}/mark-done', [MaintenanceRequestController::class, 'markAsDone']);
+});
+
 
 
 

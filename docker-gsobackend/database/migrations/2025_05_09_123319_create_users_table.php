@@ -27,7 +27,7 @@ return new class extends Migration
             $table->foreignId('status_id')->constrained('statuses')->onDelete('cascade');
 
             $table->string('contact_number');
-            $table->string('email')->unique();
+            $table->string('email');
             $table->string('username')->unique();
             $table->string('password');
 

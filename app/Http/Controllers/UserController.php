@@ -29,7 +29,7 @@ class UserController extends Controller
             'middle_name'  => 'nullable|string|max:1',
             'suffix'          => 'nullable|string|max:10',
             'username'        => 'required|string|unique:users,username',
-            'email'           => 'nullable|email|unique:users,email',
+            'email'          => 'nullable|email',
             'position_id'     => 'required|exists:positions,id',
             'office_id'       => 'required|exists:offices,id',
             'contact_number'  => 'required|string',

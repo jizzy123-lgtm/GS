@@ -1,6 +1,6 @@
 import React, { useState, useReducer, useEffect, useCallback, useMemo, useRef } from "react";
 import { useNavigate, NavLink } from "react-router-dom";
-import { StaffSidebar, MENU_ITEMS } from "../../components/StaffSidebar"; // Add this import
+import { StaffSidebar, MENU_ITEMS } from "../../components/StaffSidebar"; 
 import Icon from "../../components/Icon";
 import { Bar } from 'react-chartjs-2';
 import { Chart as ChartJS, CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend } from 'chart.js';
@@ -1184,19 +1184,160 @@ const UserRequestAnalysis = ({ requests }) => {
   );
 };
 
+// FeedbacksTable styled like Overview, showing only required columns and Review button
+const FeedbacksTable = ({ feedbacks, onReview }) => (
+  <div className="bg-white rounded-lg shadow-sm md:shadow-lg border border-gray-200">
+    <table className="w-full border-collapse">
+      <thead>
+        <tr className="bg-gray-50 border-b-2 border-gray-200">
+          <th className="p-3 text-left font-semibold">Request ID</th>
+          <th className="p-3 text-left font-semibold">Client Type</th>
+          <th className="p-3 text-left font-semibold">Service Type</th>
+          <th className="p-3 text-left font-semibold">Date</th>
+          <th className="p-3 text-left font-semibold">Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        {feedbacks.length > 0 ? (
+          feedbacks.map((fb) => (
+            <tr key={fb.id} className="hover:bg-gray-50 even:bg-gray-50 border-b border-gray-400">
+              <td className="p-3 font-medium">{fb.maintenance_request_id}</td>
+              <td className="p-3">{fb.client_type}</td>
+              <td className="p-3">{fb.service_type}</td>
+              <td className="p-3">{fb.date ? new Date(fb.date).toLocaleDateString() : "N/A"}</td>
+              <td className="p-3">
+                <button
+                  onClick={() => onReview(fb.maintenance_request_id)}
+                  className="bg-blue-500 hover:bg-blue-600 text-white font-medium py-2 px-4 rounded-lg"
+                >
+                  Review
+                </button>
+              </td>
+            </tr>
+          ))
+        ) : (
+          <tr>
+            <td colSpan={5} className="p-3 text-center">
+              No feedbacks found
+            </td>
+          </tr>
+        )}
+      </tbody>
+    </table>
+  </div>
+);
+
+// Add a chart for feedbacks by service_type and client_type
+const FeedbacksChart = ({ feedbacks }) => {
+  // Group feedbacks by service_type and client_type
+  const serviceTypes = useMemo(() => {
+    const set = new Set();
+    feedbacks.forEach(fb => {
+      if (fb.service_type) set.add(fb.service_type);
+    });
+    return Array.from(set);
+  }, [feedbacks]);
+
+  const clientTypes = useMemo(() => {
+    const set = new Set();
+    feedbacks.forEach(fb => {
+      if (fb.client_type) set.add(fb.client_type);
+    });
+    return Array.from(set);
+  }, [feedbacks]);
+
+  // Prepare data for Chart.js
+  const data = useMemo(() => {
+    return {
+      labels: serviceTypes,
+      datasets: clientTypes.map((client, idx) => ({
+        label: client,
+        data: serviceTypes.map(
+          service =>
+            feedbacks.filter(
+              fb => fb.service_type === service && fb.client_type === client
+            ).length
+        ),
+        backgroundColor: [
+          "rgba(75,192,192,0.6)",
+          "rgba(255,206,86,0.6)",
+          "rgba(255,99,132,0.6)",
+          "rgba(153,102,255,0.6)",
+          "rgba(54,162,235,0.6)",
+          "rgba(255,159,64,0.6)",
+        ][idx % 6],
+        borderColor: [
+          "rgba(75,192,192,1)",
+          "rgba(255,206,86,1)",
+          "rgba(255,99,132,1)",
+          "rgba(153,102,255,1)",
+          "rgba(54,162,235,1)",
+          "rgba(255,159,64,1)",
+        ][idx % 6],
+        borderWidth: 1,
+      })),
+    };
+  }, [feedbacks, serviceTypes, clientTypes]);
+
+  const options = {
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: {
+      legend: { position: "top" },
+      title: {
+        display: true,
+        text: "Feedbacks by Service Type and Client Type",
+        font: { size: 16, weight: "bold" },
+      },
+    },
+    scales: {
+      y: {
+        beginAtZero: true,
+        ticks: { precision: 0 },
+        title: { display: true, text: "Number of Feedbacks" },
+      },
+      x: {
+        title: { display: true, text: "Service Type" },
+      },
+    },
+  };
+
+  if (feedbacks.length === 0) {
+    return (
+      <div className="h-96 w-full bg-white rounded-lg shadow p-4 flex items-center justify-center text-gray-500">
+        No feedbacks to display
+      </div>
+    );
+  }
+
+  return (
+    <div className="h-96 w-full bg-white rounded-lg shadow p-4 mb-6">
+      <Bar data={data} options={options} />
+    </div>
+  );
+};
+
 const Report = () => {
   const navigate = useNavigate();
   const [state, dispatch] = useReducer(sidebarReducer, {
-    isSidebarCollapsed: true, // Collapsed by default
+    isSidebarCollapsed: true,
     isMobileMenuOpen: false,
   });
   const [requests, setRequests] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedTab, setSelectedTab] = useState("All");
-  const [viewMode, setViewMode] = useState("chart"); // 'chart' or 'table'
+  const [viewMode, setViewMode] = useState("chart");
   const [dateFilter, setDateFilter] = useState(null);
   const [dateRange, setDateRange] = useState("all");
-  const [activeSection, setActiveSection] = useState("overview"); // 'overview' or 'users'
+  const [activeSection, setActiveSection] = useState("overview"); // 'overview', 'users', or 'feedbacks'
+  const [feedbacks, setFeedbacks] = useState([]);
+  const [loadingFeedbacks, setLoadingFeedbacks] = useState(false);
+  // Add viewMode for feedbacks section
+  const [feedbacksViewMode, setFeedbacksViewMode] = useState("chart");
+
+  // --- Add these states for feedbacks date filtering ---
+  const [feedbacksDateFilter, setFeedbacksDateFilter] = useState(null);
+  const [feedbacksDateRange, setFeedbacksDateRange] = useState("all");
 
   const token = localStorage.getItem("authToken") || sessionStorage.getItem("authToken");
 
@@ -1213,8 +1354,6 @@ const Report = () => {
           headers: { Authorization: `Bearer ${token}` },
         });
         const data = await res.json();
-
-        // The backend returns an array of requests directly
         setRequests(Array.isArray(data) ? data : []);
       } catch (err) {
         console.error(err);
@@ -1227,31 +1366,54 @@ const Report = () => {
     fetchRequests();
   }, [token, navigate]);
 
-  const handleRowClick = useCallback(
-    (id, status) => {
-      if (status === "Pending") {
-        navigate(`/staffmaintenancerequestform/${id}`);
-      } else {
-        navigate(`/staffviewmaintenancerequestform/${id}`);
-      }
-    },
-    [navigate]
-  );
+  // Fetch feedbacks when Feedbacks tab is selected
+  useEffect(() => {
+    if (activeSection === "feedbacks" && !loadingFeedbacks && feedbacks.length === 0) {
+      setLoadingFeedbacks(true);
+      fetch(`${API_BASE_URL}/feedbacks`, {
+        headers: { Authorization: `Bearer ${token}` },
+      })
+        .then((res) => res.json())
+        .then((data) => setFeedbacks(Array.isArray(data.data) ? data.data : []))
+        .catch(() => setFeedbacks([]))
+        .finally(() => setLoadingFeedbacks(false));
+    }
+    // Only run when activeSection changes to "feedbacks"
+    // eslint-disable-next-line
+  }, [activeSection, token]);
+
+  // Handler for Review button in feedbacks table
+  const handleFeedbackReview = (maintenanceRequestId) => {
+    navigate(`/feedbackreview/${maintenanceRequestId}`);
+  };
 
   // Apply filters (status and date)
   const filteredRequests = requests.filter((request) => {
     // Status filter
-    const statusMatch = selectedTab === "All" ? true : request.status === selectedTab;
-    
+    const statusMatch =
+      selectedTab === "All"
+        ? true
+        : request.status === selectedTab;
+
     // Date filter
     let dateMatch = true;
     if (dateFilter && dateFilter.start && dateFilter.end && request.created_at) {
       const requestDate = new Date(request.created_at);
       dateMatch = requestDate >= dateFilter.start && requestDate <= dateFilter.end;
     }
-    
+
     return statusMatch && dateMatch;
   });
+
+  // --- Filter feedbacks by date ---
+  const filteredFeedbacks = useMemo(() => {
+    if (!feedbacksDateFilter || !feedbacksDateFilter.start || !feedbacksDateFilter.end) return feedbacks;
+    return feedbacks.filter(fb => {
+      if (!fb.date) return false;
+      const fbDate = new Date(fb.date);
+      return fbDate >= feedbacksDateFilter.start && fbDate <= feedbacksDateFilter.end;
+    });
+  }, [feedbacks, feedbacksDateFilter]);
 
   const showActions = true;
 
@@ -1326,8 +1488,8 @@ const Report = () => {
               <button
                 onClick={() => setActiveSection("overview")}
                 className={`px-4 py-2 rounded-lg ${
-                  activeSection === "overview" 
-                    ? "bg-blue-600 text-white" 
+                  activeSection === "overview"
+                    ? "bg-blue-600 text-white"
                     : "bg-gray-200 text-gray-700"
                 }`}
               >
@@ -1336,29 +1498,47 @@ const Report = () => {
               <button
                 onClick={() => setActiveSection("users")}
                 className={`px-4 py-2 rounded-lg ${
-                  activeSection === "users" 
-                    ? "bg-blue-600 text-white" 
+                  activeSection === "users"
+                    ? "bg-blue-600 text-white"
                     : "bg-gray-200 text-gray-700"
                 }`}
               >
                 User Analysis
               </button>
+              <button
+                onClick={() => setActiveSection("feedbacks")}
+                className={`px-4 py-2 rounded-lg ${
+                  activeSection === "feedbacks"
+                    ? "bg-blue-600 text-white"
+                    : "bg-gray-200 text-gray-700"
+                }`}
+              >
+                Feedbacks
+              </button>
             </div>
           </div>
-
           {/* Date Filter */}
-          <DateSelector 
-            dateFilter={dateFilter} 
-            setDateFilter={setDateFilter}
-            dateRange={dateRange}
-            setDateRange={setDateRange}
-          />
+          {activeSection === "feedbacks" ? (
+            <DateSelector
+              dateFilter={feedbacksDateFilter}
+              setDateFilter={setFeedbacksDateFilter}
+              dateRange={feedbacksDateRange}
+              setDateRange={setFeedbacksDateRange}
+            />
+          ) : (
+            <DateSelector
+              dateFilter={dateFilter}
+              setDateFilter={setDateFilter}
+              dateRange={dateRange}
+              setDateRange={setDateRange}
+            />
+          )}
 
           {activeSection === "overview" ? (
             <>
               {/* Status Tabs */}
               <div className="flex flex-wrap gap-2 mb-6">
-                {["All", "Pending", "Approved", "Disapproved", "Done"].map((tab) => (
+                {["All", "Pending", "Approved", "Disapproved", "Done", "Completed"].map((tab) => (
                   <button
                     key={tab}
                     onClick={() => setSelectedTab(tab)}
@@ -1372,6 +1552,8 @@ const Report = () => {
                           ? "bg-green-500 text-white"
                           : tab === "Done"
                           ? "bg-purple-500 text-white"
+                          : tab === "Completed"
+                          ? "bg-blue-700 text-white"
                           : "bg-red-500 text-white"
                         : "bg-transparent text-gray-700"
                     }`}
@@ -1451,9 +1633,51 @@ const Report = () => {
                 </div>
               </div>
             </>
-          ) : (
-            // User analysis section
+          ) : activeSection === "users" ? (
             <UserRequestAnalysis requests={filteredRequests} />
+          ) : (
+            <div>
+              {/* Feedbacks view mode toggle */}
+              <div className="flex justify-end mb-4">
+                <div className="inline-flex rounded-md shadow-sm">
+                  <button
+                    onClick={() => setFeedbacksViewMode("chart")}
+                    className={`px-4 py-2 text-sm font-medium rounded-l-lg border ${
+                      feedbacksViewMode === "chart"
+                        ? "bg-blue-50 text-blue-700 border-blue-300"
+                        : "bg-white text-gray-700 border-gray-300 hover:bg-gray-50"
+                    }`}
+                  >
+                    Chart View
+                  </button>
+                  <button
+                    onClick={() => setFeedbacksViewMode("table")}
+                    className={`px-4 py-2 text-sm font-medium rounded-r-lg border-t border-r border-b ${
+                      feedbacksViewMode === "table"
+                        ? "bg-blue-50 text-blue-700 border-blue-300"
+                        : "bg-white text-gray-700 border-gray-300 hover:bg-gray-50"
+                    }`}
+                  >
+                    Table View
+                  </button>
+                </div>
+              </div>
+              {/* Show date range info if filtering */}
+              {feedbacksDateFilter && feedbacksDateFilter.start && feedbacksDateFilter.end && (
+                <div className="mb-4 text-sm text-gray-600">
+                  <p>
+                    Viewing feedbacks from {formatDateSafely(feedbacksDateFilter.start)} to {formatDateSafely(feedbacksDateFilter.end)}
+                  </p>
+                </div>
+              )}
+              {loadingFeedbacks ? (
+                <div className="p-4 flex justify-center items-center">Loading feedbacks...</div>
+              ) : feedbacksViewMode === "chart" ? (
+                <FeedbacksChart feedbacks={filteredFeedbacks} />
+              ) : (
+                <FeedbacksTable feedbacks={filteredFeedbacks} onReview={handleFeedbackReview} />
+              )}
+            </div>
           )}
         </main>
       </div>

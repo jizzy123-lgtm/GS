@@ -188,7 +188,11 @@ const StaffSlipRequests = () => {
       const isPending = status === "Pending" || status === 1;
       const isApprovedBy2 = approved_by_2 !== null && approved_by_2 !== undefined;
       const hasPriority = priority_number !== null && priority_number !== undefined;
-      if (hasPriority) {
+      const isOnhold = status?.toLowerCase() === "onhold" || status?.toLowerCase() === "on hold";
+
+      if (isOnhold) {
+        navigate(`/staffmaintenancerequestform/${id}`);
+      } else if (hasPriority) {
         navigate(`/staffviewmaintenancerequestform/${id}`);
       } else if (isPending || isApprovedBy2) {
         navigate(`/staffmaintenancerequestform/${id}`);

@@ -59,6 +59,7 @@ import { HeadNotificationProvider } from "./components/HeadSidebar.jsx";
 import { CampusDirectorNotificationProvider } from "./components/CampusDirectorSidebar.jsx";
 import StaffRequestStatus from "./pages/Staff/StaffRequestStatus";
 import StaffFeedback from "./pages/Staff/StaffFeedback.jsx";
+import FeedbackReview from "./pages/Staff/FeedbackReview.jsx";
 
 
 function App() {
@@ -385,6 +386,16 @@ function App() {
             </StaffNotificationProvider>
           }
         />
+
+<Route
+          path="/feedbackreview/:id"
+          element={
+            <StaffNotificationProvider>
+              <FeedbackReview token={token} />
+            </StaffNotificationProvider>
+          }
+        />
+
         <Route
           path="/viewuserrequestform/:user_id"
           element={

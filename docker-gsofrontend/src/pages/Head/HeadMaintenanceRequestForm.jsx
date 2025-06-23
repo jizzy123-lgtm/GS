@@ -41,7 +41,7 @@ const HeadMaintenanceRequestForm = () => {
   const [date_received, setDateReceived] = useState("");
   const [time_received, setTimeReceived] = useState("");
   const [priority_number, setPriorityNumber] = useState("");
-  const [remarks, setRemarks] = useState("");
+  const [comment, setComment] = useState("");
   const [approvedByName, setApprovedByName] = useState("");
   const [approvedById, setApprovedById] = useState("");
   const [head1Input, setHead1Input] = useState("");
@@ -142,7 +142,7 @@ const HeadMaintenanceRequestForm = () => {
         setDateReceived((prev) => prev || responseData.date_received || new Date().toISOString().split("T")[0]);
         setTimeReceived((prev) => prev || responseData.time_received || new Date().toTimeString().slice(0, 5));
         setPriorityNumber(responseData.priority_number || "");
-        setRemarks("");
+        setComment("");
         setApprovedBy1(responseData.approved_by_1 || null);
 
         const userInfo = await fetchUserInfo(token);
@@ -168,8 +168,8 @@ const HeadMaintenanceRequestForm = () => {
   const handleDecision = async (e, action) => {
     e.preventDefault();
 
-    if (action === "deny" && !remarks.trim()) {
-      setError("Remarks are required to deny the request.");
+    if (action === "deny" && !comment.trim()) {
+      setError("Comment is required to deny the request.");
       return;
     }
 
@@ -194,7 +194,7 @@ const HeadMaintenanceRequestForm = () => {
         date_received,
         time_received: formattedTime,
         priority_number,
-        remarks,
+        comment,
         approved_by: approvedById,
         ...(action === "deny" && { status: "denied" }),
       };
@@ -424,15 +424,30 @@ const HeadMaintenanceRequestForm = () => {
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-semibold text-gray-700 mb-1">
-                      Remarks from Staff:
-                    </label>
-                    <textarea
-                      className="w-full border border-gray-300 rounded-lg px-4 py-2 bg-gray-100"
-                      rows="2"
-                      value={requestDetails.remarks || "N/A"}
-                      disabled
-                    />
+                    <div>
+                      <label className="block text-sm font-semibold text-gray-700 mb-1">
+                        Staff Comments:
+                      </label>
+                      {Array.isArray(requestDetails.comments) && requestDetails.comments.length > 0 ? (
+                        <div className="space-y-2">
+                          {requestDetails.comments.map((c) => (
+                            <div key={c.id} className="p-2 bg-gray-100 rounded">
+                              <div className="text-sm text-gray-800">{c.comment}</div>
+                              <div className="text-xs text-gray-500">
+                                By: {c.user} ({c.role}) on {c.date} {c.time}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <textarea
+                          className="w-full border border-gray-300 rounded-lg px-4 py-2 bg-gray-100"
+                          rows="2"
+                          value="No comments"
+                          disabled
+                        />
+                      )}
+                    </div>
                   </div>
                 </div>
               )}
@@ -484,13 +499,13 @@ const HeadMaintenanceRequestForm = () => {
                   </div>
 
                   <div>
-                    <label className="block font-semibold text-gray-700">Remarks:</label>
+                    <label className="block font-semibold text-gray-700">Comment:</label>
                     <textarea
                       className="w-full border rounded-lg px-4 py-2"
                       rows={4}
-                      value={remarks}
-                      onChange={e => setRemarks(e.target.value)}
-                      placeholder="Enter any remarks..."
+                      value={comment}
+                      onChange={e => setComment(e.target.value)}
+                      placeholder="Enter any comments..."
                     />
                   </div>
 

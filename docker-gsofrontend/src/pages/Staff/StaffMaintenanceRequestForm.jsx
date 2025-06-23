@@ -35,7 +35,7 @@ const StaffMaintenanceRequestForm = () => {
   const [date_received, setDateReceived] = useState("");
   const [time_received, setTimeReceived] = useState("");
   const [priority_number, setPriorityNumber] = useState("");
-  const [remarks, setRemarks] = useState("");
+  const [comment, setComment] = useState("");
   const [verifiedByName, setVerifiedByName] = useState("");
   const [verifiedById, setVerifiedById] = useState("");
 
@@ -135,7 +135,7 @@ const StaffMaintenanceRequestForm = () => {
         // Set form values immediately
         setDateReceived(requestData.date_received || new Date().toISOString().split("T")[0]);
         setTimeReceived(requestData.time_received || new Date().toTimeString().slice(0, 5));
-        setRemarks(requestData.remarks || "");
+        setComment("");
 
         // Fetch user info (gets user_id from token)
         const userInfo = await fetchUserInfo(token);
@@ -199,14 +199,33 @@ const StaffMaintenanceRequestForm = () => {
 
   const handleapprove = async (e, action) => {
     e.preventDefault();
-    if (action === "deny" && !remarks.trim()) {
-      setError("Remarks are required to deny the request.");
+    if (action === "deny" && !comment.trim()) {
+      setError("Comment is required to deny the request.");
       return;
     }
     try {
       setIsLoading(true);
       setError("");
       const formattedTime = formatTimeTo24Hour(time_received);
+
+      // If "onhold" is selected and action is "approve", use the mark-onhold endpoint
+      if (action === "approve" && markAs === "onhold") {
+        const endpoint = `${API_BASE_URL}/maintenance-requests/${id}/mark-onhold`;
+        const payload = { comment };
+        const response = await fetch(endpoint, {
+          method: "PUT",
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+            Accept: "application/json",
+          },
+          body: JSON.stringify(payload),
+        });
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.message || "Failed to mark as onhold");
+        navigate("/staffsliprequests");
+        return;
+      }
 
       // Check if approved_by_2 is NOT null or undefined
       if (
@@ -217,7 +236,7 @@ const StaffMaintenanceRequestForm = () => {
         const endpoint = `${API_BASE_URL}/maintenance-requests/${id}/assign-priority`;
         const payload = {
           priority_number,
-          remarks,
+          comment,
           verified_by: verifiedById,
         };
         console.log("Submitting assign-priority payload:", payload);
@@ -237,8 +256,6 @@ const StaffMaintenanceRequestForm = () => {
         // After assigning priority, process "Mark as" if selected
         if (markAs === "urgent") {
           await handleMarkUrgent();
-        } else if (markAs === "onhold") {
-          await handleMarkOnhold();
         }
 
         navigate("/staffsliprequests");
@@ -254,7 +271,7 @@ const StaffMaintenanceRequestForm = () => {
         date_received,
         time_received: formattedTime,
         priority_number,
-        remarks,
+        comment,
         verified_by: verifiedById,
         ...(action === "deny" && { status: "denied" }),
       };
@@ -275,8 +292,6 @@ const StaffMaintenanceRequestForm = () => {
       // After verification, process "Mark as" if selected
       if (markAs === "urgent") {
         await handleMarkUrgent();
-      } else if (markAs === "onhold") {
-        await handleMarkOnhold();
       }
 
       navigate("/staffsliprequests");
@@ -336,7 +351,7 @@ const StaffMaintenanceRequestForm = () => {
         "Content-Type": "application/json",
         Accept: "application/json",
       },
-      body: JSON.stringify({ remarks }),
+      body: JSON.stringify({ comment }),
     });
     const data = await response.json();
     if (!response.ok) throw new Error(data.message || "Failed to mark as urgent");
@@ -359,7 +374,7 @@ const handleMarkOnhold = async () => {
         "Content-Type": "application/json",
         Accept: "application/json",
       },
-      body: JSON.stringify({ remarks }),
+      body: JSON.stringify({ comment }),
     });
     const data = await response.json();
     if (!response.ok) throw new Error(data.message || "Failed to mark as onhold");
@@ -636,36 +651,41 @@ const handleMarkOnhold = async () => {
                     />
                   </div>
 
-                  <div>
-                    <label className="block font-semibold text-gray-700">Remarks:</label>
-                    <textarea
-                      className="w-full border rounded-lg px-4 py-2"
-                      rows="4"
-                      value={remarks}
-                      onChange={(e) => setRemarks(e.target.value)}
-                      placeholder="Enter any remarks..."
-                    />
-                  </div>
+                  {/* Only show Remarks and Mark as if NOT both approved_by_1 and approved_by_2 */}
+                  {!(requestDetails.approved_by_1 && requestDetails.approved_by_2) && (
+                    <>
+                      <div>
+                        <label className="block font-semibold text-gray-700">Comment:</label>
+                        <textarea
+                          className="w-full border rounded-lg px-4 py-2"
+                          rows="4"
+                          value={comment}
+                          onChange={(e) => setComment(e.target.value)}
+                          placeholder="Enter any comments..."
+                        />
+                      </div>
 
-                  {/* Mark as Dropdown Section */}
-                  <div>
-                    <label className="block font-semibold text-gray-700 mb-1">Mark as:</label>
-                    <select
-                      className="w-full border rounded-lg px-4 py-2"
-                      value={markAs}
-                      onChange={(e) => setMarkAs(e.target.value)}
-                      disabled={isLoading}
-                    >
-                      <option value="" disabled>
-                        Select status
-                      </option>
-                      <option value="urgent">Urgent</option>
-                      <option value="onhold">Onhold</option>
-                    </select>
-                    <p className="text-xs text-gray-500 mt-1">
-                      Choose a status to mark this request as Urgent or Onhold. This will be applied after verification.
-                    </p>
-                  </div>
+                      {/* Mark as Dropdown Section */}
+                      <div>
+                        <label className="block font-semibold text-gray-700 mb-1">Mark as:</label>
+                        <select
+                          className="w-full border rounded-lg px-4 py-2"
+                          value={markAs}
+                          onChange={(e) => setMarkAs(e.target.value)}
+                          disabled={isLoading}
+                        >
+                          <option value="" disabled>
+                            Select status
+                          </option>
+                          <option value="urgent">Urgent</option>
+                          <option value="onhold">Onhold</option>
+                        </select>
+                        <p className="text-xs text-gray-500 mt-1">
+                          Choose a status to mark this request as Urgent or Onhold. This will be applied after verification.
+                        </p>
+                      </div>
+                    </>
+                  )}
 
                   <div className="flex gap-4 pt-4">
                     <button
@@ -702,6 +722,25 @@ const handleMarkOnhold = async () => {
                 <div className="text-center py-8">
                   <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900"></div>
                   <p className="mt-2 text-gray-600">Loading request details...</p>
+                </div>
+              )}
+
+              {/* Comments Section - Staff View */}
+              {Array.isArray(requestDetails.comments) && requestDetails.comments.length > 0 && (
+                <div className="mb-6">
+                  <label className="block text-sm font-semibold text-gray-700 mb-1">
+                    Previous Comments:
+                  </label>
+                  <div className="space-y-2">
+                    {requestDetails.comments.map((c) => (
+                      <div key={c.id} className="p-2 bg-gray-100 rounded">
+                        <div className="text-sm text-gray-800">{c.comment}</div>
+                        <div className="text-xs text-gray-500">
+                          By: {c.user} ({c.role}) on {c.date} {c.time}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               )}
             </div>

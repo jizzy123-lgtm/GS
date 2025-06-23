@@ -165,7 +165,6 @@ const ViewMaintenanceRequestForm = () => {
     { key: "maintenance_type", label: "Maintenance Type", category: "status" },
     { key: "date_received", label: "Date Received", category: "processing" },
     { key: "time_received", label: "Time Received", category: "processing" },
-    { key: "remarks", label: "Remarks", category: "processing" },
     { key: "verified_by", label: "Verified By", category: "approval" },
     { key: "approved_by_1", label: "Approved By (1st Level)", category: "approval" },
     { key: "approved_by_2", label: "Approved By (2nd Level)", category: "approval" },
@@ -307,6 +306,29 @@ const ViewMaintenanceRequestForm = () => {
                     ))}
                   </div>
                   
+                  {/* Comments Section */}
+                  {Array.isArray(requestDetails.comments) && (
+                    <div className="px-6 pb-6">
+                      <label className="block text-sm font-semibold text-slate-700 uppercase tracking-wide mb-2">
+                        Comments
+                      </label>
+                      {requestDetails.comments.length > 0 ? (
+                        <div className="space-y-2">
+                          {requestDetails.comments.map((c) => (
+                            <div key={c.id} className="p-3 bg-slate-50 border border-slate-200 rounded">
+                              <div className="text-slate-900">{c.comment}</div>
+                              <div className="text-xs text-slate-500 mt-1">
+                                By: {c.user} ({c.role}) on {c.date} {c.time}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <div className="text-slate-500 text-sm">No comments</div>
+                      )}
+                    </div>
+                  )}
+
                   {/* Action Footer */}
                   <div className="bg-slate-50 border-t border-slate-200 px-6 py-4">
                     <div className="flex flex-col sm:flex-row gap-3 sm:justify-between sm:items-center">

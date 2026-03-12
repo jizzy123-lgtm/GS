@@ -16,6 +16,7 @@ use App\Http\Controllers\CommentController;
 
 use App\Models\MaintenanceType;
 
+Route::get('/maintenance-requests/test', [MaintenanceRequestController::class, 'indexPublic']);
 
 Route::get('/maintenance-requests/list-with-details', [MaintenanceRequestController::class, 'indexWithDetails']);
 Route::get('/maintenance-types', [MaintenanceTypeController::class, 'index']);

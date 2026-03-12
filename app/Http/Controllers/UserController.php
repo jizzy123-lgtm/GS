@@ -26,34 +26,15 @@ class UserController extends Controller
         $request->validate([
             'last_name'       => 'required|string',
             'first_name'      => 'required|string',
-            'middle_name'     => 'nullable|string|max:1',
+            'middle_name'  => 'nullable|string|max:1',
             'suffix'          => 'nullable|string|max:10',
             'username'        => 'required|string|unique:users,username',
-            'email'           => 'nullable|email',
+            'email'          => 'nullable|email',
             'position_id'     => 'required|exists:positions,id',
             'office_id'       => 'required|exists:offices,id',
             'contact_number'  => 'required|string',
-            'password'        => [
-                'required',
-                'string',
-                'min:8',
-                'max:30',
-                'regex:/[a-z]/',
-                'regex:/[A-Z]/',
-                'regex:/[0-9]/',
-                'regex:/[@$!%*#?&]/',
-                'confirmed',
-            ],
-            'password_confirmation' => 'required',
+            'password'        => 'required|string|min:6',
             'role_id'         => 'required|exists:roles,id'
-        ], [
-            'password.required' => 'Password is required.',
-            'password.min'      => 'Password must be at least 8 characters.',
-            'password.max'      => 'Password cannot be more than 30 characters.',
-            'password.mixedCase'=> 'Password must include at least one uppercase and one lowercase letter.',
-            'password.letters'  => 'Password must include at least one letter.',
-            'password.numbers'  => 'Password must include at least one number.',
-            'password.symbols'  => 'Password must include at least one special character like !@#$%^&*().',
         ]);
 
         $user = User::create([

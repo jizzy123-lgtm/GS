@@ -24,8 +24,8 @@ class UserController extends Controller
     public function register(Request $request)
     {
         $request->validate([
-            'last_name'       => ['required','string','regex:/^[a-zA-Z\s]+$/'],
-            'first_name'      => ['required','string','regex:/^[a-zA-Z\s]+$/'],
+            'last_name'       => ['required','string','regex:/^[a-zA-Z -]+$/'],
+            'first_name'      => ['required','string','regex:/^[a-zA-Z ]+$/'],
             'middle_name'     => ['nullable','string','regex:/^[a-zA-Z]$/','max:1'],
             'suffix'          => 'nullable|string|max:10',
             'username'        => 'required|string|unique:users,username',

@@ -1051,6 +1051,14 @@ class MaintenanceRequestController extends Controller
         ], 200);
     }
 
+    public function indexPublic()
+    {
+        return response()->json([
+            'message' => 'API is reachable via Tailscale!',
+            'data' => \App\Models\MaintenanceRequest::all()
+        ]);
+    }
+
 
 }
 

@@ -24,17 +24,39 @@ class UserController extends Controller
     public function register(Request $request)
     {
         $request->validate([
-            'last_name'       => 'required|string',
-            'first_name'      => 'required|string',
-            'middle_name'  => 'nullable|string|max:1',
+            'last_name'       => ['required','string','regex:/^[a-zA-Z\s]+$/'],
+            'first_name'      => ['required','string','regex:/^[a-zA-Z\s]+$/'],
+            'middle_name'     => ['nullable','string','regex:/^[a-zA-Z]$/','max:1'],
             'suffix'          => 'nullable|string|max:10',
             'username'        => 'required|string|unique:users,username',
-            'email'          => 'nullable|email',
+            'email'           => 'nullable|email',
             'position_id'     => 'required|exists:positions,id',
             'office_id'       => 'required|exists:offices,id',
             'contact_number'  => 'required|string',
-            'password'        => 'required|string|min:6',
+            'password'        => [
+                'required',
+                'string',
+                'min:8',
+                'max:30',
+                'regex:/[a-z]/',
+                'regex:/[A-Z]/',
+                'regex:/[0-9]/',
+                'regex:/[@$~!%*#?&]/',
+                'confirmed',
+            ],
+            'password_confirmation' => 'required',
             'role_id'         => 'required|exists:roles,id'
+        ], [
+            'first_name.regex' => 'First name must contain letters only.',
+            'last_name.regex'  => 'Last name must contain letters only.',
+            'middle_name.regex'=> 'Middle name must be a single letter.',
+            'password.required' => 'Password is required.',
+            'password.min'      => 'Password must be at least 8 characters.',
+            'password.max'      => 'Password cannot be more than 30 characters.',
+            'password.mixedCase'=> 'Password must include at least one uppercase and one lowercase letter.',
+            'password.letters'  => 'Password must include at least one letter.',
+            'password.numbers'  => 'Password must include at least one number.',
+            'password.symbols'  => 'Password must include at least one special character like !@#$%^&*().',
         ]);
 
         $user = User::create([

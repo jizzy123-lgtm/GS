@@ -1,77 +1,66 @@
-<<<<<<< HEAD
-# React + Vite
+Release 1.9:
+-the drop down request type is removed, it is change to manually typing the specific request type,
+-there is a red number in the notification tab of the total number of notifications,
+-removed priority number when service request is denied,
+-implemented the email notification of the request is denied,
+-head won’t receive email notification, only the staff,
+-there is remarks if head will deny request,
+-no need for campus director to receive email after verified, only after approval,
+-fix construction of sentence,
+-graph that shows when is the peak of service is seen,
+-user can feedback after service is done,
+-two date in feedback (date for when is the feedback done and date when was the work done)
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+Release 1.7
+-notifications of staff, head, campus director, and user are all working
 
-Currently, two official plugins are available:
+Release 1.6
+-Automated priority no.
+-Contact no. Restrict not starting 09 then 11 digit na sya
+-There is notif in staff but it can't still be read
+-Onhold, Urgent, verified, completed once done feedback (working)
+-Feedback
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react/README.md) uses [Babel](https://babeljs.io/) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
-=======
-<p align="center"><a href="https://laravel.com" target="_blank"><img src="https://raw.githubusercontent.com/laravel/art/master/logo-lockup/5%20SVG/2%20CMYK/1%20Full%20Color/laravel-logolockup-cmyk-red.svg" width="400" alt="Laravel Logo"></a></p>
+Release 1.4
+backend:
+-Api for (facebook or messenger type of red notifs) numbers of notifications:
+/notifications/unreadCount
+-Function for deny request sets the priority number to null
+-Api to set urgent status:
+/maintenance-requests/{id}/mark-urgent
+-Api to set onhold:
+/maintenance-requests/{id}/mark-onhold
+-Api to set done:
+/maintenance-requests/{id}/mark-done
 
-<p align="center">
-<a href="https://github.com/laravel/framework/actions"><img src="https://github.com/laravel/framework/workflows/tests/badge.svg" alt="Build Status"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/dt/laravel/framework" alt="Total Downloads"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/v/laravel/framework" alt="Latest Stable Version"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/l/laravel/framework" alt="License"></a>
-</p>
+frontend:
+-mark as urgent
+-mark as onhold
 
-## About Laravel
+Release 1.3
+-In user POV, details in request status can be seen in text form instead of the ID
+-In Campus Director POV, "API cannot be found" error is fixed
+-Fixed email notification details in user, head, staff and admin's POV
+-Fixed Bug No. 13
+-Fixed Bug No. 15
+-Fixed Bug No. 18
+-Fixed-Email Notification about Admin who will receive email if there is a new account registering
+-Fixed-Email Notification about Requester who will receive email if the account registered is approved
+-Fixed-Email Notification about Staff who will receive email if there is service request
+-Fixed-Email Notification about Head who will receive email if there is service request
+-Fixed-Email Notification about Requester who will receive email if service requested is verified by Staff
+-Fixed-Email Notification about Head who will receive email if service requested is verified by Staff
+-Fixed-Email Notification about Requester who will receive email if service requested is approved/disapproved by Head
+-Fixed-Email Notification about Campus Admin who will receive email if service requested is approved/disapproved by Head
+-Fixed-Email Notification about Requester who will receive email if service requested already have priority number, done by staff
+-Fixed-Campus Admin can now approve after Head
 
-Laravel is a web application framework with expressive, elegant syntax. We believe development must be an enjoyable and creative experience to be truly fulfilling. Laravel takes the pain out of development by easing common tasks used in many web projects, such as:
-
-- [Simple, fast routing engine](https://laravel.com/docs/routing).
-- [Powerful dependency injection container](https://laravel.com/docs/container).
-- Multiple back-ends for [session](https://laravel.com/docs/session) and [cache](https://laravel.com/docs/cache) storage.
-- Expressive, intuitive [database ORM](https://laravel.com/docs/eloquent).
-- Database agnostic [schema migrations](https://laravel.com/docs/migrations).
-- [Robust background job processing](https://laravel.com/docs/queues).
-- [Real-time event broadcasting](https://laravel.com/docs/broadcasting).
-
-Laravel is accessible, powerful, and provides tools required for large, robust applications.
-
-## Learning Laravel
-
-Laravel has the most extensive and thorough [documentation](https://laravel.com/docs) and video tutorial library of all modern web application frameworks, making it a breeze to get started with the framework.
-
-You may also try the [Laravel Bootcamp](https://bootcamp.laravel.com), where you will be guided through building a modern Laravel application from scratch.
-
-If you don't feel like reading, [Laracasts](https://laracasts.com) can help. Laracasts contains thousands of video tutorials on a range of topics including Laravel, modern PHP, unit testing, and JavaScript. Boost your skills by digging into our comprehensive video library.
-
-## Laravel Sponsors
-
-We would like to extend our thanks to the following sponsors for funding Laravel development. If you are interested in becoming a sponsor, please visit the [Laravel Partners program](https://partners.laravel.com).
-
-### Premium Partners
-
-- **[Vehikl](https://vehikl.com/)**
-- **[Tighten Co.](https://tighten.co)**
-- **[WebReinvent](https://webreinvent.com/)**
-- **[Kirschbaum Development Group](https://kirschbaumdevelopment.com)**
-- **[64 Robots](https://64robots.com)**
-- **[Curotec](https://www.curotec.com/services/technologies/laravel/)**
-- **[Cyber-Duck](https://cyber-duck.co.uk)**
-- **[DevSquad](https://devsquad.com/hire-laravel-developers)**
-- **[Jump24](https://jump24.co.uk)**
-- **[Redberry](https://redberry.international/laravel/)**
-- **[Active Logic](https://activelogic.com)**
-- **[byte5](https://byte5.de)**
-- **[OP.GG](https://op.gg)**
-
-## Contributing
-
-Thank you for considering contributing to the Laravel framework! The contribution guide can be found in the [Laravel documentation](https://laravel.com/docs/contributions).
-
-## Code of Conduct
-
-In order to ensure that the Laravel community is welcoming to all, please review and abide by the [Code of Conduct](https://laravel.com/docs/contributions#code-of-conduct).
-
-## Security Vulnerabilities
-
-If you discover a security vulnerability within Laravel, please send an e-mail to Taylor Otwell via [taylor@laravel.com](mailto:taylor@laravel.com). All security vulnerabilities will be promptly addressed.
-
-## License
-
-The Laravel framework is open-sourced software licensed under the [MIT license](https://opensource.org/licenses/MIT).
->>>>>>> 414ebb9 (Initial commit)
+Release 1.2
+-Fix admin mobile hamburger menu open
+-Fixed Bug No. 1
+-Fixed Bug No. 3
+-Fixed Bug No. 5
+-Fixed Bug No. 6
+-Fixed Bug No. 7
+-Fixed Bug No. 11
+-Fixed Bug No. 12

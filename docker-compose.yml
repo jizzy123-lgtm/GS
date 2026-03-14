@@ -1,0 +1,71 @@
+services:
+  mysql:
+    image: mysql:8.0
+    container_name: gso_mysql
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: rootpassw0rd
+      MYSQL_DATABASE: manageit_db
+      MYSQL_USER: gso_user
+      MYSQL_PASSWORD: manageitgso5Test
+    ports:
+      - "5506:3306"  # Avoid conflict with local MySQL
+    volumes:
+      - ./docker-data/mysql_data:/var/lib/mysql
+    networks:
+      - gso_network
+
+  backend:
+    build:
+      context: ./docker-gsobackend
+      dockerfile: backend.dockerfile
+    container_name: gso_backend
+    restart: always
+    depends_on:
+      - mysql
+    environment:
+      DB_CONNECTION: mysql
+      DB_HOST: mysql
+      DB_PORT: 3306
+      DB_DATABASE: manageit_db
+      DB_USERNAME: gso_user
+      DB_PASSWORD: manageitgso5Test
+    ports:
+      - "9000:8000"
+    volumes:
+      - ./docker-data/backend_pictures:/var/www/html/storage/app/public
+    command: php artisan serve --host=0.0.0.0 --port=8000
+    networks:
+      - gso_network
+
+  frontend:
+    build:
+      context: ./docker-gsofrontend
+      dockerfile: frontend.dockerfile
+    container_name: gso_frontend
+    restart: always
+    ports:
+      - "90:80"
+    environment:
+      - VITE_API_BASE_URL=https://manageit-test-api.coeofjrmsu.com/api
+    networks:
+      - gso_network
+
+  phpmyadmin:
+    image: phpmyadmin/phpmyadmin
+    container_name: gso_phpmyadmin
+    restart: always
+    environment:
+      PMA_HOST: gso_mysql
+      PMA_USER: root
+      PMA_PASSWORD: rootpassw0rd
+    ports:
+      - "9090:80"  # Access phpMyAdmin via localhost:8080
+    depends_on:
+      - mysql
+    networks:
+      - gso_network
+
+networks:
+  gso_network:
+

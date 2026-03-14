@@ -1,24 +1,13 @@
-# Use the official Node.js 20 Alpine image
-FROM node:20-alpine
-
-# Set working directory inside the container
+FROM node:20-alpine as builder
 WORKDIR /app
-
-# Copy only package.json and lock file
+COPY .env .
 COPY package*.json ./
-
-# Install dependencies using clean install for consistency
 RUN npm install
-
-# Copy the rest of the application
 COPY . .
+RUN npm run build
 
-# Expose the Vite development server port
-EXPOSE 5173
-
-# Optional: Use polling for file changes (needed on some OS setups)
-ENV CHOKIDAR_USEPOLLING=true
-
-# Start the Vite development server
-CMD ["npm", "run", "dev"]
-
+FROM nginx:alpine
+COPY --from=builder /app/dist /usr/share/nginx/html
+COPY nginx.conf /etc/nginx/conf.d/default.conf
+RUN rm -rf /usr/share/nginx/html/50x.html
+EXPOSE 80

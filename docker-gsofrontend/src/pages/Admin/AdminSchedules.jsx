@@ -388,6 +388,13 @@ const AdminSchedules = () => {
           isSidebarCollapsed={state.isSidebarCollapsed}
           onToggleSidebar={() => dispatch({ type: 'TOGGLE_SIDEBAR' })}
           menuItems={MENU_ITEMS}
+          onLogout={() => {
+            localStorage.removeItem("authToken");
+            localStorage.removeItem("user");
+            sessionStorage.removeItem("authToken");
+            sessionStorage.removeItem("user");
+            navigate("/loginpage", { replace: true });
+          }}
         />
         <DashboardContent />
       </div>

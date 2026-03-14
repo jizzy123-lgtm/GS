@@ -1,5 +1,5 @@
 import { useReducer, useEffect, useState, memo } from 'react';
-import { NavLink } from 'react-router-dom';
+import { NavLink, useNavigate } from 'react-router-dom';
 import Icon from '../../components/Icon';
 import { Sidebar, MENU_ITEMS } from '../../components/Sidebar';
 
@@ -138,6 +138,7 @@ const DashboardContent = memo(() => {
 
 // Main Component
 const Notifications = () => {
+  const navigate = useNavigate();
   const [state, dispatch] = useReducer(sidebarReducer, {
     isSidebarCollapsed: true,
     isMobileMenuOpen: false,
@@ -156,6 +157,26 @@ const Notifications = () => {
           isSidebarCollapsed={state.isSidebarCollapsed}
           onToggleSidebar={() => dispatch({ type: "TOGGLE_SIDEBAR" })}
           menuItems={MENU_ITEMS}
+          onLogout={async () => {
+            try {
+              const token = localStorage.getItem("authToken") || sessionStorage.getItem("authToken");
+              await fetch(`${API_BASE_URL}/logout`, {
+                method: "POST",
+                headers: {
+                  "Accept": "application/json",
+                  "Authorization": `Bearer ${token}`,
+                },
+              });
+            } catch (err) {
+              console.error(err);
+            } finally {
+              localStorage.removeItem("authToken");
+              localStorage.removeItem("user");
+              sessionStorage.removeItem("authToken");
+              sessionStorage.removeItem("user");
+              navigate("/loginpage", { replace: true });
+            }
+          }}
         />
         <DashboardContent />
       </div>

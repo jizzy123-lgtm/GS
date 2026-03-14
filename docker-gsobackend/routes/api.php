@@ -152,12 +152,14 @@ Route::put('/maintenance-requests/{id}/cancel', [MaintenanceRequestController::c
 //edit request form
 Route::middleware('auth:sanctum')->put('/maintenance-requests/{id}/editDetails', [MaintenanceRequestController::class, 'updateDetails']);
 
-//edit user info
-Route::middleware('auth:sanctum')->put('/profile/update', [UserController::class, 'updateProfile']);
 
-//return all user's info
-Route::middleware('auth:sanctum')->get('/profile/userInfos', [UserController::class, 'userDetails']);
-
+// Profile routes
+Route::middleware('auth:sanctum')->group(function () {
+    Route::post('/profile/update', [UserController::class, 'updateProfile']);
+    Route::post('/profile/upload-picture', [UserController::class, 'uploadProfilePicture']);
+    Route::get('/profile/picture', [UserController::class, 'getProfilePicture']);
+    Route::get('/profile/userInfos', [UserController::class, 'userDetails']);
+});
 
 //for notifications
 Route::middleware(['auth:sanctum'])->group(function () {
@@ -215,8 +217,12 @@ Route::get('/statusesPovHead', [StatusController::class, 'statusesPovHead']);
 
 Route::get('/generate-priority-number/{maintenanceTypeId}', [MaintenanceRequestController::class, 'generatePriorityNumber']);
 
+Route::middleware('auth:sanctum')->post('/profile/upload-picture', [UserController::class, 'uploadProfilePicture']);
+Route::middleware('auth:sanctum')->get('/profile/picture', [UserController::class, 'getProfilePicture']);
+Route::middleware('auth:sanctum')->delete('/profile/remove-picture', [UserController::class, 'removeProfilePicture']);
 
 
+Route::delete('/users/{id}', [UserController::class, 'destroy']);
 
 
 

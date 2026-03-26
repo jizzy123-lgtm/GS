@@ -50,7 +50,9 @@ import CampusDirectorRequests from "./pages/CampusDirector/CampusDirectorRequest
 import CampusDirectorMaintenanceRequestForm from "./pages/CampusDirector/CampusDirectorMaintenanceRequestForm.jsx";
 import ViewUserRequestForm from "./pages/Staff/ViewUserRequestForm.jsx";
 import StaffNotifications from "./pages/Staff/StaffNotifications.jsx";
+import StaffSchedules from "./pages/Staff/sched.jsx";
 import HeadNotifications from "./pages/Head/HeadNotifications.jsx";
+import HeadSchedules from "./pages/Head/headsched.jsx";
 import CampusDirectorNotifications from "./pages/CampusDirector/CampusDirectorNotifications.jsx";
 import { StaffNotificationProvider } from "./components/StaffSidebar";
 import { AdminNotificationProvider } from "./components/AdminSidebar.jsx";
@@ -387,7 +389,7 @@ function App() {
           }
         />
 
-<Route
+        <Route
           path="/feedbackreview/:id"
           element={
             <StaffNotificationProvider>
@@ -409,6 +411,14 @@ function App() {
           element={
             <StaffNotificationProvider>
               <StaffNotifications token={token} />
+            </StaffNotificationProvider>
+          }
+        />
+        <Route
+          path="/staffschedules"
+          element={
+            <StaffNotificationProvider>
+              <StaffSchedules />
             </StaffNotificationProvider>
           }
         />
@@ -481,10 +491,22 @@ function App() {
             </HeadNotificationProvider>
           }
         />
-        <Route path="/headmaintenancerequestform/:id" element={<HeadNotificationProvider><HeadMaintenanceRequestForm token={token} /></HeadNotificationProvider>
+        <Route 
+          path="/headmaintenancerequestform/:id" 
+          element={
+            <HeadNotificationProvider>
+              <HeadMaintenanceRequestForm token={token} />
+              </HeadNotificationProvider>
         }
         />
-
+        <Route
+          path="/headschedules"
+          element={
+            <HeadNotificationProvider>
+              <HeadSchedules token={token} />
+            </HeadNotificationProvider>
+          }
+        />
         {/* Campus Director Routes - wrapped with CampusDirectorNotificationProvider */}
         <Route
           path="/campusdirectordashboard"

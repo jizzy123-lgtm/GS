@@ -261,7 +261,7 @@ function LoginPage() {
         
         {/* Version Number */}
         <div className="text-center text-xs text-gray-500 pb-6">
-         --1.9--
+         --2.0--
         </div>
 
         {/* Footer */}

@@ -551,7 +551,7 @@ const Profile = () => {
                                 />
                               </div>
                               {editFormData.password && editFormData.password !== editFormData.password_confirmation && (
-                                <div className="text-red-500 text-sm mb-4">Passwords does not match</div>
+                                <div className="text-red-500 text-sm mb-4">Passwords do not match</div>
                               )}
                             </>
                           )}

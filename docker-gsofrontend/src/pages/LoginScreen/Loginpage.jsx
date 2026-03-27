@@ -249,6 +249,7 @@ function LoginPage() {
               ) : "Sign in"}
             </button>
           </form>
+
           {/* Signup Section */}
           <div className="mt-8 text-center">
             <span className="text-sm text-gray-600">Don't have an account? </span>
@@ -260,7 +261,7 @@ function LoginPage() {
         
         {/* Version Number */}
         <div className="text-center text-xs text-gray-500 pb-6">
-         --2.0--
+         --1.9--
         </div>
 
         {/* Footer */}

@@ -299,22 +299,46 @@ function SignupPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 py-6 px-4">
-      <div className="max-w-2xl mx-auto">
-        {/* Header Section */}
-        <div className="text-center mb-6">
-          <h1 className="text-2xl md:text-3xl font-bold text-slate-800 mb-2">
-            Jose Rizal Memorial State University
-          </h1>
-          <p className="text-slate-600 text-sm">
-            General Service Office Management System
-          </p>
+    <div style={{ minHeight: "100vh", width: "100vw", background: "#f7f5f0", display: "flex", alignItems: "center", justifyContent: "center", padding: "0", overflow: "auto", position: "relative" }}>
+
+      {/* SVG Brushstroke Background */}
+      <svg style={{ position: "fixed", top: 0, left: 0, width: "100%", height: "100%", zIndex: 0 }} viewBox="0 0 900 620" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="xMidYMid slice">
+        <rect width="900" height="620" fill="#f7f5f0"/>
+        <path d="M-20,80 C60,40 160,20 280,60 C400,100 460,30 560,50 C660,70 740,20 820,30 L900,10 L900,0 L-20,0 Z" fill="#0d1f4e" opacity="0.06"/>
+        <path d="M-30,140 C80,80 200,60 340,110 C480,160 540,90 660,100 C760,108 840,70 920,80 L920,0 L-30,0 Z" fill="#0d1f4e" opacity="0.04"/>
+        <path d="M-20,310 C100,240 200,200 340,230 C480,260 560,190 700,210 C800,225 860,190 930,200 L930,620 L-20,620 Z" fill="#0d1f4e" opacity="0.97"/>
+        <path d="M-20,340 C80,280 180,250 320,275 C460,300 540,235 670,250 C780,263 850,225 940,235 L940,620 L-20,620 Z" fill="#0a1a40" opacity="0.6"/>
+        <path d="M-20,290 C120,250 220,270 360,245 C500,220 580,280 720,265 C820,253 870,275 950,260 L950,290 C870,305 820,283 720,295 C580,310 500,250 360,275 C220,300 120,280 -20,320 Z" fill="#1a3060" opacity="0.5"/>
+        <path d="M-20,360 C60,355 160,368 260,355 C380,340 460,370 600,358 C720,347 800,365 940,352 L940,375 C800,388 720,370 600,382 C460,395 380,365 260,378 C160,390 60,377 -20,382 Z" fill="#0a1a40" opacity="0.3"/>
+        <path d="M0,440 C100,420 200,445 330,432 C460,419 540,448 680,435 C790,424 860,442 930,430 L930,620 L0,620 Z" fill="#071228" opacity="0.3"/>
+        <ellipse cx="90" cy="460" rx="55" ry="18" fill="#1a3a6e" opacity="0.25" transform="rotate(-8,90,460)"/>
+        <ellipse cx="310" cy="490" rx="80" ry="14" fill="#0d1f4e" opacity="0.2" transform="rotate(5,310,490)"/>
+        <ellipse cx="550" cy="470" rx="60" ry="12" fill="#1a3a6e" opacity="0.18" transform="rotate(-4,550,470)"/>
+        <circle cx="130" cy="180" r="60" fill="#1a3060" opacity="0.08"/>
+        <circle cx="130" cy="180" r="40" fill="#1a3060" opacity="0.08"/>
+        <circle cx="700" cy="80" r="90" fill="#0d1f4e" opacity="0.05"/>
+        <circle cx="700" cy="80" r="55" fill="#0d1f4e" opacity="0.04"/>
+      </svg>
+
+      {/* Top Bar */}
+      <div style={{ position: "fixed", top: 0, left: 0, width: "100%", zIndex: 10, background: "rgba(13,31,78,0.85)", display: "flex", alignItems: "center", gap: "12px", padding: "10px 20px" }}>
+        <img
+          src="/JrmsuLOGO_circle.png"
+          alt="JRMSU Logo"
+          style={{ width: "42px", height: "42px", borderRadius: "50%" }}
+        />
+        <div style={{ fontFamily: "'DM Sans', sans-serif", fontSize: "14px", fontWeight: 700, color: "#ffffff", letterSpacing: "2px", textTransform: "uppercase" }}>
+          Jose Rizal Memorial State University
         </div>
+      </div>
+
+      <div style={{ position: "relative", zIndex: 2, width: "100%", maxWidth: "672px", padding: "80px 16px 24px" }}>
+      <div className="max-w-2xl mx-auto">
 
         {/* Main Form Card */}
         <div className="bg-white rounded-xl shadow-lg border border-slate-100">
           {/* Form Header */}
-          <div className="bg-gradient-to-r from-blue-600 to-blue-700 rounded-t-xl px-6 py-4">
+          <div style={{ background: "linear-gradient(to right, #0d1f4e, #1a3060)" }} className="rounded-t-xl px-6 py-4">
             <div className="text-center text-white">
               <h2 className="text-xl font-bold mb-1">Create Account</h2>
               <p className="text-blue-100 text-sm">Fill in your details below</p>
@@ -508,11 +532,8 @@ function SignupPage() {
                 <button
                   type="submit"
                   disabled={isLoading}
-                  className="w-full bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 
-                           text-white py-3 px-6 rounded-lg font-semibold transition-all duration-200 
-                           disabled:opacity-50 disabled:cursor-not-allowed shadow-md hover:shadow-lg 
-                           focus:outline-none focus:ring-4 focus:ring-blue-500 focus:ring-opacity-50
-                           transform hover:-translate-y-0.5"
+                  className="w-full text-white py-3 px-6 rounded-lg font-semibold transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed shadow-md hover:shadow-lg focus:outline-none transform hover:-translate-y-0.5"
+                  style={{ background: "linear-gradient(to right, #0d1f4e, #1a3060)" }}
                 >
                   {isLoading ? (
                     <div className="flex items-center justify-center">
@@ -532,7 +553,7 @@ function SignupPage() {
                 Already have an account? 
                 <button 
                   onClick={() => navigate('/loginpage')}
-                  className="text-blue-600 hover:text-blue-700 font-semibold ml-1 transition-colors duration-200 hover:underline"
+                  className="font-semibold ml-1 transition-colors duration-200 hover:underline" style={{ color: "#0d1f4e" }}
                 >
                   Sign in here
                 </button>
@@ -541,8 +562,10 @@ function SignupPage() {
           </div>
         </div>
       </div>
+      </div>
     </div>
   );
 }
+
 
 export default SignupPage;

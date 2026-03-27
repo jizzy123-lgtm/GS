@@ -148,8 +148,8 @@ const EmptyState = ({ searchTerm, statusFilter }) => {
   const isFiltered = searchTerm || statusFilter !== 'All Statuses';
   
   return (
-    <div className="flex flex-col items-center justify -center h-64 bg-gray-50 rounded-lg border-2 border-dashed border-gray-300 p-6">
-     <Icon path="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" className="w-12 h-12 text-gray-400 mb-3" />
+    <div className="flex flex-col items-center justify-center h-64 bg-gray-50 rounded-lg border-2 border-dashed border-gray-300 p-6">
+      <Icon path="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" className="w-12 h-12 text-gray-400 mb-3" />
       <div className="text-lg font-medium text-gray-600 mb-1">
         {isFiltered ? 'No matching requests found' : 'No pending requests'}
       </div>
@@ -163,7 +163,8 @@ const EmptyState = ({ searchTerm, statusFilter }) => {
   );
 };
 
-const UserRequestCard = memo(({ request, onRowClick }) => (
+// ✅ UPDATED: Added onDelete prop and Delete button
+const UserRequestCard = memo(({ request, onRowClick, onDelete }) => (
   <div className="bg-white border border-gray-200 rounded-xl shadow-sm hover:shadow-md transition-shadow p-4 space-y-3">
     <div className="flex items-center justify-between">
       <div className="flex items-center space-x-3">
@@ -186,18 +187,30 @@ const UserRequestCard = memo(({ request, onRowClick }) => (
       <div className="text-gray-900">{new Date(request.created_at).toLocaleDateString()}</div>
     </div>
     
-    <button
-      onClick={() => onRowClick(request.id)}
-      className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-medium py-2 px-4 rounded-lg transition-colors flex items-center justify-center"
-    >
-      <Icon path="M15 12a3 3 0 11-6 0 3 3 0 016 0z M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" className="w-5 h-5 mr-2" />
-      Review Request
-    </button>
+    {/* ✅ Both buttons side by side */}
+    <div className="flex gap-2">
+      <button
+        onClick={() => onRowClick(request.id)}
+        className="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white font-medium py-2 px-4 rounded-lg transition-colors flex items-center justify-center"
+      >
+        <Icon path="M15 12a3 3 0 11-6 0 3 3 0 016 0z M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" className="w-5 h-5 mr-2" />
+        Review
+      </button>
+      <button
+        onClick={() => onDelete(request.id)}
+        className="flex-1 bg-red-600 hover:bg-red-700 text-white font-medium py-2 px-4 rounded-lg transition-colors flex items-center justify-center"
+      >
+        <Icon path="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" className="w-5 h-5 mr-2" />
+        Delete
+      </button>
+    </div>
   </div>
 ));
 
+// ✅ UPDATED: Added onDelete prop throughout
 const UserRequestsTable = memo(({ 
-  onRowClick, 
+  onRowClick,
+  onDelete,
   requests, 
   isLoading, 
   searchTerm, 
@@ -281,7 +294,8 @@ const UserRequestsTable = memo(({
               <UserRequestCard 
                 key={request.id} 
                 request={request} 
-                onRowClick={onRowClick} 
+                onRowClick={onRowClick}
+                onDelete={onDelete} // ✅ passed here
               />
             ))}
           </div>
@@ -321,14 +335,24 @@ const UserRequestsTable = memo(({
                     <td className="p-4">
                       <StatusBadge status={request.status} />
                     </td>
+                    {/* ✅ UPDATED: Review + Delete buttons in desktop table */}
                     <td className="p-4">
-                      <button
-                        onClick={() => onRowClick(request.id)}
-                        className="bg-indigo-600 hover:bg-indigo-700 text-white font-medium py-2 px-4 rounded-lg transition-colors inline-flex items-center"
-                      >
-                        <Icon path="M15 12a3 3 0 11-6 0 3 3 0 016 0z M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" className="w-4 h-4 mr-2" />
-                        Review
-                      </button>
+                      <div className="flex gap-2">
+                        <button
+                          onClick={() => onRowClick(request.id)}
+                          className="bg-indigo-600 hover:bg-indigo-700 text-white font-medium py-2 px-4 rounded-lg transition-colors inline-flex items-center"
+                        >
+                          <Icon path="M15 12a3 3 0 11-6 0 3 3 0 016 0z M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" className="w-4 h-4 mr-2" />
+                          Review
+                        </button>
+                        <button
+                          onClick={() => onDelete(request.id)}
+                          className="bg-red-600 hover:bg-red-700 text-white font-medium py-2 px-4 rounded-lg transition-colors inline-flex items-center"
+                        >
+                          <Icon path="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" className="w-4 h-4 mr-2" />
+                          Delete
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -367,21 +391,18 @@ const AdminUserRequests = () => {
   const [loading, setLoading] = useState(true);
   const [token, setToken] = useState("");
   
-  // New state for search and filter
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
 
-  // Retrieve token from storage
   useEffect(() => {
     const authToken = localStorage.getItem("authToken") || sessionStorage.getItem("authToken");
     if (!authToken) {
-      navigate("/loginpage"); // Redirect to login if token is missing
+      navigate("/loginpage");
     } else {
       setToken(authToken);
     }
   }, [navigate]);
 
-  // Fetch account statuses from API
   const fetchAccountStatuses = async () => {
     try {
       const response = await fetch(`${API_BASE_URL}/accountStatuses`, {
@@ -398,11 +419,7 @@ const AdminUserRequests = () => {
       }
 
       const data = await response.json();
-      console.log("Fetched account statuses:", data);
-
-      // Extract statuses array from response
       const statusesArray = Array.isArray(data.statuses) ? data.statuses : [];
-      console.log("Processed account statuses:", statusesArray);
       return statusesArray;
     } catch (error) {
       console.error("Error fetching account statuses:", error);
@@ -410,7 +427,6 @@ const AdminUserRequests = () => {
     }
   };
 
-  // Fetch all roles once to create a mapping dictionary
   const fetchAllRoles = async () => {
     try {
       const response = await fetch(`${API_BASE_URL}/roles`, {
@@ -427,24 +443,18 @@ const AdminUserRequests = () => {
       }
 
       const data = await response.json();
-      console.log("Fetched all roles:", data);
-
-      // Create a mapping of role ID to role name
       const roleMap = {};
       const rolesArray = Array.isArray(data) ? data : 
                         Array.isArray(data.data) ? data.data : [];
       
       rolesArray.forEach(role => {
-        // Handle different role object structures
         const roleId = role.id || role.role_id;
         const roleName = role.role_name || role.name || 'Unknown';
-        
         if (roleId) {
           roleMap[roleId] = roleName;
         }
       });
 
-      console.log("Created role mapping:", roleMap);
       return roleMap;
     } catch (error) {
       console.error("Error fetching all roles:", error);
@@ -455,7 +465,6 @@ const AdminUserRequests = () => {
   const fetchUserRequests = async () => {
     setLoading(true);
     try {
-      // First fetch account statuses and roles in parallel
       const [roleMap, statusesArray] = await Promise.all([
         fetchAllRoles(),
         fetchAccountStatuses()
@@ -464,7 +473,6 @@ const AdminUserRequests = () => {
       setRoles(roleMap);
       setAccountStatuses(statusesArray);
       
-      // Then fetch user requests
       const response = await fetch(`${API_BASE_URL}/users-list`, {
         method: "GET",
         headers: {
@@ -476,22 +484,15 @@ const AdminUserRequests = () => {
       if (!response.ok) throw new Error(`Failed to fetch requests: ${response.statusText}`);
 
       const data = await response.json();
-      console.log("Fetched user requests data:", data);
-
-      // Handle different response structures
       const extractedData = Array.isArray(data.data) ? data.data : 
                             Array.isArray(data) ? data : [];
       
       if (extractedData.length === 0) {
-        console.log("No user requests found in response");
         setRequests([]);
         setLoading(false);
         return;
       }
       
-      console.log(`Processing ${extractedData.length} user requests`);
-      
-      // Add role names to requests using our role mapping
       const requestsWithRoles = extractedData.map(request => {
         let roleName = null;
         if (request.role && typeof request.role === 'string') {
@@ -506,12 +507,11 @@ const AdminUserRequests = () => {
 
         return {
           ...request,
-          id: request.user_id, // <-- Use user_id as id
+          id: request.user_id,
           roleName: roleName || 'Unknown Role'
         };
       });
 
-      console.log("Processed user requests with roles:", requestsWithRoles);
       setRequests(requestsWithRoles);
     } catch (error) {
       console.error("Error fetching user requests:", error);
@@ -530,6 +530,25 @@ const AdminUserRequests = () => {
   const handleRowClick = useCallback((user_id) => {
     navigate(`/adminuserrequestsform/${user_id}`);
   }, [navigate]);
+
+  // ✅ Delete handler with confirmation dialog
+  const handleDelete = useCallback(async (user_id) => {
+    if (!window.confirm("Are you sure you want to delete this user? This action cannot be undone.")) return;
+    try {
+      const response = await fetch(`${API_BASE_URL}/users/${user_id}`, {
+        method: "DELETE",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+      });
+      if (!response.ok) throw new Error("Failed to delete user");
+      setRequests(prev => prev.filter(r => r.id !== user_id));
+    } catch (error) {
+      console.error("Error deleting user:", error);
+      alert("Failed to delete user. Please try again.");
+    }
+  }, [token]);
 
   return (
     <div className="flex flex-col h-screen bg-gray-50">
@@ -552,7 +571,8 @@ const AdminUserRequests = () => {
           }}
         />
         <UserRequestsTable 
-          onRowClick={handleRowClick} 
+          onRowClick={handleRowClick}
+          onDelete={handleDelete} // ✅ passed to table
           requests={requests} 
           isLoading={loading}
           searchTerm={searchTerm}

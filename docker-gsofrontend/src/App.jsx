@@ -20,6 +20,7 @@ import AdminCarpentry from "./pages/Admin/adminMaintenance/AdminCarpentry";
 import AdminAirconditioning from "./pages/Admin/adminMaintenance/AdminAirconditioning";
 import AdminCarpentryform from "./pages/Admin/AdminCarpentryform";
 import StaffDashboard from "./pages/Staff/StaffDashboard.jsx";
+import StaffSchedules from "./pages/Staff/sched.jsx";
 import StaffSlipRequests from "./pages/Staff/StaffSlipRequests.jsx";
 import UserRequests from "./pages/Staff/UserRequests.jsx";
 import StaffViewMaintenanceRequestForm from "./pages/Staff/StaffViewMaintenanceRequestForm.jsx";
@@ -285,6 +286,14 @@ function App() {
           element={
             <StaffNotificationProvider>
               <StaffDashboard />
+            </StaffNotificationProvider>
+          }
+        />
+        <Route
+          path="/staffschedules"
+          element={
+            <StaffNotificationProvider>
+              <StaffSchedules />
             </StaffNotificationProvider>
           }
         />

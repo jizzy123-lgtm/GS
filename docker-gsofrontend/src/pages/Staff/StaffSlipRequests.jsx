@@ -163,6 +163,7 @@ const StaffSlipRequests = () => {
           contact_number: request.contact_number,
           verified_by: request.verified_by,
           approved_by_2: request.approved_by_2, 
+          approved_by_1: request.approved_by_1,
         }));
 
         setRequests(enhancedRequests);
@@ -185,13 +186,13 @@ const StaffSlipRequests = () => {
         return;
       }
 
-      const isPending = status === "Pending" || status === 1;
+      const isPending = status?.toLowerCase() === "pending";
       const isApprovedBy2 = approved_by_2 !== null && approved_by_2 !== undefined;
       const hasPriority = priority_number !== null && priority_number !== undefined;
       const isOnhold = status?.toLowerCase() === "onhold" || status?.toLowerCase() === "on hold";
 
       if (isOnhold) {
-        navigate(`/staffmaintenancerequestform/${id}`);
+        navigate(`/staffviewmaintenancerequestform/${id}`);
       } else if (hasPriority) {
         navigate(`/staffviewmaintenancerequestform/${id}`);
       } else if (isPending || isApprovedBy2) {
@@ -220,8 +221,12 @@ const getTabs = (statuses) => {
   const approvedIdx = statuses.findIndex(s => s.name?.toLowerCase() === "approved");
 
   // Remove Approved from the list
-  let reordered = statuses.filter((s, idx) => idx !== approvedIdx);
-
+  let reordered = statuses.filter((s, idx) => 
+  idx !== approvedIdx &&
+  s.name?.toLowerCase() !== "urgent" &&
+  s.name?.toLowerCase() !== "onhold" &&
+  s.name?.toLowerCase() !== "on hold"
+);
   // Insert Verified and Pending Approvals after Pending
   if (pendingIdx !== -1) {
     reordered.splice(pendingIdx + 1, 0, { id: "pending-approvals", name: "Pending Approvals" });
@@ -258,11 +263,7 @@ const getTabs = (statuses) => {
   }
 
   if (selectedTab === "Approved") {
-    return (
-      r.status_name?.toLowerCase() === "approved" &&
-      r.priority_number !== null &&
-      r.priority_number !== undefined
-    );
+    return r.priority_number !== null;
   }
 
   if (selectedTab.toLowerCase() === "completed") {
@@ -273,7 +274,7 @@ const getTabs = (statuses) => {
     return r.status_name && r.status_name.toLowerCase() === "done";
   }
 
-  if (r.verified_by !== null && r.verified_by !== undefined) return false;
+  
 
   if (selectedTab === "Pending") {
     return (r.status_id === 1 || r.status_name?.toLowerCase() === "pending") && (r.approved_by_2 === null || r.approved_by_2 === undefined);

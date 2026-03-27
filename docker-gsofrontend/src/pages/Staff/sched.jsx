@@ -1,7 +1,9 @@
 import { useState, useReducer, useEffect, useCallback, memo, useRef } from 'react';
-import { NavLink, useNavigate, useLocation } from 'react-router-dom';
-import { AdminSidebar, MENU_ITEMS } from '../../components/AdminSidebar';
+import { NavLink, useNavigate } from 'react-router-dom';
+import { StaffSidebar, MENU_ITEMS as STAFF_MENU_ITEMS } from '../../components/StaffSidebar';
 import Icon from '../../components/Icon';
+
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
 
 // Custom Hooks
 const useClickOutside = (ref, handler) => {
@@ -29,13 +31,10 @@ const sidebarReducer = (state, action) => {
   }
 };
 
-const Header = memo(({ 
-  isMobileMenuOpen, 
-  onToggleMobileMenu,
-  onCloseMobileMenu 
-}) => {
+// Header
+const Header = memo(({ isMobileMenuOpen, onToggleMobileMenu, onCloseMobileMenu }) => {
   const mobileMenuRef = useRef(null);
-  
+
   useClickOutside(mobileMenuRef, () => {
     if (isMobileMenuOpen) onCloseMobileMenu();
   });
@@ -46,19 +45,19 @@ const Header = memo(({
         ManageIT
       </span>
 
-      <div className="flex items-center gap-4">
-        <button 
+      <div className="hidden md:block text-xl font-bold text-white">
+        Staff
+      </div>
+
+      <div className="flex items-center gap-4 md:hidden">
+        <button
           onClick={onToggleMobileMenu}
-          className="md:hidden p-2 hover:bg-gray-800 rounded-lg border-2 border-white transition-colors"
+          className="p-2 hover:bg-gray-800 rounded-lg border-2 border-white transition-colors"
           aria-label="Toggle menu"
           aria-expanded={isMobileMenuOpen}
         >
           <Icon path="M4 6h16M4 12h16M4 18h16" className="w-6 h-6" />
         </button>
-        {/* Move Admin label here */}
-        <div className="hidden md:block text-xl font-bold text-white ml-4">
-          Admin
-        </div>
       </div>
 
       <div
@@ -68,7 +67,7 @@ const Header = memo(({
         }`}
       >
         <nav className="py-2">
-          {MENU_ITEMS.map((item) => (
+          {STAFF_MENU_ITEMS.map((item) => (
             <NavLink
               key={item.text}
               to={item.to}
@@ -88,22 +87,22 @@ const Header = memo(({
   );
 });
 
-// Calendar Components
+// Calendar Header
 const CalendarHeader = memo(({ currentDate, prevMonth, nextMonth }) => {
   const monthName = currentDate.toLocaleString('default', { month: 'long' });
   const year = currentDate.getFullYear();
-  
+
   return (
     <div className="flex justify-between items-center mb-4 px-2">
-      <button 
-        onClick={prevMonth} 
+      <button
+        onClick={prevMonth}
         className="p-2 bg-gray-200 hover:bg-gray-300 rounded-lg transition-colors"
       >
         <Icon path="M15 19l-7-7 7-7" className="w-5 h-5" />
       </button>
       <h3 className="text-xl font-bold text-gray-800">{monthName} {year}</h3>
-      <button 
-        onClick={nextMonth} 
+      <button
+        onClick={nextMonth}
         className="p-2 bg-gray-200 hover:bg-gray-300 rounded-lg transition-colors"
       >
         <Icon path="M9 5l7 7-7 7" className="w-5 h-5" />
@@ -112,6 +111,7 @@ const CalendarHeader = memo(({ currentDate, prevMonth, nextMonth }) => {
   );
 });
 
+// Event Form
 const EventForm = memo(({ newEvent, setNewEvent, handleAddEvent, closeForm }) => (
   <div className="p-4 border-b border-gray-200 bg-gray-50">
     <div className="flex flex-wrap gap-2">
@@ -120,24 +120,24 @@ const EventForm = memo(({ newEvent, setNewEvent, handleAddEvent, closeForm }) =>
         placeholder="Event title"
         className="border p-2 rounded flex-grow text-sm"
         value={newEvent.title}
-        onChange={(e) => setNewEvent({...newEvent, title: e.target.value})}
+        onChange={(e) => setNewEvent({ ...newEvent, title: e.target.value })}
       />
       <input
         type="date"
         className="border p-2 rounded text-sm"
         value={newEvent.date}
-        onChange={(e) => setNewEvent({...newEvent, date: e.target.value})}
+        onChange={(e) => setNewEvent({ ...newEvent, date: e.target.value })}
       />
       <input
         type="time"
         className="border p-2 rounded text-sm"
         value={newEvent.time}
-        onChange={(e) => setNewEvent({...newEvent, time: e.target.value})}
+        onChange={(e) => setNewEvent({ ...newEvent, time: e.target.value })}
       />
       <select
         className="border p-2 rounded text-sm"
         value={newEvent.color}
-        onChange={(e) => setNewEvent({...newEvent, color: e.target.value})}
+        onChange={(e) => setNewEvent({ ...newEvent, color: e.target.value })}
       >
         <option value="bg-blue-200">Blue</option>
         <option value="bg-green-200">Green</option>
@@ -162,37 +162,20 @@ const EventForm = memo(({ newEvent, setNewEvent, handleAddEvent, closeForm }) =>
     </div>
   </div>
 ));
+
+// Dashboard Content
 const DashboardContent = memo(() => {
-     // Calendar state
   const [currentDate, setCurrentDate] = useState(new Date());
-  const [events, setEvents] = useState([
-    { id: 1, title: "Team Meeting", date: "2025-03-18", time: "10:00", color: "bg-blue-200" },
-    { id: 2, title: "Doctor Appointment", date: "2025-03-20", time: "14:30", color: "bg-green-200" },
-    { id: 3, title: "Project Deadline", date: "2025-03-25", time: "16:00", color: "bg-pink-200" }
-  ]);
+  const [events, setEvents] = useState([]);
   const [newEvent, setNewEvent] = useState({ title: "", date: "", time: "", color: "bg-blue-200" });
   const [showForm, setShowForm] = useState(false);
 
-  // Get days in month
-  const getDaysInMonth = (year, month) => {
-    return new Date(year, month + 1, 0).getDate();
-  };
+  const getDaysInMonth = (year, month) => new Date(year, month + 1, 0).getDate();
+  const getFirstDayOfMonth = (year, month) => new Date(year, month, 1).getDay();
 
-  // Get the first day of the month (0 = Sunday, 1 = Monday, etc.)
-  const getFirstDayOfMonth = (year, month) => {
-    return new Date(year, month, 1).getDay();
-  };
+  const prevMonth = () => setCurrentDate(prev => new Date(prev.getFullYear(), prev.getMonth() - 1, 1));
+  const nextMonth = () => setCurrentDate(prev => new Date(prev.getFullYear(), prev.getMonth() + 1, 1));
 
-  // Month navigation
-  const prevMonth = () => {
-    setCurrentDate(prev => new Date(prev.getFullYear(), prev.getMonth() - 1, 1));
-  };
-
-  const nextMonth = () => {
-    setCurrentDate(prev => new Date(prev.getFullYear(), prev.getMonth() + 1, 1));
-  };
-
-  // Add new event
   const handleAddEvent = () => {
     if (newEvent.title && newEvent.date && newEvent.time) {
       setEvents([...events, { id: events.length + 1, ...newEvent }]);
@@ -201,40 +184,32 @@ const DashboardContent = memo(() => {
     }
   };
 
-  // Generate calendar grid
-  const monthName = currentDate.toLocaleString('default', { month: 'long' });
   const year = currentDate.getFullYear();
   const month = currentDate.getMonth();
   const daysInMonth = getDaysInMonth(year, month);
   const firstDayOfMonth = getFirstDayOfMonth(year, month);
 
-  // Format date for event lookup
-  const formatDate = (day) => {
-    return `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
-  };
+  const formatDate = (day) =>
+    `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
 
-  // Generate weeks for the calendar
   const generateCalendarDays = () => {
     const days = [];
-    
-    // Add empty cells for days before the first day of the month
+
     for (let i = 0; i < firstDayOfMonth; i++) {
       days.push(<td key={`empty-${i}`} className="p-2 border border-gray-100 text-gray-300"></td>);
     }
-    
-    // Add days of the month
+
     const today = new Date();
     for (let day = 1; day <= daysInMonth; day++) {
       const date = formatDate(day);
       const dayEvents = events.filter(event => event.date === date);
-      const isToday = day === today.getDate() && 
-                       month === today.getMonth() && 
-                       year === today.getFullYear();
-      
+      const isToday =
+        day === today.getDate() &&
+        month === today.getMonth() &&
+        year === today.getFullYear();
+
       days.push(
-        <td key={day} className={`p-2 border border-gray-100 align-top h-24 md:h-32 relative ${
-          isToday ? 'bg-blue-50' : ''
-        }`}>
+        <td key={day} className={`p-2 border border-gray-100 align-top h-24 md:h-32 relative ${isToday ? 'bg-blue-50' : ''}`}>
           <div className="flex justify-between items-start mb-1">
             <span className={`text-sm font-medium ${isToday ? 'text-blue-600' : 'text-gray-700'}`}>
               {day}
@@ -247,8 +222,8 @@ const DashboardContent = memo(() => {
           </div>
           <div className="overflow-y-auto max-h-20">
             {dayEvents.map(event => (
-              <div 
-                key={event.id} 
+              <div
+                key={event.id}
                 className={`${event.color} p-1 mb-1 rounded text-xs overflow-hidden`}
                 title={`${event.title} - ${event.time}`}
               >
@@ -260,27 +235,23 @@ const DashboardContent = memo(() => {
         </td>
       );
     }
-    
+
     return days;
   };
 
   const calendarDays = generateCalendarDays();
   const weeks = [];
   let week = [];
-  
-  // Arrange days into weeks
+
   for (let i = 0; i < calendarDays.length; i++) {
     week.push(calendarDays[i]);
-    
     if ((i + 1) % 7 === 0 || i === calendarDays.length - 1) {
-      // Fill in remaining cells of the last week
       if (i === calendarDays.length - 1 && week.length < 7) {
         const remainingCells = 7 - week.length;
         for (let j = 0; j < remainingCells; j++) {
           week.push(<td key={`empty-end-${j}`} className="p-2 border border-gray-100 text-gray-300"></td>);
         }
       }
-      
       weeks.push(<tr key={`week-${weeks.length}`}>{week}</tr>);
       week = [];
     }
@@ -292,7 +263,7 @@ const DashboardContent = memo(() => {
         <h2 className="text-2xl md:text-3xl lg:text-4xl font-extrabold text-gray-900">
           Schedules
         </h2>
-        <button 
+        <button
           onClick={() => setShowForm(!showForm)}
           className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg text-sm md:text-base font-medium transition-colors flex items-center gap-2"
         >
@@ -302,21 +273,20 @@ const DashboardContent = memo(() => {
       </div>
 
       {showForm && (
-        <EventForm 
-          newEvent={newEvent} 
-          setNewEvent={setNewEvent} 
+        <EventForm
+          newEvent={newEvent}
+          setNewEvent={setNewEvent}
           handleAddEvent={handleAddEvent}
           closeForm={() => setShowForm(false)}
         />
       )}
 
       <div className="bg-white rounded-lg shadow-sm md:shadow-lg border border-gray-200 mb-4">
-        <CalendarHeader 
+        <CalendarHeader
           currentDate={currentDate}
           prevMonth={prevMonth}
           nextMonth={nextMonth}
         />
-        
         <div className="p-2 sm:p-4 overflow-x-auto">
           <div className="min-w-[768px]">
             <table className="w-full border-collapse">
@@ -329,9 +299,7 @@ const DashboardContent = memo(() => {
                   ))}
                 </tr>
               </thead>
-              <tbody>
-                {weeks}
-              </tbody>
+              <tbody>{weeks}</tbody>
             </table>
           </div>
         </div>
@@ -345,11 +313,11 @@ const DashboardContent = memo(() => {
             .sort((a, b) => new Date(`${a.date}T${a.time}`) - new Date(`${b.date}T${b.time}`))
             .slice(0, 3)
             .map(event => (
-              <div 
-                key={event.id} 
+              <div
+                key={event.id}
                 className="flex items-center p-3 rounded-lg border border-gray-100 hover:bg-gray-50"
               >
-                <div className={`w-4 h-4 rounded-full ${event.color.replace('bg-', 'bg-')} mr-3`}></div>
+                <div className={`w-4 h-4 rounded-full ${event.color} mr-3`}></div>
                 <div className="flex-1">
                   <div className="font-medium">{event.title}</div>
                   <div className="text-sm text-gray-500">
@@ -358,6 +326,9 @@ const DashboardContent = memo(() => {
                 </div>
               </div>
             ))}
+          {events.filter(event => new Date(`${event.date}T${event.time}`) >= new Date()).length === 0 && (
+            <div className="text-center text-gray-500 py-4">No upcoming events.</div>
+          )}
         </div>
       </div>
     </main>
@@ -365,16 +336,12 @@ const DashboardContent = memo(() => {
 });
 
 // Main Component
-const AdminSchedules = () => {
+const StaffSchedules = () => {
   const navigate = useNavigate();
   const [state, dispatch] = useReducer(sidebarReducer, {
-    isSidebarCollapsed: true, // true means collapsed by default
-    isMobileMenuOpen: false
+    isSidebarCollapsed: true,
+    isMobileMenuOpen: false,
   });
-
-  const handleNavigation = useCallback((item) => {
-    if (item === 'Maintenance') navigate('/maintenance');
-  }, [navigate]);
 
   return (
     <div className="flex flex-col h-screen bg-gray-50">
@@ -383,17 +350,31 @@ const AdminSchedules = () => {
         onToggleMobileMenu={() => dispatch({ type: 'TOGGLE_MOBILE_MENU' })}
         onCloseMobileMenu={() => dispatch({ type: 'CLOSE_MOBILE_MENU' })}
       />
+
       <div className="flex flex-1 overflow-hidden">
-        <AdminSidebar
+        <StaffSidebar
           isSidebarCollapsed={state.isSidebarCollapsed}
           onToggleSidebar={() => dispatch({ type: 'TOGGLE_SIDEBAR' })}
-          menuItems={MENU_ITEMS}
-          onLogout={() => {
-            localStorage.removeItem("authToken");
-            localStorage.removeItem("user");
-            sessionStorage.removeItem("authToken");
-            sessionStorage.removeItem("user");
-            navigate("/loginpage", { replace: true });
+          menuItems={STAFF_MENU_ITEMS}
+          onLogout={async () => {
+            try {
+              const token = localStorage.getItem("authToken") || sessionStorage.getItem("authToken");
+              await fetch(`${API_BASE_URL}/logout`, {
+                method: "POST",
+                headers: {
+                  "Accept": "application/json",
+                  "Authorization": `Bearer ${token}`,
+                },
+              });
+            } catch (err) {
+              console.error(err);
+            } finally {
+              localStorage.removeItem("authToken");
+              localStorage.removeItem("user");
+              sessionStorage.removeItem("authToken");
+              sessionStorage.removeItem("user");
+              navigate("/loginpage", { replace: true });
+            }
           }}
         />
         <DashboardContent />
@@ -402,4 +383,4 @@ const AdminSchedules = () => {
   );
 };
 
-export default AdminSchedules;
+export default StaffSchedules;

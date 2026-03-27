@@ -115,6 +115,8 @@ const Header = memo(({
   );
 });
 
+
+
 const DashboardContent = memo(({ onCardClick, requests }) => (
   <main className="flex-1 p-4 md:p-6 lg:p-8 bg-white/95 backdrop-blur-sm overflow-y-auto">
     <h2 className="text-2xl md:text-3xl lg:text-4xl font-extrabold text-gray-900 border-b mb-4 md:mb-6 pb-3 md:pb-4">
@@ -141,11 +143,11 @@ const DashboardContent = memo(({ onCardClick, requests }) => (
             </div>
             <div className="flex justify-between items-center pt-2 pb-2">
               <span className="text-sm font-semibold">Type:</span>
-              <span className="text-sm text-gray-900 font-medium">{request.type || 'N/A'}</span>
+              <span className="text-sm text-gray-900 font-medium">{request.maintenance_type || 'N/A'}</span>
             </div>
             <div className="flex justify-between items-center pt-2 pb-2">
               <span className="text-sm font-semibold">Status:</span>
-              <span className={`bg-${request.status === 'Pending' ? 'red' : 'green'}-500 text-white px-3 py-1 text-xs rounded-full font-medium shadow-sm`}>
+              <span className={`${STATUS_COLORS[request.status] ?? 'bg-gray-400'} text-white px-3 py-1 text-xs rounded-full font-medium shadow-sm`}>
                 {request.status}
               </span>
             </div>
@@ -201,9 +203,9 @@ const DashboardContent = memo(({ onCardClick, requests }) => (
               <td className="text-sm p-3 font-medium text-gray-900 border-r border-gray-700">{request.date_requested}</td>
               <td className="text-sm p-3 font-medium text-gray-900 border-r border-gray-700">{request.requesting_office}</td>
               <td className="text-sm p-3 font-medium text-gray-900 border-r border-gray-700">{request.requesting_personnel}</td>
-              <td className="text-sm p-3 font-medium text-gray-900 border-r border-gray-700">{request.type || 'N/A'}</td>
+              <td className="text-sm p-3 font-medium text-gray-900 border-r border-gray-700">{request.maintenance_type || 'N/A'}</td>
               <td className="text-sm p-3 text-center border-r border-gray-700">
-                <span className={`inline-block bg-${request.status === 'Pending' ? 'red' : 'green'}-500 text-white px-1 py-2 text-sm rounded-lg font-medium shadow-sm`}>
+                <span className={`inline-block ${STATUS_COLORS[request.status] ?? 'bg-gray-400'} text-white px-1 py-2 text-sm rounded-lg font-medium shadow-sm`}>
                   {request.status}
                 </span>
               </td>
@@ -242,7 +244,7 @@ const MaintenanceRequestsList = ({ token }) => {
         return response.json();
       })
       .then(data => {
-        setRequests(data.data);
+        setRequests(Array.isArray(data) ? data : []); 
         setLoading(false);
       })
       .catch(error => {

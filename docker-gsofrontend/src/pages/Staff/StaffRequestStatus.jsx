@@ -78,7 +78,7 @@ const Header = ({ isMobileMenuOpen, onToggleMobileMenu, onCloseMobileMenu, userT
           ))}
         </nav>
         <div className="text-center py-2 text-xs text-gray-400 border-t border-gray-700">
-          Created By Bantilan & Friends
+          Created By Exverter
         </div>
       </div>
     </header>
@@ -261,10 +261,9 @@ const StaffRequestStatus = () => {
     initialize();
   }, [token, navigate]);
 
-  const filtered = requests.filter(
-    (r) => r.status?.trim().toLowerCase() === selectedTab.toLowerCase()
-  );
-
+  const filtered = requests
+    .filter((r) => r.status?.trim().toLowerCase() === selectedTab.toLowerCase())
+    .sort((a, b) => new Date(b.created_at) - new Date(a.created_at)); // ✅ LIFO by created_at
   // --- Loading and Error UI (copied/adapted from ViewMaintenanceRequestForm) ---
   if (loading) {
     return (
@@ -342,7 +341,9 @@ const StaffRequestStatus = () => {
           </div>
           <StatusTable
             requests={selectedTab === "Completed"
-              ? requests.filter(r => r.status?.trim().toLowerCase() === "completed")
+              ? requests
+                .filter(r => r.status?.trim().toLowerCase() === "completed")
+                .sort((a, b) => new Date(b.created_at) - new Date(a.created_at)) // ✅ LIFO by created_at
               : filtered}
             selectedTab={selectedTab}
             userNameParts={userNameParts}

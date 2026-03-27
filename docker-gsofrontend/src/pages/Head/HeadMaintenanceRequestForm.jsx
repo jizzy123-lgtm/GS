@@ -117,9 +117,8 @@ const HeadMaintenanceRequestForm = () => {
 
   useEffect(() => {
     const fetchRequestDetails = async () => {
-      if (!id || id === "undefined") {
-        setError("Invalid request ID.");
-        setIsLoading(false);
+      if (!id) {
+        setError("Invalid request ID");
         return;
       }
 
@@ -426,7 +425,7 @@ const HeadMaintenanceRequestForm = () => {
                   <div>
                     <div>
                       <label className="block text-sm font-semibold text-gray-700 mb-1">
-                        Staff Comments:s
+                        Staff Comments:
                       </label>
                       {Array.isArray(requestDetails.comments) && requestDetails.comments.length > 0 ? (
                         <div className="space-y-2">

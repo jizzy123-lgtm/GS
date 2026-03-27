@@ -197,7 +197,7 @@ const AdminAirconditioning = () => {
           menuItems={ADMIN_MENU_ITEMS}
           onLogout={handleLogout}
         />
-        <main className="flex-1 flex flex-col items-center px-4 py-8 overflow-y-auto">
+        <main className="flex-1 flex flex-col items-center justify-center px-4 py-8 overflow-y-auto">
           <div className="bg-white p-6 md:p-8 lg:p-10 shadow-lg rounded-lg w-full max-w-md md:max-w-xl lg:max-w-2xl transition-all duration-300">
             <h2 className="text-xl md:text-2xl font-bold text-center mb-4 md:mb-6 text-gray-800">       
               JOSE RIZAL MEMORIAL STATE UNIVERSITY <br className="hidden sm:block" />

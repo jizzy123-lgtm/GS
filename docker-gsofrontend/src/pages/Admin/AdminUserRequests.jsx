@@ -208,19 +208,17 @@ const UserRequestsTable = memo(({
 }) => {
   // Filter requests based on search term and status
   const filteredRequests = useMemo(() => {
-    return requests
-      .filter(request => {
-        const matchesSearch = !searchTerm || 
-          request.username.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          request.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          (request.roleName && request.roleName.toLowerCase().includes(searchTerm.toLowerCase()));
+    return requests.filter(request => {
+      const matchesSearch = !searchTerm || 
+        request.username.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        request.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (request.roleName && request.roleName.toLowerCase().includes(searchTerm.toLowerCase()));
 
-        const matchesStatus =
-          statusFilter === "" || String(request.status_id) === String(statusFilter);
+      const matchesStatus =
+        statusFilter === "" || String(request.status_id) === String(statusFilter);
 
-        return matchesSearch && matchesStatus;
-      })
-      .sort((a, b) => new Date(b.created_at) - new Date(a.created_at)); // LIFO - newest first
+      return matchesSearch && matchesStatus;
+    });
   }, [requests, searchTerm, statusFilter]);
   if (isLoading) {
     return (

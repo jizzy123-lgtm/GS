@@ -134,13 +134,6 @@ Route::middleware('auth:sanctum')->group(function () {
 Route::get('/maintenance-requests/{id}/request-date', [MaintenanceRequestController::class, 'getRequestDate']);
 
 
-
-
-
-
-
-
-
 //this section is for the non functional requirements
 
 

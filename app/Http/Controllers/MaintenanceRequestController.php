@@ -21,9 +21,49 @@ use Carbon\Carbon;
 use App\Models\Comment;
 class MaintenanceRequestController extends Controller
 {
-    public function index()
+    public function index(Request $request)
     {
-        return response()->json(MaintenanceRequest::all());
+        $query = MaintenanceRequest::with([
+            'requester', 'position', 'office',
+            'status', 'verifier', 'approver1',
+            'approver2', 'maintenanceType'
+        ]);
+
+        // Optional status filter if query param is provided
+        if ($request->query('status')) {
+            $query->whereHas('status', function ($q) use ($request) {
+                $q->where('name', $request->query('status'));
+            });
+        }
+
+        $requests = $query->get()->map(function ($req) {
+            $requester = optional($req->requester);
+            $fullName = trim(
+                ($requester->last_name ? $requester->last_name . ', ' : '') .
+                ($requester->first_name ?? '') . ' ' .
+                ($requester->middle_name ?? '') . ' ' .
+                ($requester->suffix ?? '')
+            );
+
+            return [
+                'request_id'            => $req->id,
+                'date_requested'        => $req->date_requested,
+                'details'               => $req->details,
+                'requesting_personnel'  => $fullName,
+                'requesting_office'     => optional($req->office)->name,
+                'contact_number'        => $req->contact_number,
+                'status'                => optional($req->status)->name,
+                'maintenance_type'      => optional($req->maintenanceType)->type_name,
+                'priority_number'       => $req->priority_number,
+                'verified_by'           => optional($req->verifier)->last_name,
+                'approved_by_1'         => optional($req->approver1)->last_name,
+                'approved_by_2'         => optional($req->approver2)->last_name,
+                'created_at'            => $req->created_at,
+                'updated_at'            => $req->updated_at,
+            ];
+        });
+
+        return response()->json($requests);
     }
 
     public function store(Request $request)
@@ -134,6 +174,7 @@ class MaintenanceRequestController extends Controller
             'user_id' => $maintenanceRequest->requesting_personnel, // requester
             'type' => 'maintenance_verified',
             'message' => 'Your maintenance request has been verified by staff.',
+            'reference_id' => $maintenanceRequest->id,
             'is_read' => false,
         ]);
 
@@ -145,6 +186,7 @@ class MaintenanceRequestController extends Controller
                 'user_id' => $user->id,
                 'type' => 'maintenance_request_verified',
                 'message' =>  'A maintenance request was verified by the staff',
+                'reference_id' => $maintenanceRequest->id,
                 'is_read' => false,
             ]);
         }
@@ -248,6 +290,7 @@ class MaintenanceRequestController extends Controller
             'user_id' => $maintenanceRequest->requesting_personnel, // requester
             'type' => 'maintenance_request_approved_by_head',
             'message' => 'Your maintenance request has been approved by the head of GSO.',
+            'reference_id' => $maintenanceRequest->id,
             'is_read' => false,
         ]);
 
@@ -259,6 +302,7 @@ class MaintenanceRequestController extends Controller
                 'user_id' => $user->id,
                 'type' => 'maintenance_request_approved_by_head',
                 'message' =>  'A maintenance request was approved by the head GSO',
+                'reference_id' => $maintenanceRequest->id, // ✅ add after 'message'
                 'is_read' => false,
             ]);
         }
@@ -326,7 +370,9 @@ class MaintenanceRequestController extends Controller
         SystemNotification::create([
             'user_id' => $maintenanceRequest->requesting_personnel, // requester
             'type' => 'maintenance_request_approved_by_campus_director',
+        
             'message' => 'Your maintenance request has been approved by the campus director, please wait for priority number.',
+            'reference_id' => $maintenanceRequest->id,
             'is_read' => false,
         ]);
 
@@ -337,6 +383,7 @@ class MaintenanceRequestController extends Controller
                 'user_id' => $staff->id,
                 'type' => 'maintenance_request_approved_by_campus_director',
                 'message' => 'A maintenance request was approved by the campus director, please view and assign a priority number ',
+                'reference_id' => $maintenanceRequest->id,
                 'is_read' => false,
             ]);
         }
@@ -478,6 +525,7 @@ class MaintenanceRequestController extends Controller
             'user_id' => $maintenanceRequest->requesting_personnel, // requester
             'type' => 'maintenance_request_denied',
             'message' => 'Your maintenance request was denied by '. Auth::user()->first_name . ' '. Auth::user()->last_name,
+            'reference_id' => $maintenanceRequest->id, // ✅ add after 'message'
             'is_read' => false,
         ]);
 
@@ -578,6 +626,7 @@ class MaintenanceRequestController extends Controller
         'user_id' => $maintenanceRequest->requesting_personnel,
         'type' => 'maintenance_request_disapproved',
         'message' => 'Your maintenance request was disapproved by ' . Auth::user()->first_name . ' ' . Auth::user()->last_name,
+        'reference_id' => $maintenanceRequest->id, // ✅ add after 'message'
         'is_read' => false,
     ]);
 
@@ -789,6 +838,7 @@ class MaintenanceRequestController extends Controller
             'user_id' => $maintenanceRequest->requesting_personnel,
             'type' => 'maintenance_request_urgent',
             'message' => 'Your maintenance request was marked as urgent.',
+            'reference_id' => $maintenanceRequest->id, // ✅ add after 'message'
             'is_read' => false,
         ]);
 
@@ -837,6 +887,7 @@ class MaintenanceRequestController extends Controller
             'user_id' => $maintenanceRequest->requesting_personnel,
             'type' => 'maintenance_request_onhold',
             'message' => 'Your maintenance request was marked as on hold.',
+            'reference_id' => $maintenanceRequest->id, // ✅ add after 'message'
             'is_read' => false,
         ]);
 
@@ -974,6 +1025,7 @@ class MaintenanceRequestController extends Controller
             'user_id' => $maintenanceRequest->requesting_personnel, // requester
             'type' => 'maintenance_request_completely_approved',
             'message' => 'Your request completed the approval process and has a priority number now!, please wait for the service.',//notify the user
+            'reference_id' => $maintenanceRequest->id, // ✅ add after 'message'
             'is_read' => false,
         ]);
 
@@ -999,6 +1051,7 @@ class MaintenanceRequestController extends Controller
             'user_id' => $request->requesting_personnel, // requester
             'type' => 'maintenance_request_done',
             'message' => 'Your maintenance request has been successfully done. Kindly share your feedback to help us improve our service..',
+            'reference_id' => $maintenanceRequest->id, // ✅ add after 'message'
             'is_read' => false,
         ]);
 

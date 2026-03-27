@@ -482,7 +482,6 @@ const UserRequests = () => {
     sessionStorage.removeItem("authToken");
     navigate("/loginpage");
   };
-
   return (
     <div className="flex flex-col h-screen bg-gray-50">
       <Header

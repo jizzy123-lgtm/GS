@@ -165,7 +165,6 @@ const MaintenanceModal = memo(({ request, onClose }) => {
               </span>
             )}
           </div>
-
           {request.title && (
             <div>
               <p className="text-[11px] font-bold text-gray-400 uppercase tracking-widest mb-1">Title</p>

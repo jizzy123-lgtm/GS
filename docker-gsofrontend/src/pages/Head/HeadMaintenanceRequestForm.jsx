@@ -81,7 +81,6 @@ const HeadMaintenanceRequestForm = () => {
     if (currentUser.suffix) name += ` ${currentUser.suffix}`;
     return name.trim();
   };
-
   useEffect(() => {
     const authToken = localStorage.getItem("authToken") || sessionStorage.getItem("authToken");
     if (!authToken) {

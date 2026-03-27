@@ -218,5 +218,4 @@ const AdminNotifications = () => {
     </div>
   );
 };
-
 export default AdminNotifications;

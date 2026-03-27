@@ -309,7 +309,6 @@ const RequestStatus = () => {
         onCloseMobileMenu={() => dispatch({ type: "CLOSE_MOBILE_MENU" })}
         userTitle="User"
       />
-
       <div className="flex flex-1 overflow-hidden">
         <Sidebar
           isSidebarCollapsed={state.isSidebarCollapsed}

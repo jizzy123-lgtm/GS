@@ -314,7 +314,6 @@ const StaffRequestStatus = () => {
           <h2 className="text-3xl font-extrabold text-gray-900 border-b mb-4 pb-3">
             Staff Request Status
           </h2>
-
           {/* Tabs */}
           <div className="flex space-x-4 mb-6">
             {["Pending", "Approved", "Disapproved", "Done", "Completed"].map((tab) => (

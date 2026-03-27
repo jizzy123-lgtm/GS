@@ -18,7 +18,6 @@ const sidebarReducer = (state, action) => {
       return state;
   }
 };
-
 const RequestsTable = ({ onRowClick, requests, showActions }) => (
   <main className="flex-1 p-4 md:p-6 lg:p-8 bg-white/95 backdrop-blur-sm overflow-y-auto">
     <div className="bg-white rounded-lg shadow-sm md:shadow-lg border border-gray-200">

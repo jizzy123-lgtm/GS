@@ -205,7 +205,6 @@ const AdminCarpentry = () => {
             <p className="text-sm md:text-base text-center mb-6 md:mb-8">
               User Request Slip (Carpentry Section) <br className="hidden sm:block" />
             </p>
-
             {/* Error Message */}
             {error && (
               <div className="bg-red-50 text-red-500 p-3 rounded-lg mb-4 text-sm">

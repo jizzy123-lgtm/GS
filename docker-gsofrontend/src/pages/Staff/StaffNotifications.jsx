@@ -300,9 +300,7 @@ const DashboardContent = memo(() => {
     }
 
     const requestId =
-      notif.request_id ||
-      notif.maintenance_request_id ||
-      notif.related_id;
+      notif.request_id || notif.maintenance_request_id || notif.related_id;
 
     if (!requestId) {
       setSelectedRequest({

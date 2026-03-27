@@ -222,7 +222,6 @@ const UserRequestsTable = memo(({
       })
       .sort((a, b) => new Date(b.created_at) - new Date(a.created_at)); // LIFO - newest first
   }, [requests, searchTerm, statusFilter]);
-
   if (isLoading) {
     return (
       <main className="flex-1 p-4 md:p-6 lg:p-8 bg-gray-50 overflow-y-auto">

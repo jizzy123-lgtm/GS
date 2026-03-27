@@ -460,7 +460,6 @@ const CampusDirectorNotifications = () => {
     isSidebarCollapsed: true,
     isMobileMenuOpen: false,
   });
-
   return (
     <div className="flex flex-col h-screen bg-gray-50">
       <Header

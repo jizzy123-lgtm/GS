@@ -526,7 +526,6 @@ function SignupPage() {
                   </div>
                 </div>
               </div>
-
               {/* Submit Button */}
               <div className="pt-4">
                 <button

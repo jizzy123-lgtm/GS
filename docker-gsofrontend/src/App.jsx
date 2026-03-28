@@ -1,3 +1,5 @@
+import { useReducer, useEffect, useState, memo } from 'react';
+import { NavLink, useNavigate } from 'react-router-dom'; // ← ADD useNavigate
 import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
 import Loginpage from "./pages/LoginScreen/Loginpage";
 import Dashboard from "./pages/Userdashboard/Dashboard";
@@ -60,6 +62,7 @@ import { CampusDirectorNotificationProvider } from "./components/CampusDirectorS
 import StaffRequestStatus from "./pages/Staff/StaffRequestStatus";
 import StaffFeedback from "./pages/Staff/StaffFeedback.jsx";
 import FeedbackReview from "./pages/Staff/FeedbackReview.jsx";
+
 
 
 function App() {
@@ -404,6 +407,7 @@ function App() {
             </StaffNotificationProvider>
           }
         />
+
         <Route
           path="/staffnotifications"
           element={

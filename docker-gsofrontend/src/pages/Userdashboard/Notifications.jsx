@@ -1,3 +1,4 @@
+// [UPDATED 2026-03-28] User notifications enhancements (details view + read behavior).
 import { useReducer, useEffect, useState, memo } from 'react';
 import { NavLink } from 'react-router-dom';
 import Icon from '../../components/Icon';
@@ -5,7 +6,6 @@ import { Sidebar, MENU_ITEMS } from '../../components/Sidebar';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
 
-// Reducer
 const sidebarReducer = (state, action) => {
   switch (action.type) {
     case 'TOGGLE_SIDEBAR':
@@ -19,17 +19,14 @@ const sidebarReducer = (state, action) => {
   }
 };
 
-// Header (copied from Dashboard)
 const Header = memo(({ isMobileMenuOpen, onToggleMobileMenu, onCloseMobileMenu }) => (
   <header className="bg-black text-white p-4 flex justify-between items-center relative">
     <span className="text-xl md:text-2xl font-extrabold tracking-tight">
       ManageIT
     </span>
-
     <div className="hidden md:block text-xl font-bold text-white">
       User
     </div>
-
     <div className="flex items-center gap-4 md:hidden">
       <button
         onClick={onToggleMobileMenu}
@@ -40,7 +37,6 @@ const Header = memo(({ isMobileMenuOpen, onToggleMobileMenu, onCloseMobileMenu }
         <Icon path="M4 6h16M4 12h16M4 18h16" className="w-6 h-6" />
       </button>
     </div>
-
     <div
       className={`absolute md:hidden top-full right-0 mt-2 w-56 bg-gray-800 rounded-lg shadow-xl z-30 transition-all duration-300 ease-out overflow-hidden ${
         isMobileMenuOpen ? "max-h-96 opacity-100" : "max-h-0 opacity-0"
@@ -66,15 +62,14 @@ const Header = memo(({ isMobileMenuOpen, onToggleMobileMenu, onCloseMobileMenu }
   </header>
 ));
 
-// DashboardContent now fetches and displays notifications with Authorization header
 const DashboardContent = memo(() => {
   const [notifications, setNotifications] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [selectedNotif, setSelectedNotif] = useState(null);
 
   useEffect(() => {
     const token = localStorage.getItem("authToken") || sessionStorage.getItem("authToken");
 
-    // Mark all notifications as read when the page is opened
     fetch(`${API_BASE_URL}/notifications/markAllAsRead`, {
       method: "PUT",
       headers: {
@@ -84,7 +79,6 @@ const DashboardContent = memo(() => {
       }
     }).catch(() => {});
 
-    // Fetch notifications
     fetch(`${API_BASE_URL}/notifications`, {
       headers: {
         "Accept": "application/json",
@@ -100,6 +94,7 @@ const DashboardContent = memo(() => {
   }, []);
 
   return (
+  <>
     <main className="flex-1 p-4 md:p-6 lg:p-8 bg-white/95 backdrop-blur-sm overflow-y-auto">
       <h2 className="text-2xl md:text-3xl lg:text-4xl font-extrabold text-gray-900 border-b mb-4 md:mb-6 pb-3 md:pb-4">
         Notifications
@@ -113,14 +108,24 @@ const DashboardContent = memo(() => {
         ) : (
           <ul className="divide-y divide-gray-100">
             {notifications.map((notif) => (
-              <li key={notif.id} className="p-4 flex flex-col md:flex-row md:items-center md:justify-between">
-                <div>
-                  <div className="font-semibold text-gray-800">{notif.message}</div>
+              <li
+                key={notif.id}
+                onClick={() => setSelectedNotif(notif)}
+                className={`p-4 flex flex-col md:flex-row md:items-center md:justify-between 
+                  cursor-pointer hover:bg-blue-50 active:bg-blue-100 transition-colors duration-150
+                  ${!notif.is_read ? 'border-l-4 border-l-red-500' : 'border-l-4 border-l-transparent'}
+                `}
+              >
+                <div className="flex-1">
+                  <div className="font-semibold text-gray-800 hover:underline">
+                    {notif.message}
+                  </div>
                   <div className="text-xs text-gray-500 mt-1">
                     {new Date(notif.created_at).toLocaleString()}
                   </div>
                 </div>
-                <div className="mt-2 md:mt-0">
+                <div className="mt-2 md:mt-0 flex items-center gap-2">
+                  <span className="text-xs text-blue-500">View →</span>
                   <span className={`inline-block px-3 py-1 text-xs rounded-full font-medium shadow-sm ${
                     notif.is_read ? 'bg-green-500 text-white' : 'bg-red-500 text-white'
                   }`}>
@@ -133,10 +138,49 @@ const DashboardContent = memo(() => {
         )}
       </div>
     </main>
-  );
-});
 
-// Main Component
+    {/* Modal is NOW OUTSIDE <main> */}
+    {selectedNotif && (
+      <div
+        className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4"
+        onClick={() => setSelectedNotif(null)}
+      >
+        <div
+          className="bg-white rounded-xl shadow-2xl max-w-md w-full p-6"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <div className="flex justify-between items-start mb-4">
+            <h3 className="text-lg font-bold text-gray-900">Notification Details</h3>
+            <button
+              onClick={() => setSelectedNotif(null)}
+              className="text-gray-400 hover:text-gray-600 text-xl font-bold"
+            >
+              ✕
+            </button>
+          </div>
+          <div className="space-y-3">
+            <p className="text-gray-800 font-medium">{selectedNotif.message}</p>
+            <div className="flex items-center justify-between text-sm text-gray-500">
+              <span>{new Date(selectedNotif.created_at).toLocaleString()}</span>
+              <span className={`px-3 py-1 text-xs rounded-full font-medium ${
+                selectedNotif.is_read ? 'bg-green-500 text-white' : 'bg-red-500 text-white'
+              }`}>
+                {selectedNotif.is_read ? 'Read' : 'Unread'}
+              </span>
+            </div>
+          </div>
+          <button
+            onClick={() => setSelectedNotif(null)}
+            className="mt-6 w-full bg-black text-white py-2 rounded-lg hover:bg-gray-800 transition-colors font-medium"
+          >
+            Close
+          </button>
+        </div>
+      </div>
+    )}
+  </>
+);
+});
 const Notifications = () => {
   const [state, dispatch] = useReducer(sidebarReducer, {
     isSidebarCollapsed: true,
@@ -150,7 +194,6 @@ const Notifications = () => {
         onToggleMobileMenu={() => dispatch({ type: 'TOGGLE_MOBILE_MENU' })}
         onCloseMobileMenu={() => dispatch({ type: 'CLOSE_MOBILE_MENU' })}
       />
-
       <div className="flex flex-1 overflow-hidden">
         <Sidebar
           isSidebarCollapsed={state.isSidebarCollapsed}

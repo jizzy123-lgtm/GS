@@ -70,5 +70,9 @@ class MaintenanceRequest extends Model
         return $this->hasMany(Comment::class, 'request_id');
     }
 
-}
+    public function scheduleEvent()
+    {
+        return $this->hasOne(ScheduleEvent::class, 'maintenance_request_id');
+    }
 
+}

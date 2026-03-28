@@ -3,7 +3,6 @@ namespace App\Http\Controllers;
 
 use App\Models\MaintenanceType;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\Storage;
 
 use Illuminate\Http\Request;
 use App\Models\Role;
@@ -25,40 +24,17 @@ class UserController extends Controller
     public function register(Request $request)
     {
         $request->validate([
-            'last_name' => ['required', 'string', 'regex:/^[a-zA-Z]+([\' -][a-zA-Z]+)*$/'],
-            'first_name'=> ['required', 'string', 'regex:/^[a-zA-Z]+([\' -][a-zA-Z]+)*$/'],
-            'middle_name'     => ['nullable','string','regex:/^[a-zA-Z]$/','max:1'],
+            'last_name'       => 'required|string',
+            'first_name'      => 'required|string',
+            'middle_name'  => 'nullable|string|max:1',
             'suffix'          => 'nullable|string|max:10',
             'username'        => 'required|string|unique:users,username',
-            'email'           => 'nullable|email',
+            'email'          => 'nullable|email',
             'position_id'     => 'required|exists:positions,id',
             'office_id'       => 'required|exists:offices,id',
-            'contact_number'  => 'required|string|regex:/^09[0-9]{9}$/',
-            'password'        => [
-                'required',
-                'string',
-                'min:8',
-                'max:30',
-                'regex:/[a-z]/',
-                'regex:/[A-Z]/',
-                'regex:/[0-9]/',
-                'regex:/[@$~!%*_#?&]/',
-                'confirmed',
-            ],
-            'password_confirmation' => 'required',
+            'contact_number'  => 'required|string',
+            'password'        => 'required|string|min:6',
             'role_id'         => 'required|exists:roles,id'
-        ], [
-            'last_name.regex'  => 'Last name must contain only letters, hyphens, or apostrophes.',
-            'first_name.regex' => 'First name must contain only letters, hyphens, or apostrophes.',
-            'middle_name.regex'=> 'Middle name must be a single letter.',
-            'contact_number.regex' => 'Contact number must be 11 digits and start with 09.',
-            'password.required' => 'Password is required.',
-            'password.min'      => 'Password must be at least 8 characters.',
-            'password.max'      => 'Password cannot be more than 30 characters.',
-            'password.mixedCase'=> 'Password must include at least one uppercase and one lowercase letter.',
-            'password.letters'  => 'Password must include at least one letter.',
-            'password.numbers'  => 'Password must include at least one number.',
-            'password.symbols'  => 'Password must include at least one special character like !@#$%^&*().',
         ]);
 
         $user = User::create([
@@ -89,6 +65,7 @@ class UserController extends Controller
         foreach ($adminUsers as $admin) {
             SystemNotification::create([
                 'user_id' => $admin->id,
+                'reference_id' => $user->id,
                 'type' => 'account_request_created',
                 'message' =>  $user->first_name . ' ' . $user->last_name  . ' registered an account and is waiting for approval.',//notify the admin
                 'is_read' => false,
@@ -120,7 +97,13 @@ class UserController extends Controller
         }
 
         if ($user->status_id == 3) { // 3 = Disapproved
-            return response()->json(['message' => 'Your account was disapproved. Contact admin.'], 403);
+            $message = 'Your account was disapproved.';
+            if ($user->rejection_reason) {
+                $message .= ' Reason: ' . $user->rejection_reason;
+            } else {
+                $message .= ' Contact admin.';
+            }
+            return response()->json(['message' => $message], 403);
         }
 
         $token = $user->createToken('authToken')->plainTextToken;
@@ -161,6 +144,10 @@ class UserController extends Controller
         }
 
         $user->status_id = $request->status_id;
+        if ($request->status_id == 2) {
+            $user->rejection_reason = null;
+            $user->rejected_at = null;
+        }
         $user->save();
 
         // Send email notification only if approved
@@ -175,6 +162,7 @@ class UserController extends Controller
     {
         $request->validate([
             'status_id' => 'required|exists:statuses,id',
+            'rejection_reason' => 'required|string|max:1000',
         ]);
 
         $user = User::find($id);
@@ -190,6 +178,8 @@ class UserController extends Controller
         }
 
         $user->status_id = $request->status_id;
+        $user->rejection_reason = $request->rejection_reason;
+        $user->rejected_at = now();
         $user->save();
 
         // Send email notification only if approved
@@ -197,7 +187,15 @@ class UserController extends Controller
         //     $user->notify(new AccountApproved());
         // }
 
-        return response()->json(['message' => 'User register dissapproved successfully.']);
+        SystemNotification::create([
+            'user_id' => $user->id,
+            'reference_id' => $user->id,
+            'type' => 'account_request_rejected',
+            'message' => 'Your account request was rejected. Reason: ' . $request->rejection_reason,
+            'is_read' => false,
+        ]);
+
+        return response()->json(['message' => 'User register disapproved successfully.']);
     }
 
 
@@ -289,19 +287,19 @@ class UserController extends Controller
             return response()->json(['message' => 'Unauthorized'], 401);
         }
 
+        $user->load(['position', 'office']);
+
         return response()->json([
             'user_id' => $user->id,
             'last_name' => $user->last_name,
             'first_name'=> $user->first_name,
             'middle_name'=> $user->middle_name,
             'suffix'=> $user->suffix,
-            'position_id' => $user->position,
-            'office_id' => $user->office, // Adjust based on your DB column name
-            'contact_number' => $user->contact_number,
-            'profile_picture' => $user->profile_picture 
-                ? asset('storage/' . $user->profile_picture) 
-                : null,
-
+            'position_id' => $user->position_id,
+            'position' => optional($user->position)->name,
+            'office_id' => $user->office_id, // Adjust based on your DB column name
+            'office' => optional($user->office)->name,
+            'contact_number' => $user->contact_number
         ], 200);
     }
 
@@ -324,10 +322,7 @@ class UserController extends Controller
             'position_id' => $user->position_id,
             'office_id' => $user->office_id, // Adjust based on your DB column name
             'contact_number' => $user->contact_number,
-            'role_id' => $user->role_id,
-            'profile_picture' => $user->profile_picture 
-                ? asset('storage/' . $user->profile_picture) 
-                : null,
+            'role_id' => $user->role_id
         ], 200);
     }
 
@@ -351,80 +346,47 @@ class UserController extends Controller
             'office_id' => $user->office_id, // Adjust based on your DB column name
             'contact_number' => $user->contact_number,
             'email' => $user->email,
-            'username' => $user->username,
-            'profile_picture' => $user->profile_picture 
-                ? asset('storage/' . $user->profile_picture) 
-                : null,
+            'username' => $user->username
         ], 200);
     }
 
-    
+    //allows editing of account
     public function updateProfile(Request $request)
     {
-        $user = User::find(Auth::id()); // fresh instance
+        $user = Auth::user();
 
         $request->validate([
-            'last_name'      => 'sometimes|string|max:255',
-            'first_name'     => 'sometimes|string|max:255',
-            'middle_name'    => 'nullable|string|max:255',
-            'suffix'         => 'nullable|string|max:50',
+            'last_name' => 'sometimes|string|max:255',
+            'first_name' => 'sometimes|string|max:255',
+            'middle_name' => 'sometimes|string|max:255',
+            'suffix' => 'sometimes|string|max:50|nullable',
             'contact_number' => 'sometimes|string|max:20',
-            'email'          => 'sometimes|email|max:255',
-            'username'       => 'sometimes|string|max:255|unique:users,username,' . $user->id,
-            'password'       => 'sometimes|string|min:6|confirmed',
-            'full_name'      => 'sometimes|string|max:255',
-            'profile_picture' => 'nullable|image|mimes:jpg,jpeg,png,webp,gif|max:2048',
+            'email' => 'sometimes|email|max:255',
+            'username' => 'sometimes|string|max:255|unique:users,username,' . $user->id,
+            'password' => 'sometimes|string|min:6|confirmed',
         ]);
 
-        
-        // Handle profile picture upload
-        if ($request->hasFile('profile_picture')) {
-            if ($user->profile_picture && Storage::disk('public')->exists($user->profile_picture)) {
-                Storage::disk('public')->delete($user->profile_picture);
-            }
-            $path = $request->file('profile_picture')->store('profile_pictures', 'public');
-            $user->profile_picture = $path; // ✅ correct column name
-        }
-
-        // Handle full_name split
-        if ($request->filled('full_name')) {
-            $parts = explode(' ', trim($request->full_name));
-            if (count($parts) >= 3) {
-                $user->first_name  = $parts[0];
-                $user->middle_name = $parts[1];
-                $user->last_name   = implode(' ', array_slice($parts, 2));
-            } elseif (count($parts) == 2) {
-                $user->first_name  = $parts[0];
-                $user->middle_name = null;
-                $user->last_name   = $parts[1];
-            } else {
-                $user->first_name  = $parts[0];
-                $user->middle_name = null;
-            }
-        }
-
-        if ($request->filled('first_name'))     $user->first_name     = $request->first_name;
-        if ($request->filled('middle_name'))    $user->middle_name    = $request->middle_name;
-        if ($request->filled('last_name'))      $user->last_name      = $request->last_name;
-        if ($request->filled('suffix'))         $user->suffix         = $request->suffix;
-        if ($request->filled('contact_number')) $user->contact_number = $request->contact_number;
-        if ($request->filled('email'))          $user->email          = $request->email;
-        if ($request->filled('username'))       $user->username       = $request->username;
+        $user->update($request->only([
+            'last_name',
+            'first_name',
+            'middle_name',
+            'suffix',
+            'contact_number',
+            'email',
+            'username',
+        ]));
 
         if ($request->filled('password')) {
-            $user->password = Hash::make($request->password);
+            $user->update([
+                'password' => Hash::make($request->password),
+            ]);
         }
 
-        $user->save();
-
         return response()->json([
-            'message'    => 'Profile updated successfully.',
-            'user'       => $user,
-            'profile_picture' => $user->profile_picture ? asset('storage/' . $user->profile_picture) : null,
+            'message' => 'Profile updated successfully.',
+            'user' => $user,
         ], 200);
     }
-
-
 
 
     public function commonDatas(): JsonResponse
@@ -467,9 +429,6 @@ class UserController extends Controller
                 'contact_number' => $request->contact_number,
                 'email' => $request->email,
                 'username' => $request->username,
-                'profile_picture' => $request->profile_picture
-                    ? asset('storage/' . $request->profile_picture)
-                    : null,
                 'created_at' => $request->created_at,
                 'updated_at'=> $request->updated_at,
             ];
@@ -513,83 +472,11 @@ class UserController extends Controller
             'contact_number' => $user->contact_number,
             'email' => $user->email,
             'username' => $user->username,
-            'profile_picture' => $user->profile_picture  // ✅ ADD THIS
-                ? asset('storage/' . $user->profile_picture)
-                : null,
             'created_at' => $user->created_at,
             'updated_at' => $user->updated_at,
         ];
 
         return response()->json($data, 200);
     }
-    
-    public function uploadProfilePicture(Request $request)
-    {
-        $user = Auth::user();
-
-        $request->validate([
-            'profile_picture' => 'required|image|mimes:jpeg,png,jpg,gif|max:2048',
-        ]);
-
-        if ($request->hasFile('profile_picture')) {
-            if ($user->profile_picture) {
-                \Storage::disk('public')->delete($user->profile_picture);
-            }
-
-            $path = $request->file('profile_picture')->store('profile_pictures', 'public');
-            $user->profile_picture = $path;
-            $user->save();
-
-            return response()->json([
-                'message' => 'Profile picture updated successfully.',
-                'profile_picture' => asset('storage/' . $path),
-            ], 200);
-        }
-
-        return response()->json(['message' => 'No file uploaded.'], 400);
-    }
-
-    public function getProfilePicture()
-    {
-        $user = Auth::user();
-
-        return response()->json([
-            'profile_picture' => $user->profile_picture
-                ? asset('storage/' . $user->profile_picture)
-                : null,
-        ]);
-    }
-
-    public function removeProfilePicture()
-    {
-        $user = Auth::user();
-
-        if ($user->profile_picture) {
-            \Storage::disk('public')->delete($user->profile_picture);
-            $user->profile_picture = null;
-            $user->save();
-        }
-
-        return response()->json(['message' => 'Profile picture removed.']);
-    }
-
-    public function destroy($id) {
-        $user = User::find($id);
-        
-        if (!$user) {
-            return response()->json(['message' => 'User not found.'], 404);
-        }
-        
-        $user->delete();
-        
-        return response()->json(['message' => 'User deleted successfully.'], 200);
-    }
-
-
-
-    
 
 }
-
-
-

@@ -1,6 +1,5 @@
-// [UPDATED 2026-03-28] Admin notifications enhancements (account-request detail view + read/redirect behavior).
 import { useReducer, useEffect, useState, memo } from 'react';
-import { NavLink, useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import Icon from '../../components/Icon';
 import { AdminSidebar, MENU_ITEMS as ADMIN_MENU_ITEMS } from '../../components/AdminSidebar';
 
@@ -19,318 +18,21 @@ const sidebarReducer = (state, action) => {
   }
 };
 
-const USER_DETAIL_FIELDS = [
-  ['user_id', 'User ID'],
-  ['last_name', 'Last Name'],
-  ['first_name', 'First Name'],
-  ['middle_name', 'Middle Name'],
-  ['suffix', 'Suffix'],
-  ['username', 'Username'],
-  ['email', 'Email'],
-  ['contact_number', 'Contact Number'],
-  ['role', 'Requested Role'],
-  ['position', 'Position'],
-  ['office', 'Office'],
-  ['status', 'Account Status'],
-  ['created_at', 'Registered At'],
-  ['updated_at', 'Updated At'],
-];
-
-const formatFieldValue = (value) => {
-  if (value === null || value === undefined || value === '') {
-    return 'N/A';
-  }
-  if (typeof value === 'object') {
-    return JSON.stringify(value);
-  }
-  return String(value);
-};
-
-const Header = memo(({ isMobileMenuOpen, onToggleMobileMenu, onCloseMobileMenu }) => (
+const Header = memo(({ isMobileMenuOpen, onToggleMobileMenu, onCloseMobileMenu, unreadCount }) => (
   <header className="bg-black text-white p-4 flex justify-between items-center relative">
     <span className="text-xl md:text-2xl font-extrabold tracking-tight">ManageIT</span>
-    <div className="hidden md:block text-xl font-bold text-white">Admin</div>
+    <div className="hidden md:flex items-center gap-4">
+      <div className="relative">
+      </div>
+      <div className="text-xl font-bold text-white">Admin</div>
+    </div>
     <div className="flex items-center gap-4 md:hidden">
-      <button
-        onClick={onToggleMobileMenu}
-        className="p-2 hover:bg-gray-800 rounded-lg border-2 border-white transition-colors"
-        aria-label="Toggle menu"
-        aria-expanded={isMobileMenuOpen}
-      >
+      <button onClick={onToggleMobileMenu} className="p-2 hover:bg-gray-800 rounded-lg border-2 border-white transition-colors">
         <Icon path="M4 6h16M4 12h16M4 18h16" className="w-6 h-6" />
       </button>
     </div>
-    <div
-      className={`absolute md:hidden top-full right-0 mt-2 w-56 bg-gray-800 rounded-lg shadow-xl z-30 transition-all duration-300 ease-out overflow-hidden ${
-        isMobileMenuOpen ? 'max-h-96 opacity-100' : 'max-h-0 opacity-0'
-      }`}
-    >
-      <nav className="py-2">
-        {ADMIN_MENU_ITEMS.map((item) => (
-          <NavLink
-            key={item.text}
-            to={item.to}
-            className="flex items-center px-4 py-3 text-sm hover:bg-gray-700 transition-colors"
-            onClick={onCloseMobileMenu}
-          >
-            <Icon path={item.icon} className="w-5 h-5 mr-3" />
-            {item.text}
-          </NavLink>
-        ))}
-      </nav>
-      <div className="text-center py-2 text-xs text-gray-400 border-t border-gray-700">Created By Bantilan & Friends</div>
-    </div>
   </header>
 ));
-
-const DashboardContent = memo(() => {
-  const [notifications, setNotifications] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [selectedNotif, setSelectedNotif] = useState(null);
-  const [relatedUserData, setRelatedUserData] = useState(null);
-  const [loadingDetails, setLoadingDetails] = useState(false);
-  const navigate = useNavigate();
-
-  useEffect(() => {
-    const token = localStorage.getItem('authToken') || sessionStorage.getItem('authToken');
-
-    fetch(`${API_BASE_URL}/notifications/markAllAsRead`, {
-      method: 'PUT',
-      headers: {
-        Accept: 'application/json',
-        'Content-Type': 'application/json',
-        ...(token ? { Authorization: `Bearer ${token}` } : {}),
-      },
-    }).catch(() => {});
-
-    fetch(`${API_BASE_URL}/notifications`, {
-      headers: {
-        Accept: 'application/json',
-        ...(token ? { Authorization: `Bearer ${token}` } : {}),
-      },
-    })
-      .then((res) => res.json())
-      .then((data) => {
-        setNotifications(Array.isArray(data) ? data : [data]);
-        setLoading(false);
-      })
-      .catch(() => setLoading(false));
-  }, []);
-
-  const handleNotificationClick = async (notif) => {
-    const token = localStorage.getItem('authToken') || sessionStorage.getItem('authToken');
-
-    setNotifications((prev) => prev.map((n) => (n.id === notif.id ? { ...n, is_read: true } : n)));
-
-    fetch(`${API_BASE_URL}/notifications/markAsRead/${notif.id}`, {
-      method: 'PUT',
-      headers: {
-        Accept: 'application/json',
-        'Content-Type': 'application/json',
-        ...(token ? { Authorization: `Bearer ${token}` } : {}),
-      },
-    }).catch(() => {});
-
-    setSelectedNotif(notif);
-    setRelatedUserData(null);
-    setLoadingDetails(true);
-
-    if (notif.reference_id) {
-      try {
-        const response = await fetch(`${API_BASE_URL}/users-list`, {
-          headers: {
-            Accept: 'application/json',
-            ...(token ? { Authorization: `Bearer ${token}` } : {}),
-          },
-        });
-
-        const data = await response.json();
-        const users = Array.isArray(data) ? data : Array.isArray(data?.data) ? data.data : [];
-        const foundUser = users.find(
-          (user) => String(user.user_id) === String(notif.reference_id) || String(user.id) === String(notif.reference_id)
-        );
-
-        setRelatedUserData(foundUser || null);
-      } catch (err) {
-        console.error('Error fetching user details:', err);
-      } finally {
-        setLoadingDetails(false);
-      }
-    } else {
-      setLoadingDetails(false);
-    }
-  };
-
-  return (
-    <>
-      <main className="flex-1 p-4 md:p-6 lg:p-8 bg-white/95 backdrop-blur-sm overflow-y-auto">
-        <h2 className="text-2xl md:text-3xl lg:text-4xl font-extrabold text-gray-900 border-b mb-4 md:mb-6 pb-3 md:pb-4">
-          Notifications
-        </h2>
-
-        <div className="bg-white rounded-lg shadow-sm md:shadow-lg border border-gray-200">
-          {loading ? (
-            <div className="p-6 text-center text-gray-500">Loading...</div>
-          ) : notifications.length === 0 ? (
-            <div className="p-6 text-center text-gray-500">No notifications found.</div>
-          ) : (
-            <ul className="divide-y divide-gray-100">
-              {notifications.map((notif) => (
-                <li
-                  key={notif.id}
-                  onClick={() => handleNotificationClick(notif)}
-                  className={`p-4 flex flex-col md:flex-row md:items-center md:justify-between
-                    cursor-pointer hover:bg-blue-50 active:bg-blue-100 transition-colors duration-150
-                    ${!notif.is_read ? 'border-l-4 border-l-red-500' : 'border-l-4 border-l-transparent'}
-                  `}
-                >
-                  <div className="flex-1">
-                    <div className="font-semibold text-gray-800 hover:underline">{notif.message}</div>
-                    <div className="text-xs text-gray-500 mt-1">{new Date(notif.created_at).toLocaleString()}</div>
-                  </div>
-                  <div className="mt-2 md:mt-0 flex items-center gap-2">
-                    <span className={`inline-block px-3 py-1 text-xs rounded-full font-medium shadow-sm ${
-                      notif.is_read ? 'bg-green-500 text-white' : 'bg-red-500 text-white'
-                    }`}>
-                      {notif.is_read ? 'Read' : 'Unread'}
-                    </span>
-                  </div>
-                </li>
-              ))}
-            </ul>
-          )}
-        </div>
-      </main>
-
-      {selectedNotif && (
-        <div
-          className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4"
-          onClick={() => setSelectedNotif(null)}
-        >
-          <div
-            className="bg-white rounded-xl shadow-2xl max-w-2xl w-full p-6 max-h-[90vh] overflow-y-auto"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="flex justify-between items-start mb-4">
-              <h3 className="text-lg font-bold text-gray-900">Notification Details</h3>
-              <button
-                onClick={() => setSelectedNotif(null)}
-                className="text-gray-400 hover:text-gray-600 text-xl font-bold"
-              >
-                x
-              </button>
-            </div>
-
-            <div className="space-y-4 mb-4">
-              <p className="text-gray-800 font-medium">{selectedNotif.message}</p>
-              <div className="flex items-center justify-between text-sm text-gray-500">
-                <span>{new Date(selectedNotif.created_at).toLocaleString()}</span>
-                <span
-                  className={`px-3 py-1 text-xs rounded-full font-medium ${
-                    selectedNotif.is_read ? 'bg-green-500 text-white' : 'bg-red-500 text-white'
-                  }`}
-                >
-                  {selectedNotif.is_read ? 'Read' : 'Unread'}
-                </span>
-              </div>
-              {selectedNotif.type && (
-                <div
-                  className={`inline-block px-3 py-1 text-xs font-semibold rounded-full ${
-                    selectedNotif.type === 'account_request_created'
-                      ? 'bg-blue-100 text-blue-800'
-                      : selectedNotif.type === 'account_request_rejected'
-                        ? 'bg-red-100 text-red-800'
-                        : 'bg-gray-100 text-gray-800'
-                  }`}
-                >
-                  {selectedNotif.type === 'account_request_created' ? 'Account Request Pending Approval' : selectedNotif.type}
-                </div>
-              )}
-            </div>
-
-            <div className="bg-gray-50 rounded-lg p-4 border border-gray-200 mb-6">
-              <h5 className="font-semibold text-gray-900 mb-3 text-sm">Notification Metadata</h5>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
-                <div className="bg-white p-2 rounded">
-                  <span className="text-gray-600 font-medium block text-xs">Notification ID</span>
-                  <p className="text-gray-900">{formatFieldValue(selectedNotif.id)}</p>
-                </div>
-                <div className="bg-white p-2 rounded">
-                  <span className="text-gray-600 font-medium block text-xs">Type</span>
-                  <p className="text-gray-900 break-all">{formatFieldValue(selectedNotif.type)}</p>
-                </div>
-                <div className="bg-white p-2 rounded">
-                  <span className="text-gray-600 font-medium block text-xs">Reference User ID</span>
-                  <p className="text-gray-900">{formatFieldValue(selectedNotif.reference_id)}</p>
-                </div>
-                <div className="bg-white p-2 rounded">
-                  <span className="text-gray-600 font-medium block text-xs">Read Status</span>
-                  <p className="text-gray-900">{selectedNotif.is_read ? 'Read' : 'Unread'}</p>
-                </div>
-                <div className="bg-white p-2 rounded">
-                  <span className="text-gray-600 font-medium block text-xs">Created At</span>
-                  <p className="text-gray-900">{formatFieldValue(selectedNotif.created_at)}</p>
-                </div>
-                <div className="bg-white p-2 rounded">
-                  <span className="text-gray-600 font-medium block text-xs">Updated At</span>
-                  <p className="text-gray-900">{formatFieldValue(selectedNotif.updated_at)}</p>
-                </div>
-              </div>
-            </div>
-
-            {loadingDetails && (
-              <div className="flex items-center justify-center py-8">
-                <div className="w-8 h-8 border-4 border-gray-200 border-t-black rounded-full animate-spin" />
-              </div>
-            )}
-
-            {!loadingDetails && relatedUserData && (
-              <div className="bg-blue-50 rounded-lg p-4 border-2 border-blue-300 space-y-3">
-                <h4 className="font-bold text-blue-900 text-lg">Registered User Details</h4>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
-                  {USER_DETAIL_FIELDS.map(([key, label]) => (
-                    <div key={key} className="bg-white p-2 rounded">
-                      <span className="text-gray-600 font-medium block text-xs">{label}</span>
-                      <p className="text-gray-900 break-words whitespace-pre-wrap">{formatFieldValue(relatedUserData[key])}</p>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {!loadingDetails && !relatedUserData && selectedNotif.reference_id && (
-              <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 text-sm text-yellow-800">
-                User details are not available right now. Please try again.
-              </div>
-            )}
-
-            {!loadingDetails && !selectedNotif.reference_id && (
-              <div className="bg-gray-50 border border-gray-200 rounded-lg p-4 text-sm text-gray-600">
-                This notification has no linked user record.
-              </div>
-            )}
-
-            {selectedNotif.reference_id && (
-              <button
-                onClick={() => navigate(`/adminuserrequestsform/${selectedNotif.reference_id}`)}
-                className="mt-6 w-full border border-gray-300 text-gray-800 py-2 rounded-lg hover:bg-gray-100 transition-colors font-medium"
-              >
-                Open User Request Page
-              </button>
-            )}
-
-            <button
-              onClick={() => setSelectedNotif(null)}
-              className="mt-3 w-full bg-black text-white py-2 rounded-lg hover:bg-gray-800 transition-colors font-medium"
-            >
-              Close
-            </button>
-          </div>
-        </div>
-      )}
-    </>
-  );
-});
 
 const AdminNotifications = () => {
   const [state, dispatch] = useReducer(sidebarReducer, {
@@ -338,23 +40,176 @@ const AdminNotifications = () => {
     isMobileMenuOpen: false,
   });
 
+  const [notifications, setNotifications] = useState([]);
+  const [users, setUsers] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [processingId, setProcessingId] = useState(null);
+  const navigate = useNavigate();
+
+  const getToken = () => localStorage.getItem("authToken") || sessionStorage.getItem("authToken");
+
+  const fetchUsers = async () => {
+    const token = getToken();
+    try {
+      const response = await fetch(`${API_BASE_URL}/users-list`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      const data = await response.json();
+      const usersArray = Array.isArray(data) ? data : data.data || [];
+      setUsers(usersArray);
+    } catch (error) {
+      console.error("Error fetching users:", error);
+    }
+  };
+
+  const fetchNotifications = async () => {
+    const token = getToken();
+    try {
+      const res = await fetch(`${API_BASE_URL}/notifications`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      const data = await res.json();
+      const notifs = Array.isArray(data) ? data : data.data || [];
+      const sorted = [...notifs].sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+      setNotifications(sorted);
+    } catch (error) {
+      console.error("Error fetching notifications:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    Promise.all([fetchUsers(), fetchNotifications()]);
+  }, []);
+
+  const markAsRead = async (id) => {
+    const token = getToken();
+    try {
+      const response = await fetch(`${API_BASE_URL}/notifications/markAsRead/${id}`, {
+        method: 'PUT',
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      if (response.ok) {
+        setNotifications(prev => prev.map(n => n.id === id ? { ...n, is_read: true } : n));
+      }
+    } catch (error) {
+      console.error("Error marking as read:", error);
+    }
+  };
+
+  // Extract name from message: "John Doe registered an account..."
+  const resolveUserFromMessage = (message) => {
+    if (!message || !users.length) return null;
+
+    // Extract everything before "registered"
+    const match = message.match(/^(.+?)\s+registered\b/i);
+    const extractedName = match?.[1]?.trim().toLowerCase() ?? null;
+    if (!extractedName) return null;
+
+    // Match against first_name + last_name combinations
+    const normalize = (str) => str?.toLowerCase().trim() ?? '';
+
+    // Try: "firstname lastname" exact
+    let user = users.find(u => {
+      const fullName1 = `${normalize(u.first_name)} ${normalize(u.last_name)}`;
+      const fullName2 = `${normalize(u.last_name)} ${normalize(u.first_name)}`;
+      const username = normalize(u.username);
+      return fullName1 === extractedName || fullName2 === extractedName || username === extractedName;
+    });
+
+    // Try partial match
+    if (!user) {
+      user = users.find(u => {
+        const fullName1 = `${normalize(u.first_name)} ${normalize(u.last_name)}`;
+        const username = normalize(u.username);
+        return fullName1.includes(extractedName) || extractedName.includes(normalize(u.first_name)) || username.includes(extractedName);
+      });
+    }
+
+    return user?.user_id ?? user?.id ?? null;
+  };
+
+  const handleClick = async (notif) => {
+    if (processingId === notif.id) return;
+    setProcessingId(notif.id);
+
+    if (!notif.is_read) {
+      await markAsRead(notif.id);
+    }
+
+    // user_id on notification = admin (recipient), so match by message name instead
+    const userId = resolveUserFromMessage(notif.message);
+
+    if (userId) {
+      navigate(`/adminuserrequestsform/${userId}`);
+    } else {
+      alert('Could not find the user linked to this notification.');
+      setProcessingId(null);
+    }
+  };
+
+  const unreadCount = notifications.filter(n => !n.is_read).length;
+
   return (
     <div className="flex flex-col h-screen bg-gray-50">
       <Header
         isMobileMenuOpen={state.isMobileMenuOpen}
         onToggleMobileMenu={() => dispatch({ type: 'TOGGLE_MOBILE_MENU' })}
         onCloseMobileMenu={() => dispatch({ type: 'CLOSE_MOBILE_MENU' })}
+        unreadCount={unreadCount}
       />
       <div className="flex flex-1 overflow-hidden">
         <AdminSidebar
           isSidebarCollapsed={state.isSidebarCollapsed}
-          onToggleSidebar={() => dispatch({ type: 'TOGGLE_SIDEBAR' })}
+          onToggleSidebar={() => dispatch({ type: "TOGGLE_SIDEBAR" })}
           menuItems={ADMIN_MENU_ITEMS}
         />
-        <DashboardContent />
+        <main className="flex-1 p-4 md:p-6 lg:p-8 bg-white/95 overflow-y-auto">
+          <h2 className="text-2xl md:text-3xl font-extrabold text-gray-900 border-b mb-4 pb-3">
+            Notifications
+          </h2>
+          <div className="bg-white rounded-lg shadow border border-gray-200">
+            {loading ? (
+              <div className="p-6 text-center text-gray-500">Loading...</div>
+            ) : notifications.length === 0 ? (
+              <div className="p-6 text-center text-gray-500">No notifications found.</div>
+            ) : (
+              <ul className="divide-y divide-gray-100">
+                {notifications.map((notif) => (
+                  <li
+                    key={notif.id}
+                    onClick={() => handleClick(notif)}
+                    className={`p-4 flex flex-col md:flex-row md:items-center md:justify-between cursor-pointer transition-colors
+                      ${!notif.is_read ? 'bg-blue-50' : ''}
+                      hover:bg-gray-50
+                      ${processingId === notif.id ? 'opacity-50 pointer-events-none' : ''}
+                    `}
+                  >
+                    <div>
+                      <div className="font-semibold text-gray-800">{notif.message}</div>
+                      <div className="text-xs text-gray-500 mt-1">
+                        {new Date(notif.created_at).toLocaleString()}
+                      </div>
+                    </div>
+                    <div className="mt-2 md:mt-0 flex items-center gap-2">
+                      <span className={`inline-block px-3 py-1 text-xs rounded-full font-medium ${
+                        notif.is_read ? 'bg-green-500 text-white' : 'bg-yellow-500 text-white'
+                      }`}>
+                        {notif.is_read ? 'Read' : 'Unread'}
+                      </span>
+                      {processingId === notif.id && (
+                        <span className="text-xs text-gray-400">Loading...</span>
+                      )}
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        </main>
       </div>
     </div>
   );
 };
-
 export default AdminNotifications;

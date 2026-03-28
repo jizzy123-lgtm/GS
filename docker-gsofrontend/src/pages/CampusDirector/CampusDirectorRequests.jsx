@@ -7,7 +7,7 @@ const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
 
 // sidebar reducer
 const sidebarReducer = (state, action) => {
-  switch (action.type) {  
+  switch (action.type) {
     case "TOGGLE_SIDEBAR":
       return { ...state, isSidebarCollapsed: !state.isSidebarCollapsed };
     case "TOGGLE_MOBILE_MENU":

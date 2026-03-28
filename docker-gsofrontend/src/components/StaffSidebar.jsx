@@ -1,4 +1,3 @@
-// [UPDATED 2026-03-28] Staff notification badge/provider enhancements.
 import { memo, useState, useEffect, useContext, createContext, useCallback } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
 

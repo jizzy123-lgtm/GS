@@ -428,7 +428,7 @@ const AirConditioning = () => {
             ))}
           </nav>
           <div className="text-center py-2 text-xs text-gray-400 border-t border-gray-700">
-            Created By Bantilan & Friends
+            Created By Exverter
           </div>
         </div>
       </header>
@@ -444,7 +444,8 @@ const AirConditioning = () => {
         <main className="flex-1 p-6 overflow-auto">
           <div className="flex flex-col items-center justify-center min-h-screen bg-gray-100 px-4 sm:px-6 lg:px-8 py-8">
             <div className="bg-white p-3 md:p-4 lg:p-5 shadow-lg rounded-lg w-full max-w-sm md:max-w-md lg:max-w-xl transition-all duration-300">
-              <h2 className="text-xl md:text-2xl font-bold text-center mb-4 md:mb-6 text-gray-800">
+              <h2 className="text-xl md:text-2xl font-bold text-center mb-4 md:mb-6 text-gray-800"
+                 style={{ fontFamily: 'Times New Roman, serif' }}>
                 User Request Slip <br className="hidden sm:block" />
                 (Air Conditioning Section)
               </h2>

@@ -1,19 +1,33 @@
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, Link } from "react-router-dom";
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "http://your-api-url-here";
 
-export default function LoginPage() {
+const GoogleFonts = () => (
+  <style>{`@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,500;1,400&family=DM+Sans:wght@300;400;500&display=swap');`}</style>
+);
+
+function LoginPage() {
   const navigate = useNavigate();
 
+  const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
+
+  // State for form inputs
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [rememberMe, setRememberMe] = useState(false);
+
+  // State for handling errors and loading
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+
+  // State for password visibility
   const [showPassword, setShowPassword] = useState(false);
 
-  const handleSubmit = async () => {
+  // Handle form submission
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+
+    // Form validation
     if (!username || !password) {
       setError("Please enter both username and password");
       return;
@@ -23,44 +37,57 @@ export default function LoginPage() {
       setIsLoading(true);
       setError("");
 
+      // Make API request to your backend
       const response = await fetch(`${API_BASE_URL}/login`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Accept: "application/json",
+          "Accept": "application/json",
         },
-        body: JSON.stringify({ username, password, rememberMe }),
+        body: JSON.stringify({
+          username,
+          password,
+          rememberMe,
+        }),
+        mode: "cors",
       });
 
       const data = await response.json();
 
-      if (!response.ok) throw new Error(data.message || "Login failed");
+      if (!response.ok) {
+        throw new Error(data.message || "Login failed");
+      }
 
       if (data.token) {
-        // Save auth token for routes/components expecting either key
-        localStorage.setItem("authToken", data.token);
-        localStorage.setItem("token", data.token);
-        if (rememberMe) {
-          sessionStorage.removeItem("authToken");
-          sessionStorage.removeItem("token");
-        } else {
-          sessionStorage.setItem("authToken", data.token);
-          sessionStorage.setItem("token", data.token);
-        }
+        // Choose storage based on "Remember Me" option
+        const storage = rememberMe ? localStorage : sessionStorage;
+        storage.setItem("authToken", data.token);
 
+        // Store user data properly (assuming "data.user" contains user details)
         if (data.user) {
-          localStorage.setItem("user", JSON.stringify(data.user));
-          sessionStorage.setItem("user", JSON.stringify(data.user));
+          storage.setItem("user", JSON.stringify(data.user));
         }
 
+        // Handle navigation based on user role
         if (data.user?.role_id) {
           switch (data.user.role_id.toString()) {
-            case "1": navigate("/admindashboard"); break;
-            case "2": navigate("/headdashboard"); break;
-            case "3": navigate("/staffdashboard"); break;
-            case "4": navigate("/dashboard"); break;
-            case "5": navigate("/campusdirectordashboard"); break;
-            default: navigate("/dashboard");
+            case "1":
+              navigate("/admindashboard");
+              break;
+            case "2":
+              navigate("/headdashboard");
+              break;
+            case "3":
+              navigate("/staffdashboard");
+              break;
+            case "4":
+              navigate("/dashboard");
+              break;
+            case "5": 
+              navigate("/campusdirectordashboard");
+              break;
+            default:
+              navigate("/dashboard");
           }
         } else {
           navigate("/dashboard");
@@ -75,76 +102,177 @@ export default function LoginPage() {
     }
   };
 
+  // Toggle password visibility
+  const togglePasswordVisibility = () => {
+    setShowPassword(!showPassword);
+  };
+
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 px-4 py-8">
-      <div className="w-full max-w-md bg-white rounded-2xl border border-gray-200 shadow-lg p-8">
-        <h1 className="text-center text-xl font-semibold text-slate-800 mb-1">JOSE RIZAL MEMORIAL STATE UNIVERSITY</h1>
-        <p className="text-center text-sm text-slate-500 mb-6">GENERAL SERVICE OFFICE MANAGEMENT SYSTEM</p>
+    <div style={{ height: "100vh", width: "100vw", background: "#f7f5f0", display: "flex", alignItems: "center", justifyContent: "center", padding: "0", overflow: "hidden" }}>
+    <GoogleFonts />
 
-        <h2 className="text-lg font-medium text-slate-700 mb-4">Login</h2>
-
-        {error ? (
-          <div className="bg-red-50 border border-red-200 text-red-700 rounded-md p-3 mb-4">
-            {error}
-          </div>
-        ) : null}
-
-        <div className="mb-4">
-          <label className="block text-sm font-medium mb-1 text-slate-700">Username</label>
-          <input
-            type="text"
-            value={username}
-            onChange={(e) => setUsername(e.target.value)}
-            className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-            placeholder="Enter your username"
-            autoComplete="username"
-          />
+    {/* SVG Brushstroke Background Card */}
+    <div style={{ width: "100vw", height: "100vh", borderRadius: "0", overflow: "hidden", position: "relative", display: "flex" }}>
+      {/* Top Bar */}
+      <div style={{ position: "absolute", top: 0, left: 0, width: "100%", zIndex: 10, background: "rgba(13,31,78,0.85)", display: "flex", alignItems: "center", gap: "12px", padding: "10px 20px" }}>
+        <img
+          src="/JrmsuLOGO_circle.png"
+          alt="JRMSU Logo"
+          style={{ width: "50px", height: "50px", borderRadius: "50%" }}
+        />
+        <div style={{ fontFamily: "'DM Sans', sans-serif", fontSize: "14px", fontWeight: 700, color: "#ffffff", letterSpacing: "2px", textTransform: "uppercase" }}>
+          Jose Rizal Memorial State University
         </div>
-
-        <div className="mb-4">
-          <label className="block text-sm font-medium mb-1 text-slate-700">Password</label>
-          <div className="flex gap-2 items-center">
-            <input
-              type={showPassword ? "text" : "password"}
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              className="flex-1 border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-              placeholder="Enter your password"
-              autoComplete="current-password"
-            />
-            <button
-              type="button"
-              onClick={() => setShowPassword(!showPassword)}
-              className="text-xs text-blue-600 hover:text-blue-800"
-            >
-              {showPassword ? "Hide" : "Show"}
-            </button>
-          </div>
-        </div>
-
-        <button
-          type="button"
-          onClick={handleSubmit}
-          disabled={isLoading}
-          className={`w-full rounded-lg text-white font-medium py-2 ${isLoading ? "bg-blue-300" : "bg-blue-600 hover:bg-blue-700"}`}
-        >
-          {isLoading ? "Signing in..." : "Sign in"}
-        </button>
-
-        <div className="mt-4 text-sm text-center text-slate-600">
-          Don't have an account?{' '}
-          <button
-            type="button"
-            onClick={() => navigate('/signuppage')}
-            className="font-medium text-blue-600 hover:text-blue-700"
-          >
-            Create account
-          </button>
-        </div>
-
-        <p className="text-xs text-gray-500 mt-6 text-center">--1.9--</p>
-        <p className="text-xs text-gray-500 mt-1 text-center">© {new Date().getFullYear()} Jose Rizal Memorial State University. All rights reserved.</p>
       </div>
-    </div>
+      <svg style={{ position: "absolute", top: 0, left: 0, width: "100%", height: "100%" }} viewBox="0 0 900 620" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="xMidYMid slice">
+        <rect width="900" height="620" fill="#f7f5f0"/>
+        <path d="M-20,80 C60,40 160,20 280,60 C400,100 460,30 560,50 C660,70 740,20 820,30 L900,10 L900,0 L-20,0 Z" fill="#0d1f4e" opacity="0.06"/>
+        <path d="M-30,140 C80,80 200,60 340,110 C480,160 540,90 660,100 C760,108 840,70 920,80 L920,0 L-30,0 Z" fill="#0d1f4e" opacity="0.04"/>
+        <path d="M-20,310 C100,240 200,200 340,230 C480,260 560,190 700,210 C800,225 860,190 930,200 L930,620 L-20,620 Z" fill="#0d1f4e" opacity="0.97"/>
+        <path d="M-20,340 C80,280 180,250 320,275 C460,300 540,235 670,250 C780,263 850,225 940,235 L940,620 L-20,620 Z" fill="#0a1a40" opacity="0.6"/>
+        <path d="M-20,290 C120,250 220,270 360,245 C500,220 580,280 720,265 C820,253 870,275 950,260 L950,290 C870,305 820,283 720,295 C580,310 500,250 360,275 C220,300 120,280 -20,320 Z" fill="#1a3060" opacity="0.5"/>
+        <path d="M-20,360 C60,355 160,368 260,355 C380,340 460,370 600,358 C720,347 800,365 940,352 L940,375 C800,388 720,370 600,382 C460,395 380,365 260,378 C160,390 60,377 -20,382 Z" fill="#0a1a40" opacity="0.3"/>
+        <path d="M0,440 C100,420 200,445 330,432 C460,419 540,448 680,435 C790,424 860,442 930,430 L930,620 L0,620 Z" fill="#071228" opacity="0.3"/>
+        <ellipse cx="90" cy="460" rx="55" ry="18" fill="#1a3a6e" opacity="0.25" transform="rotate(-8,90,460)"/>
+        <ellipse cx="310" cy="490" rx="80" ry="14" fill="#0d1f4e" opacity="0.2" transform="rotate(5,310,490)"/>
+        <ellipse cx="550" cy="470" rx="60" ry="12" fill="#1a3a6e" opacity="0.18" transform="rotate(-4,550,470)"/>
+        <circle cx="130" cy="180" r="60" fill="#1a3060" opacity="0.08"/>
+        <circle cx="130" cy="180" r="40" fill="#1a3060" opacity="0.08"/>
+        <circle cx="700" cy="80" r="90" fill="#0d1f4e" opacity="0.05"/>
+        <circle cx="700" cy="80" r="55" fill="#0d1f4e" opacity="0.04"/>
+      </svg>
+
+      {/* Left Branding Panel */}
+      <div style={{ width: "40%", position: "relative", zIndex: 2, display: "flex", flexDirection: "column", justifyContent: "center", padding: "48px 36px 48px 44px" }}>
+        
+        <div style={{ textAlign: "center" }}>
+          <div style={{ fontFamily: "'Playfair Display', serif", fontSize: "140px", fontWeight: 700, color: "#ffffff", letterSpacing: "8px", lineHeight: 1, textShadow: "0 4px 6px rgba(0,0,0,0.9), 0 0 40px rgba(0,0,0,0.8), 2px 2px 0px rgba(0,0,0,0.7)" }}>
+            GSO
+          </div>
+          <div style={{ fontSize: "35px", letterSpacing: "3px", textTransform: "uppercase", color: "#ffffff", lineHeight: 1.6, fontWeight: 700, textShadow: "0 4px 6px rgba(0,0,0,0.9), 0 0 30px rgba(0,0,0,0.8), 2px 2px 0px rgba(0,0,0,0.7)", marginTop: "8px" }}>
+            General Service Office<br/>Management System
+          </div>
+        </div>
+        <div style={{ fontFamily: "'Playfair Display', serif", fontStyle: "italic", fontSize: "13px", color: "rgba(255,255,255,0.45)", lineHeight: 1.7, marginTop: "12px", textAlign: "center" }}>
+          "Serving with excellence,<br/>one stroke at a time."
+        </div>
+      </div>
+
+      {/* Right Panel — your existing form goes here */}
+      <div style={{ flex: 1, position: "relative", zIndex: 2, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "32px 32px" }}>
+
+        
+
+        {/* Card Container with subtle shadow and refined border */}
+        <div className="w-full max-w-md bg-white shadow-md rounded-xl p-8 border border-gray-200 mb-8">        
+          <h3 className="text-center text-xl font-medium text-gray-800 mb-6">Login Screen</h3>
+          
+          {/* Error Message */}
+          {error && (
+            <div className="bg-red-50 text-red-600 p-3 rounded mb-4 text-sm font-medium border-l-4 border-red-500">
+              {error}
+            </div>
+          )}
+
+          <form onSubmit={handleSubmit} className="space-y-5">
+            {/* Username Input */}
+            <div className="space-y-1.5">
+              <label htmlFor="username" className="block text-sm font-medium text-gray-700">
+                Username
+              </label>
+              <div className="flex items-center border border-gray-300 rounded-lg px-3 py-2 focus-within:ring-2 focus-within:ring-blue-500 focus-within:border-blue-500 transition duration-200">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5 text-gray-500 mr-2">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M17.982 18.725A7.488 7.488 0 0 0 12 15.75a7.488 7.488 0 0 0-5.982 2.975m11.963 0a9 9 0 1 0-11.963 0m11.963 0A8.966 8.966 0 0 1 12 21a8.966 8.966 0 0 1-5.982-2.275M15 9.75a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" />
+                </svg>
+                <input
+                  id="username"
+                  type="text"
+                  placeholder="Enter your username"
+                  className="w-full outline-none text-sm"
+                  value={username}
+                  onChange={(e) => setUsername(e.target.value)}
+                />
+              </div>
+            </div>
+
+            {/* Password Input with Toggle */}
+            <div className="space-y-1.5">
+              <label htmlFor="password" className="block text-sm font-medium text-gray-700">
+                Password
+              </label>
+              <div className="flex items-center border border-gray-300 rounded-lg px-3 py-2 focus-within:ring-2 focus-within:ring-blue-500 focus-within:border-blue-500 transition duration-200">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5 text-gray-500 mr-2">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 5.25a3 3 0 0 1 3 3m3 0a6 6 0 0 1-7.029 5.912c-.563-.097-1.159.026-1.563.43L10.5 17.25H8.25v2.25H6v2.25H2.25v-2.818c0-.597.237-1.17.659-1.591l6.499-6.499c.404-.404.527-1 .43-1.563A6 6 0 1 1 21.75 8.25Z" />
+                </svg>
+                <input
+                  id="password"
+                  type={showPassword ? "text" : "password"}
+                  placeholder="Enter your password"
+                  className="w-full outline-none text-sm"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                />
+                <button 
+                  type="button" 
+                  onClick={togglePasswordVisibility}
+                  className="focus:outline-none text-gray-400 hover:text-gray-600 transition-colors duration-200"
+                >
+                  {showPassword ? (
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M2.036 12.322a1.012 1.012 0 0 1 0-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178Z" />
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" />
+                    </svg>
+                  ) : (
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M3.98 8.223A10.477 10.477 0 0 0 1.934 12C3.226 16.338 7.244 19.5 12 19.5c.993 0 1.953-.138 2.863-.395M6.228 6.228A10.451 10.451 0 0 1 12 4.5c4.756 0 8.773 3.162 10.065 7.498a10.522 10.522 0 0 1-4.293 5.774M6.228 6.228 3 3m3.228 3.228 3.65 3.65m7.894 7.894L21 21m-3.228-3.228-3.65-3.65m0 0a3 3 0 1 0-4.243-4.243m4.242 4.242L9.88 9.88" />
+                    </svg>
+                  )}
+                </button>
+              </div>
+            </div>
+            
+            {/* Login Button */}
+            <button
+              type="submit"
+              disabled={isLoading}
+              className="w-full text-white font-medium py-2.5 rounded-lg text-sm transition-colors duration-200 focus:outline-none disabled:cursor-not-allowed mt-6"
+              style={{ background: "#0d1f4e" }}
+            >
+              {isLoading ? (
+                <div className="flex items-center justify-center">
+                  <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                  </svg>
+                  <span>Signing in...</span>
+                </div>
+              ) : "Sign in"}
+            </button>
+          </form>
+
+          {/* Signup Section */}
+          <div className="mt-8 text-center">
+            <span className="text-sm text-gray-600">Don't have an account? </span>
+            <Link to="/signuppage" className="text-sm font-medium hover:underline" style={{ color: "#0d1f4e" }}>
+              Create account
+            </Link>
+          </div>
+        </div>
+        
+        {/* Version Number */}
+        <div className="text-center text-xs text-gray-500 pb-6">
+         --1.9--
+        </div>
+
+        {/* Footer */}
+        <div className="text-center text-xs text-gray-500 pb-6">
+          © {new Date().getFullYear()} Jose Rizal Memorial State University. All rights reserved.
+        </div>
+
+      </div> 
+    </div>  
+  </div>     
   );
 }
+
+export default LoginPage;

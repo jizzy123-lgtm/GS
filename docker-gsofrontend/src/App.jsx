@@ -1,5 +1,3 @@
-import { useReducer, useEffect, useState, memo } from 'react';
-import { NavLink, useNavigate } from 'react-router-dom'; // ← ADD useNavigate
 import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
 import Loginpage from "./pages/LoginScreen/Loginpage";
 import Dashboard from "./pages/Userdashboard/Dashboard";
@@ -52,7 +50,9 @@ import CampusDirectorRequests from "./pages/CampusDirector/CampusDirectorRequest
 import CampusDirectorMaintenanceRequestForm from "./pages/CampusDirector/CampusDirectorMaintenanceRequestForm.jsx";
 import ViewUserRequestForm from "./pages/Staff/ViewUserRequestForm.jsx";
 import StaffNotifications from "./pages/Staff/StaffNotifications.jsx";
+import StaffSchedules from "./pages/Staff/sched.jsx";
 import HeadNotifications from "./pages/Head/HeadNotifications.jsx";
+import HeadSchedules from "./pages/Head/headsched.jsx";
 import CampusDirectorNotifications from "./pages/CampusDirector/CampusDirectorNotifications.jsx";
 import { StaffNotificationProvider } from "./components/StaffSidebar";
 import { AdminNotificationProvider } from "./components/AdminSidebar.jsx";
@@ -62,7 +62,6 @@ import { CampusDirectorNotificationProvider } from "./components/CampusDirectorS
 import StaffRequestStatus from "./pages/Staff/StaffRequestStatus";
 import StaffFeedback from "./pages/Staff/StaffFeedback.jsx";
 import FeedbackReview from "./pages/Staff/FeedbackReview.jsx";
-
 
 
 function App() {
@@ -390,7 +389,7 @@ function App() {
           }
         />
 
-<Route
+        <Route
           path="/feedbackreview/:id"
           element={
             <StaffNotificationProvider>
@@ -407,12 +406,19 @@ function App() {
             </StaffNotificationProvider>
           }
         />
-
         <Route
           path="/staffnotifications"
           element={
             <StaffNotificationProvider>
               <StaffNotifications token={token} />
+            </StaffNotificationProvider>
+          }
+        />
+        <Route
+          path="/staffschedules"
+          element={
+            <StaffNotificationProvider>
+              <StaffSchedules />
             </StaffNotificationProvider>
           }
         />
@@ -485,10 +491,23 @@ function App() {
             </HeadNotificationProvider>
           }
         />
-        <Route path="/headmaintenancerequestform/:id" element={<HeadNotificationProvider><HeadMaintenanceRequestForm token={token} /></HeadNotificationProvider>
+        
+        <Route 
+          path="/headmaintenancerequestform/:id" 
+          element={
+            <HeadNotificationProvider>
+              <HeadMaintenanceRequestForm token={token} />
+              </HeadNotificationProvider>
         }
         />
-
+        <Route
+          path="/headschedules"
+          element={
+            <HeadNotificationProvider>
+              <HeadSchedules token={token} />
+            </HeadNotificationProvider>
+          }
+        />
         {/* Campus Director Routes - wrapped with CampusDirectorNotificationProvider */}
         <Route
           path="/campusdirectordashboard"

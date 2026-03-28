@@ -78,7 +78,7 @@ const Header = ({ isMobileMenuOpen, onToggleMobileMenu, onCloseMobileMenu, userT
           ))}
         </nav>
         <div className="text-center py-2 text-xs text-gray-400 border-t border-gray-700">
-          Created By Exverter
+          Created By Bantilan & Friends
         </div>
       </div>
     </header>
@@ -261,9 +261,10 @@ const StaffRequestStatus = () => {
     initialize();
   }, [token, navigate]);
 
-  const filtered = requests
-    .filter((r) => r.status?.trim().toLowerCase() === selectedTab.toLowerCase())
-    .sort((a, b) => new Date(b.created_at) - new Date(a.created_at)); // ✅ LIFO by created_at
+  const filtered = requests.filter(
+    (r) => r.status?.trim().toLowerCase() === selectedTab.toLowerCase()
+  );
+
   // --- Loading and Error UI (copied/adapted from ViewMaintenanceRequestForm) ---
   if (loading) {
     return (
@@ -314,6 +315,7 @@ const StaffRequestStatus = () => {
           <h2 className="text-3xl font-extrabold text-gray-900 border-b mb-4 pb-3">
             Staff Request Status
           </h2>
+
           {/* Tabs */}
           <div className="flex space-x-4 mb-6">
             {["Pending", "Approved", "Disapproved", "Done", "Completed"].map((tab) => (
@@ -340,9 +342,7 @@ const StaffRequestStatus = () => {
           </div>
           <StatusTable
             requests={selectedTab === "Completed"
-              ? requests
-                .filter(r => r.status?.trim().toLowerCase() === "completed")
-                .sort((a, b) => new Date(b.created_at) - new Date(a.created_at)) // ✅ LIFO by created_at
+              ? requests.filter(r => r.status?.trim().toLowerCase() === "completed")
               : filtered}
             selectedTab={selectedTab}
             userNameParts={userNameParts}

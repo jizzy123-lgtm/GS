@@ -78,7 +78,7 @@ const Header = ({ isMobileMenuOpen, onToggleMobileMenu, onCloseMobileMenu, userT
           ))}
         </nav>
         <div className="text-center py-2 text-xs text-gray-400 border-t border-gray-700">
-          Created By Exverter
+          Created By Bantilan & Friends
         </div>
       </div>
     </header>
@@ -94,11 +94,16 @@ const StatusTable = ({ requests, selectedTab, userNameParts }) => {
 
   // Format the user's name
   const formatUserName = () => {
-  const { last_name, first_name, middle_name } = userNameParts;
-  const middleInitial = middle_name ? middle_name.charAt(0) + '.' : '';
-  const fullFirst = [first_name, middleInitial].filter(Boolean).join(' ');
-  return [last_name, fullFirst].filter(Boolean).join(', ');
-};
+    const { last_name, first_name, middle_name, suffix } = userNameParts;
+    return [
+      last_name,
+      first_name,
+      middle_name,
+      suffix
+    ]
+      .filter(Boolean)
+      .join(", ");
+  };
 
   return (
     <div className="bg-white rounded-lg shadow-sm md:shadow-lg border border-gray-200">
@@ -309,6 +314,7 @@ const RequestStatus = () => {
         onCloseMobileMenu={() => dispatch({ type: "CLOSE_MOBILE_MENU" })}
         userTitle="User"
       />
+
       <div className="flex flex-1 overflow-hidden">
         <Sidebar
           isSidebarCollapsed={state.isSidebarCollapsed}

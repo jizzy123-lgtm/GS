@@ -25,3 +25,4 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+myApp/.git_backup_myapp/

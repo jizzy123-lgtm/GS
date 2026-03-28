@@ -65,7 +65,7 @@ const Header = ({
           ))}
         </nav>
         <div className="text-center py-2 text-xs text-slate-400 border-t border-slate-700">
-          Created By Exverter
+          Created By Bantilan & Friends
         </div>
       </div>
     </header>

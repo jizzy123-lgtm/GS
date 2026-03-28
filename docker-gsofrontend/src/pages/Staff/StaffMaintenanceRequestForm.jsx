@@ -665,7 +665,7 @@ const handleMarkOnhold = async () => {
                         />
                       </div>
 
-                      {/* Mark as Dropdown Section */}
+                      {/* Mark as Dropdown Section 
                       <div>
                         <label className="block font-semibold text-gray-700 mb-1">Mark as:</label>
                         <select
@@ -683,7 +683,7 @@ const handleMarkOnhold = async () => {
                         <p className="text-xs text-gray-500 mt-1">
                           Choose a status to mark this request as Urgent or Onhold. This will be applied after verification.
                         </p>
-                      </div>
+                      </div>  */}
                     </>
                   )}
 

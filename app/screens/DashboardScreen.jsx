@@ -33,22 +33,30 @@ export default function DashboardScreen({ user, onLogout, onNavigate }) {
     try {
       const token = await AsyncStorage.getItem("token");
       const headers = { Authorization: `Bearer ${token}`, Accept: "application/json" };
-      // role 1=Admin and role 4=Requester use /requests
-      // role 2=Head uses /head/requests
-      // role 3=Staff uses /staff/requests
-      let ep = "/requests";
-      if (roleId === 2) ep = "/head/requests";
-      else if (roleId === 3) ep = "/staff/requests";
+      // role 1=Admin uses /pending-approvals (user account requests)
+      // All other roles (Head, Staff, Requester) use /maintenance-requests
+      let ep = "/maintenance-requests";
+      if (roleId === 1) ep = "/pending-approvals";
       const res = await fetch(`${API_URL}${ep}`, { headers });
       const data = await res.json();
       const reqs = Array.isArray(data) ? data : data.data || [];
       setRecentRequests(reqs.slice(0, 4));
-      setStats({
-        total: reqs.length,
-        pending: reqs.filter(r => r.status?.toLowerCase() === "pending").length,
-        approved: reqs.filter(r => r.status?.toLowerCase() === "approved").length,
-        completed: reqs.filter(r => r.status?.toLowerCase() === "completed").length,
-      });
+      if (roleId === 1) {
+        // Admin stats: account approval counts
+        setStats({
+          total: reqs.length,
+          pending: reqs.filter(r => (r.account_status || r.status)?.toLowerCase() === "pending").length,
+          approved: reqs.filter(r => (r.account_status || r.status)?.toLowerCase() === "approved").length,
+          completed: reqs.filter(r => (r.account_status || r.status)?.toLowerCase() === "disapproved").length,
+        });
+      } else {
+        setStats({
+          total: reqs.length,
+          pending: reqs.filter(r => r.status?.toLowerCase() === "pending").length,
+          approved: reqs.filter(r => r.status?.toLowerCase() === "approved").length,
+          completed: reqs.filter(r => r.status?.toLowerCase() === "completed").length,
+        });
+      }
     } catch (e) { setStats({ total: 0, pending: 0, approved: 0, completed: 0 }); }
     finally { setLoading(false); setRefreshing(false); }
   };
@@ -112,7 +120,7 @@ export default function DashboardScreen({ user, onLogout, onNavigate }) {
                 <KPI label="Total" value={stats?.total} color={C.steel} bg={C.infoBg} />
                 <KPI label="Pending" value={stats?.pending} color={C.warn} bg={C.warnBg} />
                 <KPI label="Approved" value={stats?.approved} color={C.success} bg={C.successBg} />
-                <KPI label="Done" value={stats?.completed} color={C.textMid} bg={C.surfaceAlt} />
+                <KPI label={roleId === 1 ? "Rejected" : "Done"} value={stats?.completed} color={C.textMid} bg={C.surfaceAlt} />
               </View>
             </View>
 
@@ -207,8 +215,7 @@ function getQuickActions(roleId, onNavigate) {
     ...common,
   ];
   if (roleId === 1) return [
-    { label: "All Requests", onPress: () => onNavigate("ViewRequestStatus") },
-    { label: "Review Requests", onPress: () => onNavigate("ReviewRequests") },
+    { label: "Pending Approvals", onPress: () => onNavigate("PendingApprovals") },
     ...common,
   ];
   if (roleId === 2) return [

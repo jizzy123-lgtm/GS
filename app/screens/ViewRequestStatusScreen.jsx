@@ -52,11 +52,8 @@ export default function ViewRequestStatusScreen({ onBack, onNavigate, user }) {
         return;
       }
 
-      // ✅ FIX 4: Correct endpoint per role
-      // role 2 = Head, role 3 = Staff, role 4 = Regular User/Requester
-      const ep = roleId === 2 ? "/head/requests"
-        : roleId === 3 ? "/staff/requests"
-          : "/requests"; // role 4 (regular user) or others
+      // Unified endpoint for maintenance requests
+      const ep = "/maintenance-requests";
 
       console.log("Fetching from:", `${API_URL}${ep}`);
       console.log("Role ID:", roleId);

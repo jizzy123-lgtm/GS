@@ -28,7 +28,7 @@ export default function ReviewRequestsScreen({ user, onBack, onNavigate }) {
   const fetchRequests = async () => {
     try {
       const token = await AsyncStorage.getItem("token");
-      const ep = roleId === 2 ? "/head/requests" : "/staff/requests";
+      const ep = "/maintenance-requests";
       const res = await fetch(`${API_URL}${ep}`, { headers: { Authorization: `Bearer ${token}`, Accept: "application/json" }, signal: AbortSignal.timeout(15000) });
       const data = await res.json();
       setRequests(Array.isArray(data) ? data : data.data || []);

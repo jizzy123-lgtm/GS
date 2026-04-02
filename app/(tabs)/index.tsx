@@ -5,6 +5,7 @@ import AssignScheduleScreen from '../screens/AssignScheduleScreen';
 import DashboardScreen from '../screens/DashboardScreen';
 import FeedbackScreen from '../screens/FeedbackScreen';
 import NotificationsScreen from '../screens/NotificationsScreen';
+import PendingApprovalsScreen from '../screens/PendingApprovalsScreen';
 import ProfileScreen from '../screens/ProfileScreen';
 import ReviewRequestsScreen from '../screens/ReviewRequestsScreen';
 import SignUpScreen from '../screens/SignUpScreen';
@@ -14,7 +15,7 @@ import ViewRequestStatusScreen from '../screens/ViewRequestStatusScreen';
 type Screen =
   | 'Login' | 'SignUp' | 'Dashboard' | 'SubmitRequest'
   | 'ViewRequestStatus' | 'Feedback' | 'Notifications'
-  | 'ReviewRequests' | 'Profile' | 'AssignSchedule';
+  | 'ReviewRequests' | 'PendingApprovals' | 'Profile' | 'AssignSchedule';
 
 export default function HomeScreen() {
   const [user, setUser] = useState<any>(null);
@@ -40,7 +41,7 @@ export default function HomeScreen() {
     return <LoginScreen onLoginSuccess={handleLoginSuccess} onSignUp={() => navigate('SignUp')} />;
   }
   if (screen === 'SignUp') {
-    return <SignUpScreen onBack={() => navigate('Login')} onSuccess={() => navigate('Login')} />;
+    return <SignUpScreen onBack={() => navigate('Login')} />;
   }
   if (screen === 'Dashboard') {
     return <DashboardScreen user={user} onLogout={handleLogout} onNavigate={navigate} />;
@@ -60,8 +61,11 @@ export default function HomeScreen() {
   if (screen === 'ReviewRequests') {
     return <ReviewRequestsScreen user={user} onBack={() => navigate('Dashboard')} onNavigate={navigate} />;
   }
+  if (screen === 'PendingApprovals') {
+    return <PendingApprovalsScreen user={user} onBack={() => navigate('Dashboard')} />;
+  }
   if (screen === 'Profile') {
-    return <ProfileScreen user={user} onBack={() => navigate('Dashboard')} onUpdateUser={(u) => setUser(u)} />;
+    return <ProfileScreen user={user} onBack={() => navigate('Dashboard')} onUpdateUser={(u: any) => setUser(u)} />;
   }
   if (screen === 'AssignSchedule') {
     return <AssignScheduleScreen user={user} requestId={screenParams.requestId} request={screenParams.request} onBack={() => navigate('ReviewRequests')} onSuccess={() => navigate('Dashboard')} />;

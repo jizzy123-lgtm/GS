@@ -5,6 +5,7 @@ import AssignScheduleScreen from '../screens/AssignScheduleScreen';
 import DashboardScreen from '../screens/DashboardScreen';
 import FeedbackScreen from '../screens/FeedbackScreen';
 import NotificationsScreen from '../screens/NotificationsScreen';
+import PendingApprovalsScreen from '../screens/PendingApprovalsScreen';
 import ProfileScreen from '../screens/ProfileScreen';
 import ReviewRequestsScreen from '../screens/ReviewRequestsScreen';
 import SignUpScreen from '../screens/SignUpScreen';
@@ -20,6 +21,7 @@ type Screen =
   | 'Feedback'
   | 'Notifications'
   | 'ReviewRequests'
+  | 'PendingApprovals'
   | 'Profile'
   | 'AssignSchedule';
 
@@ -60,7 +62,6 @@ export default function HomeScreen() {
     return (
       <SignUpScreen
         onBack={() => navigate('Login')}
-        onSuccess={() => navigate('Login')}
       />
     );
   }
@@ -118,6 +119,15 @@ export default function HomeScreen() {
         user={user}
         onBack={() => navigate('Dashboard')}
         onNavigate={navigate}
+      />
+    );
+  }
+
+  if (screen === 'PendingApprovals') {
+    return (
+      <PendingApprovalsScreen
+        user={user}
+        onBack={() => navigate('Dashboard')}
       />
     );
   }

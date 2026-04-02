@@ -167,8 +167,8 @@ export default function DashboardScreen({ user, onLogout, onNavigate }) {
                         onPress={() => onNavigate("ViewRequestStatus", { requestId: req.id })}
                         activeOpacity={0.7}
                       >
-                        <Text style={[styles.tdCell, { flex: 2 }]} numberOfLines={1}>{req.maintenance_type || req.type || "Request"}</Text>
-                        <Text style={[styles.tdCell, { flex: 1.5, color: C.textMute }]}>{req.created_at?.slice(0, 10) || "—"}</Text>
+                        <Text style={[styles.tdCell, { flex: 2 }]} numberOfLines={1}>{req.maintenance_type?.name || req.maintenance_type || req.type || "Maintenance Request"}</Text>
+                        <Text style={[styles.tdCell, { flex: 1.5, color: C.textMute }]}>{(req.date_requested || req.created_at)?.slice(0, 10) || "—"}</Text>
                         <View style={[styles.chip, { backgroundColor: s.bg, flex: 1.2, alignSelf: "center" }]}>
                           <Text style={[styles.chipText, { color: s.c }]}>{s.l}</Text>
                         </View>

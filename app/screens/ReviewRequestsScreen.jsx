@@ -38,7 +38,10 @@ export default function ReviewRequestsScreen({ user, onBack, onNavigate }) {
 
   useEffect(() => { fetchRequests(); }, []);
   const onRefresh = () => { setRefreshing(true); fetchRequests(); };
-  const filtered = filter === "All" ? requests : requests.filter(r => r.status?.toLowerCase() === filter.toLowerCase());
+  const filtered = filter === "All" ? requests : requests.filter(r => {
+    const s = (r.status || "pending").toLowerCase();
+    return s === filter.toLowerCase();
+  });
 
   const doAction = async (id, action) => {
     setActionLoading(true); setActionMsg("");
@@ -69,7 +72,15 @@ export default function ReviewRequestsScreen({ user, onBack, onNavigate }) {
             <Text style={[styles.statusBannerText, { color: s.color }]}>{s.label}</Text>
           </View>
           <View style={styles.detailCard}>
-            {[["Request ID", `#${selected.id}`], ["Type", selected.maintenance_type || selected.type], ["Priority", selected.priority], ["Location", selected.location], ["Submitted by", selected.requester_name || selected.user?.name], ["Date", selected.created_at?.slice(0, 10)], ["Description", selected.description]].map(([l, v], i, arr) => (
+            {[
+              ["Request ID", `#${selected.id}`],
+              ["Type", selected.maintenance_type?.name || selected.maintenance_type || selected.type],
+              ["Priority", selected.priority || "Pending Review"],
+              ["Location", selected.location],
+              ["Submitted by", selected.requester_name || selected.user?.name || selected.requester?.name],
+              ["Date", (selected.date_requested || selected.created_at)?.slice(0, 10)],
+              ["Description", selected.details || selected.description]
+            ].map(([l, v], i, arr) => (
               <View key={i} style={[styles.dRow, i === arr.length - 1 && { borderBottomWidth: 0 }]}>
                 <Text style={styles.dLabel}>{l}</Text>
                 <Text style={styles.dValue}>{v || "—"}</Text>
@@ -132,12 +143,12 @@ export default function ReviewRequestsScreen({ user, onBack, onNavigate }) {
                 return (
                   <TouchableOpacity key={i} style={[styles.reqCard, { borderLeftColor: s.color }]} onPress={() => setSelected(req)} activeOpacity={0.8}>
                     <View style={styles.reqCardTop}>
-                      <Text style={styles.reqType} numberOfLines={1}>{req.maintenance_type || req.type || "Request"}</Text>
+                      <Text style={styles.reqType} numberOfLines={1}>{req.maintenance_type?.name || req.maintenance_type || req.type || "Maintenance Request"}</Text>
                       <View style={[styles.chip, { backgroundColor: s.bg }]}>
                         <Text style={[styles.chipText, { color: s.color }]}>{s.label}</Text>
                       </View>
                     </View>
-                    <Text style={styles.reqMeta}>{req.location || "—"}  ·  {req.created_at?.slice(0, 10) || "—"}</Text>
+                    <Text style={styles.reqMeta}>{req.location || "Office/Campus"}  ·  {(req.date_requested || req.created_at)?.slice(0, 10) || "—"}</Text>
                     {roleId === 3 && isConfirmed && !req.scheduled_date && (
                       <View style={styles.assignTag}><Text style={styles.assignTagText}>Needs Schedule</Text></View>
                     )}

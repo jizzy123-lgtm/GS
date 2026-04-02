@@ -91,7 +91,10 @@ export default function ViewRequestStatusScreen({ onBack, onNavigate, user }) {
     setFiltered(
       activeFilter === "All"
         ? requests
-        : requests.filter(r => r.status?.toLowerCase() === activeFilter.toLowerCase())
+        : requests.filter(r => {
+          const s = (r.status || "pending").toLowerCase();
+          return s === activeFilter.toLowerCase();
+        })
     );
   }, [activeFilter, requests]);
 
@@ -156,9 +159,9 @@ export default function ViewRequestStatusScreen({ onBack, onNavigate, user }) {
                       </View>
                       <Text style={styles.cardDate}>{req.created_at?.slice(0, 10)}</Text>
                     </View>
-                    <Text style={styles.cardType}>{req.maintenance_type || req.type || "Request"}</Text>
-                    <Text style={styles.cardLocation} numberOfLines={1}>📍 {req.location || "—"}</Text>
-                    <Text style={styles.cardDesc} numberOfLines={2}>{req.description || "No description."}</Text>
+                    <Text style={styles.cardType}>{req.maintenance_type?.name || req.maintenance_type || req.type || "Maintenance Request"}</Text>
+                    <Text style={styles.cardLocation} numberOfLines={1}>📍 {req.location || "Office/Campus"}</Text>
+                    <Text style={styles.cardDesc} numberOfLines={2}>{req.details || req.description || "No description provided."}</Text>
                     <Text style={styles.viewMore}>View Details →</Text>
                   </TouchableOpacity>
                 );
@@ -185,11 +188,11 @@ function RequestDetail({ request, onBack, user, onFeedback }) {
           </View>
           {[
             { l: "Request ID", v: `#${request.id}` },
-            { l: "Maintenance Type", v: request.maintenance_type || request.type },
-            { l: "Priority", v: request.priority },
+            { l: "Maintenance Type", v: request.maintenance_type?.name || request.maintenance_type || request.type },
+            { l: "Priority", v: request.priority || "Pending Review" },
             { l: "Location", v: request.location },
-            { l: "Description", v: request.description },
-            { l: "Submitted", v: request.created_at?.slice(0, 10) },
+            { l: "Description", v: request.details || request.description },
+            { l: "Submitted", v: (request.date_requested || request.created_at)?.slice(0, 10) },
           ].map((row, i) => (
             <View key={i} style={styles.detailRow}>
               <Text style={styles.detailLabel}>{row.l}</Text>

@@ -297,23 +297,24 @@ export default function PendingApprovalsScreen({ user, onBack }) {
                 onBack={onBack}
             />
 
-            {/* Filter Tabs */}
-            <ScrollView
-                horizontal
-                showsHorizontalScrollIndicator={false}
-                style={{ marginTop: 12 }}
-                contentContainerStyle={{ paddingHorizontal: 14, gap: 8 }}
-            >
-                {FILTERS.map(f => (
-                    <TouchableOpacity
-                        key={f}
-                        style={[styles.filterTab, filter === f && styles.filterTabActive]}
-                        onPress={() => setFilter(f)}
-                    >
-                        <Text style={[styles.filterTabText, filter === f && styles.filterTabTextActive]}>{f}</Text>
-                    </TouchableOpacity>
-                ))}
-            </ScrollView>
+            <View style={styles.filterContainer}>
+                <ScrollView
+                    horizontal
+                    showsHorizontalScrollIndicator={false}
+                    contentContainerStyle={styles.filterScrollContent}
+                >
+                    {FILTERS.map(f => (
+                        <TouchableOpacity
+                            key={f}
+                            style={[styles.filterTab, filter === f && styles.filterTabActive]}
+                            onPress={() => setFilter(f)}
+                            activeOpacity={0.7}
+                        >
+                            <Text style={[styles.filterTabText, filter === f && styles.filterTabTextActive]}>{f}</Text>
+                        </TouchableOpacity>
+                    ))}
+                </ScrollView>
+            </View>
 
             <ScrollView
                 contentContainerStyle={{ padding: 14, paddingBottom: 40 }}
@@ -379,10 +380,24 @@ function InfoRow({ label, value, last }) {
 }
 
 const styles = StyleSheet.create({
-    filterTab: { paddingHorizontal: 14, paddingVertical: 7, borderRadius: 20, backgroundColor: C.surface, borderWidth: 1.5, borderColor: C.border },
-    filterTabActive: { backgroundColor: C.navy, borderColor: C.navy },
-    filterTabText: { fontSize: 12, fontWeight: "700", color: C.textMute },
-    filterTabTextActive: { color: "#fff" },
+    filterContainer: { marginTop: 12, marginBottom: 4 },
+    filterScrollContent: { paddingHorizontal: 14, gap: 10, paddingVertical: 4 },
+    filterTab: {
+        paddingHorizontal: 18,
+        paddingVertical: 10,
+        borderRadius: 25,
+        backgroundColor: "#fff",
+        borderWidth: 1,
+        borderColor: C.border,
+        elevation: 2,
+        shadowColor: "#000",
+        shadowOffset: { width: 0, height: 1 },
+        shadowOpacity: 0.1,
+        shadowRadius: 2,
+    },
+    filterTabActive: { backgroundColor: C.navy, borderColor: C.navy, elevation: 4 },
+    filterTabText: { fontSize: 13, fontWeight: "600", color: C.textMid },
+    filterTabTextActive: { color: "#fff", fontWeight: "700" },
 
     emptyCard: { backgroundColor: C.surface, borderRadius: 12, padding: 36, alignItems: "center", borderWidth: 1, borderColor: C.border },
     emptyText: { fontSize: 14, color: C.textMute, fontWeight: "600" },

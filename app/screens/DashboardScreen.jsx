@@ -20,10 +20,12 @@ const C = {
 };
 const ROLE_LABELS = { 1: "Administrator", 2: "Head / Director", 3: "GSO Staff", 4: "Requester" };
 const ROLE_COLORS = { 1: C.danger, 2: C.steel, 3: C.success, 4: C.navyMid };
+const STATUS_MAP = { 1: "pending", 2: "approved", 3: "disapproved", 4: "confirmed", 5: "completed" };
 
 export default function DashboardScreen({ user, onLogout, onNavigate }) {
   const [stats, setStats] = useState(null);
   const [recentRequests, setRecentRequests] = useState([]);
+  const [types, setTypes] = useState({});
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const insets = useSafeAreaInsets();
@@ -39,7 +41,25 @@ export default function DashboardScreen({ user, onLogout, onNavigate }) {
       if (roleId === 1) ep = "/pending-approvals";
       const res = await fetch(`${API_URL}${ep}`, { headers });
       const data = await res.json();
-      const reqs = Array.isArray(data) ? data : data.data || [];
+      const reqList = Array.isArray(data) ? data : data.data || [];
+
+      // Fetch maintenance types if not loaded
+      let currentTypes = types;
+      if (roleId !== 1 && Object.keys(currentTypes).length === 0) {
+        const tRes = await fetch(`${API_URL}/maintenance-types`, { headers: { Authorization: `Bearer ${token}` } });
+        const tData = await tRes.json();
+        const tList = Array.isArray(tData) ? tData : tData.data || [];
+        const tMap = {};
+        tList.forEach(t => tMap[t.id] = t.name || t.type_name);
+        setTypes(tMap);
+        currentTypes = tMap;
+      }
+
+      const reqs = reqList.map(r => ({
+        ...r,
+        status: r.status || STATUS_MAP[r.status_id] || "pending",
+        maintenance_type_name: currentTypes[r.maintenance_type_id] || r.maintenance_type?.name || r.maintenance_type || r.type
+      }));
       setRecentRequests(reqs.slice(0, 4));
       if (roleId === 1) {
         // Admin stats: account approval counts
@@ -167,7 +187,7 @@ export default function DashboardScreen({ user, onLogout, onNavigate }) {
                         onPress={() => onNavigate("ViewRequestStatus", { requestId: req.id })}
                         activeOpacity={0.7}
                       >
-                        <Text style={[styles.tdCell, { flex: 2 }]} numberOfLines={1}>{req.maintenance_type?.name || req.maintenance_type || req.type || "Maintenance Request"}</Text>
+                        <Text style={[styles.tdCell, { flex: 2 }]} numberOfLines={1}>{req.maintenance_type_name || req.maintenance_type?.name || "Maintenance Request"}</Text>
                         <Text style={[styles.tdCell, { flex: 1.5, color: C.textMute }]}>{(req.date_requested || req.created_at)?.slice(0, 10) || "—"}</Text>
                         <View style={[styles.chip, { backgroundColor: s.bg, flex: 1.2, alignSelf: "center" }]}>
                           <Text style={[styles.chipText, { color: s.c }]}>{s.l}</Text>

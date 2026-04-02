@@ -13,10 +13,12 @@ import ScreenHeader from "./ScreenHeader";
 import { API_URL } from '../../api';
 const C = { navy: "#0B1F3A", steel: "#1E4D8C", gold: "#C9A84C", bg: "#F0F2F5", surface: "#FFFFFF", surfaceAlt: "#F7F9FC", border: "#DDE3EC", textMute: "#8A9BB0", danger: "#9B1C1C", dangerBg: "#FEE8E8", success: "#1A7A4A", successBg: "#EAF6EF", warn: "#B45C10", warnBg: "#FEF3E2", info: "#155E8A", infoBg: "#E6F2FA" };
 const SM = { pending: { color: C.warn, bg: C.warnBg, label: "Pending" }, approved: { color: C.success, bg: C.successBg, label: "Approved" }, confirmed: { color: C.info, bg: C.infoBg, label: "Confirmed" }, completed: { color: C.navy, bg: C.surfaceAlt, label: "Completed" }, disapproved: { color: C.danger, bg: C.dangerBg, label: "Disapproved" } };
+const STATUS_MAP = { 1: "pending", 2: "approved", 3: "disapproved", 4: "confirmed", 5: "completed" };
 const FILTERS = ["All", "Pending", "Approved", "Confirmed", "Completed", "Disapproved"];
 
 export default function ReviewRequestsScreen({ user, onBack, onNavigate }) {
   const [requests, setRequests] = useState([]);
+  const [types, setTypes] = useState({});
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [filter, setFilter] = useState("All");
@@ -31,7 +33,25 @@ export default function ReviewRequestsScreen({ user, onBack, onNavigate }) {
       const ep = "/maintenance-requests";
       const res = await fetch(`${API_URL}${ep}`, { headers: { Authorization: `Bearer ${token}`, Accept: "application/json" }, signal: AbortSignal.timeout(15000) });
       const data = await res.json();
-      setRequests(Array.isArray(data) ? data : data.data || []);
+      const reqList = Array.isArray(data) ? data : data.data || [];
+
+      // Fetch maintenance types if not loaded
+      let currentTypes = types;
+      if (Object.keys(currentTypes).length === 0) {
+        const tRes = await fetch(`${API_URL}/maintenance-types`, { headers: { Authorization: `Bearer ${token}` } });
+        const tData = await tRes.json();
+        const tList = Array.isArray(tData) ? tData : tData.data || [];
+        const tMap = {};
+        tList.forEach(t => tMap[t.id] = t.name || t.type_name);
+        setTypes(tMap);
+        currentTypes = tMap;
+      }
+
+      setRequests(reqList.map(r => ({
+        ...r,
+        status: r.status || STATUS_MAP[r.status_id] || "pending",
+        maintenance_type_name: currentTypes[r.maintenance_type_id] || r.maintenance_type?.name || r.maintenance_type || r.type
+      })));
     } catch (e) { setRequests([]); }
     finally { setLoading(false); setRefreshing(false); }
   };
@@ -143,7 +163,7 @@ export default function ReviewRequestsScreen({ user, onBack, onNavigate }) {
                 return (
                   <TouchableOpacity key={i} style={[styles.reqCard, { borderLeftColor: s.color }]} onPress={() => setSelected(req)} activeOpacity={0.8}>
                     <View style={styles.reqCardTop}>
-                      <Text style={styles.reqType} numberOfLines={1}>{req.maintenance_type?.name || req.maintenance_type || req.type || "Maintenance Request"}</Text>
+                      <Text style={styles.reqType} numberOfLines={1}>{req.maintenance_type_name || req.maintenance_type?.name || "Maintenance Request"}</Text>
                       <View style={[styles.chip, { backgroundColor: s.bg }]}>
                         <Text style={[styles.chipText, { color: s.color }]}>{s.label}</Text>
                       </View>

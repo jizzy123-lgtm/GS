@@ -27,12 +27,14 @@ const STATUS = {
   in_progress: { color: "#8b5cf6", bg: "#f5f3ff", label: "In Progress", icon: "🔧" },
   confirmed: { color: "#155E8A", bg: "#E6F2FA", label: "Confirmed", icon: "📋" },
 };
+const STATUS_MAP = { 1: "pending", 2: "approved", 3: "disapproved", 4: "confirmed", 5: "completed" };
 const FILTERS = ["All", "Pending", "Approved", "Confirmed", "Completed", "Disapproved"];
 
 export default function ViewRequestStatusScreen({ onBack, onNavigate, user }) {
   const [requests, setRequests] = useState([]);
   const [filtered, setFiltered] = useState([]);
   const [activeFilter, setActiveFilter] = useState("All");
+  const [types, setTypes] = useState({});
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [selected, setSelected] = useState(null);
@@ -73,9 +75,25 @@ export default function ViewRequestStatusScreen({ onBack, onNavigate, user }) {
       }
 
       const data = await res.json();
-      console.log("Data received:", JSON.stringify(data));
+      const reqList = Array.isArray(data) ? data : data.data || [];
 
-      setRequests(Array.isArray(data) ? data : data.data || []);
+      // Fetch maintenance types if not loaded
+      let currentTypes = types;
+      if (Object.keys(currentTypes).length === 0) {
+        const tRes = await fetch(`${API_URL}/maintenance-types`, { headers: { Authorization: `Bearer ${token}` } });
+        const tData = await tRes.json();
+        const tList = Array.isArray(tData) ? tData : tData.data || [];
+        const tMap = {};
+        tList.forEach(t => tMap[t.id] = t.name || t.type_name);
+        setTypes(tMap);
+        currentTypes = tMap;
+      }
+
+      setRequests(reqList.map(r => ({
+        ...r,
+        status: r.status || STATUS_MAP[r.status_id] || "pending",
+        maintenance_type_name: currentTypes[r.maintenance_type_id] || r.maintenance_type?.name || r.maintenance_type || r.type
+      })));
 
     } catch (e) {
       console.error("fetchRequests error:", e.message);
@@ -159,7 +177,7 @@ export default function ViewRequestStatusScreen({ onBack, onNavigate, user }) {
                       </View>
                       <Text style={styles.cardDate}>{req.created_at?.slice(0, 10)}</Text>
                     </View>
-                    <Text style={styles.cardType}>{req.maintenance_type?.name || req.maintenance_type || req.type || "Maintenance Request"}</Text>
+                    <Text style={styles.cardType}>{req.maintenance_type_name || req.maintenance_type?.name || "Maintenance Request"}</Text>
                     <Text style={styles.cardLocation} numberOfLines={1}>📍 {req.location || "Office/Campus"}</Text>
                     <Text style={styles.cardDesc} numberOfLines={2}>{req.details || req.description || "No description provided."}</Text>
                     <Text style={styles.viewMore}>View Details →</Text>
@@ -188,7 +206,7 @@ function RequestDetail({ request, onBack, user, onFeedback }) {
           </View>
           {[
             { l: "Request ID", v: `#${request.id}` },
-            { l: "Maintenance Type", v: request.maintenance_type?.name || request.maintenance_type || request.type },
+            { l: "Maintenance Type", v: request.maintenance_type_name || request.maintenance_type?.name || "Unknown Type" },
             { l: "Priority", v: request.priority || "Pending Review" },
             { l: "Location", v: request.location },
             { l: "Description", v: request.details || request.description },

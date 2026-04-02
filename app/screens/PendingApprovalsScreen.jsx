@@ -117,6 +117,7 @@ export default function PendingApprovalsScreen({ user, onBack }) {
                 method: "PUT",
                 headers: { Authorization: `Bearer ${token}`, Accept: "application/json", "Content-Type": "application/json" },
                 body: JSON.stringify(body),
+                signal: AbortSignal.timeout(45000),
             });
             if (res.ok) {
                 setSuccessMsg(action === "approve" ? "Account approved successfully." : "Account rejected successfully.");

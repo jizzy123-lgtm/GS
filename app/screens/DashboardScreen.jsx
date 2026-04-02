@@ -33,13 +33,14 @@ export default function DashboardScreen({ user, onLogout, onNavigate }) {
 
   const fetchDashboard = async () => {
     try {
-      const token = await AsyncStorage.getItem("token");
+      const token = await AsyncStorage.getItem("authToken") || await AsyncStorage.getItem("token");
       const headers = { Authorization: `Bearer ${token}`, Accept: "application/json" };
+      const signal = AbortSignal.timeout(45000);
       // role 1=Admin uses /pending-approvals (user account requests)
       // All other roles (Head, Staff, Requester) use /maintenance-requests
       let ep = "/maintenance-requests";
       if (roleId === 1) ep = "/pending-approvals";
-      const res = await fetch(`${API_URL}${ep}`, { headers });
+      const res = await fetch(`${API_URL}${ep}`, { headers, signal });
       const data = await res.json();
       const reqList = Array.isArray(data) ? data : data.data || [];
 
@@ -84,6 +85,7 @@ export default function DashboardScreen({ user, onLogout, onNavigate }) {
   useEffect(() => { fetchDashboard(); }, []);
   const onRefresh = () => { setRefreshing(true); fetchDashboard(); };
   const handleLogout = async () => {
+    await AsyncStorage.removeItem("authToken");
     await AsyncStorage.removeItem("token");
     await AsyncStorage.removeItem("user");
     onLogout && onLogout();

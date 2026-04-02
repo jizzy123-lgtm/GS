@@ -75,14 +75,15 @@ export default function PendingApprovalsScreen({ user, onBack }) {
 
     const fetchAccounts = async () => {
         try {
-            const token = await AsyncStorage.getItem("token");
+            const token = await AsyncStorage.getItem("authToken") || await AsyncStorage.getItem("token");
             const res = await fetch(`${API_URL}/pending-approvals`, {
                 headers: { Authorization: `Bearer ${token}`, Accept: "application/json" },
-                signal: AbortSignal.timeout(15000),
+                signal: AbortSignal.timeout(45000),
             });
             const data = await res.json();
             setAccounts(Array.isArray(data) ? data : data.data || []);
         } catch (e) {
+            console.error("fetchAccounts error:", e.name === "TimeoutError" ? "Request timed out" : e.message);
             setAccounts([]);
         } finally {
             setLoading(false);
@@ -103,7 +104,7 @@ export default function PendingApprovalsScreen({ user, onBack }) {
     const doAction = async (id, action, reason = "") => {
         setActionLoading(true);
         try {
-            const token = await AsyncStorage.getItem("token");
+            const token = await AsyncStorage.getItem("authToken") || await AsyncStorage.getItem("token");
             const endpoint = action === "approve"
                 ? `${API_URL}/users/${id}/updateAccountStatus`
                 : `${API_URL}/users/${id}/dissaproveAccountStatus`;

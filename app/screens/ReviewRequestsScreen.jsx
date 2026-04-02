@@ -29,9 +29,9 @@ export default function ReviewRequestsScreen({ user, onBack, onNavigate }) {
 
   const fetchRequests = async () => {
     try {
-      const token = await AsyncStorage.getItem("token");
+      const token = await AsyncStorage.getItem("authToken") || await AsyncStorage.getItem("token");
       const ep = "/maintenance-requests";
-      const res = await fetch(`${API_URL}${ep}`, { headers: { Authorization: `Bearer ${token}`, Accept: "application/json" }, signal: AbortSignal.timeout(15000) });
+      const res = await fetch(`${API_URL}${ep}`, { headers: { Authorization: `Bearer ${token}`, Accept: "application/json" }, signal: AbortSignal.timeout(45000) });
       const data = await res.json();
       const reqList = Array.isArray(data) ? data : data.data || [];
 
@@ -66,7 +66,7 @@ export default function ReviewRequestsScreen({ user, onBack, onNavigate }) {
   const doAction = async (id, action) => {
     setActionLoading(true); setActionMsg("");
     try {
-      const token = await AsyncStorage.getItem("token");
+      const token = await AsyncStorage.getItem("authToken") || await AsyncStorage.getItem("token");
       const res = await fetch(`${API_URL}/requests/${id}/${action}`, { method: "POST", headers: { Authorization: `Bearer ${token}`, Accept: "application/json" } });
       if (res.ok) { setActionMsg(`Request ${action}d successfully.`); fetchRequests(); setSelected(null); }
       else { const d = await res.json(); setActionMsg(d.message || `Failed to ${action}.`); }

@@ -65,7 +65,7 @@ export default function ViewRequestStatusScreen({ onBack, onNavigate, user }) {
           Authorization: `Bearer ${token}`,
           Accept: "application/json",
         },
-        signal: AbortSignal.timeout(15000),
+        signal: AbortSignal.timeout(45000),
       });
 
       console.log("Response status:", res.status);

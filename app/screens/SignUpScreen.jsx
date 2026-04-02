@@ -7,45 +7,49 @@ import {
   View,
 } from "react-native";
 
-const API_URL = "https://manageit-test-api.coeofjrmsu.com/api";
+import { API_URL } from '../../api';
 
 const C = {
-  navy:     "#0B1F3A",
-  steel:    "#1E4D8C",
-  gold:     "#C9A84C",
-  bg:       "#F0F2F5",
-  surface:  "#FFFFFF",
-  border:   "#DDE3EC",
+  navy: "#0B1F3A",
+  steel: "#1E4D8C",
+  gold: "#C9A84C",
+  bg: "#F0F2F5",
+  surface: "#FFFFFF",
+  border: "#DDE3EC",
   textMute: "#8A9BB0",
-  danger:   "#9B1C1C",
+  danger: "#9B1C1C",
   dangerBg: "#FEE8E8",
-  warn:     "#B45C10",
+  warn: "#B45C10",
 };
 
-const SUFFIXES  = ["Jr.", "Sr.", "II", "III", "IV"];
+const SUFFIXES = ["Jr.", "Sr.", "II", "III", "IV"];
 
+// FIX 2 — Office now uses { id, label } objects
 const OFFICES = [
-  "College of Engineering",
-  "College of Maritime Education",
-  "College of Nursing and Allied Health Sciences",
-  "School of Midwifery",
-  "College of Teacher Education",
-  "College of Business Administration",
-  "College of Computer Studies",
-  "College of Liberal Arts Mathematics and Sciences",
+  { id: 1, label: "College of Engineering" },
+  { id: 2, label: "College of Maritime Education" },
+  { id: 3, label: "College of Nursing and Allied Health Sciences" },
+  { id: 4, label: "School of Midwifery" },
+  { id: 5, label: "College of Teacher Education" },
+  { id: 6, label: "College of Business Administration" },
+  { id: 7, label: "College of Computer Studies" },
+  { id: 8, label: "College of Liberal Arts Mathematics and Sciences" },
+  { id: 9, label: "General Service Office" },
 ];
 
+// FIX 1 — Position now uses { id, label } objects
 const POSITIONS = [
-  "Faculty",
-  "Staff",
-  "Department Head",
-  "Dean",
-  "Director",
+  { id: 1, label: "Faculty" },
+  { id: 2, label: "Staff" },
 ];
 
+// FIX 3 — All roles with their backend IDs (verify IDs via GET /api/roles)
 const ROLES = [
-  { key: "faculty", label: "Faculty" },
-  { key: "staff",   label: "Staff" },
+  { id: 1, label: "Admin" },
+  { id: 2, label: "Head" },
+  { id: 3, label: "Staff" },
+  { id: 4, label: "Requester" },
+  { id: 5, label: "Campus Director" },
 ];
 
 function SectionHeader({ title }) {
@@ -95,32 +99,34 @@ function DropdownField({ label, value, options, onSelect }) {
 }
 
 export default function SignUpScreen({ onBack }) {
+  // FIX 5 — Initial state uses office_id, position_id, role_id (null, not "")
   const [form, setForm] = useState({
     first_name: "", last_name: "", middle_initial: "", suffix: "",
     username: "", email: "", contact_number: "",
-    office: "", position: "", role: "",
+    office_id: null, position_id: null, role_id: null,
     password: "", password_confirmation: "",
   });
   const [showPassword, setShowPassword] = useState(false);
-  const [showConfirm,  setShowConfirm]  = useState(false);
-  const [loading,      setLoading]      = useState(false);
-  const [error,        setError]        = useState("");
-  const [submitted,    setSubmitted]    = useState(false);
+  const [showConfirm, setShowConfirm] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+  const [submitted, setSubmitted] = useState(false);
 
   const set = (key, val) => setForm(prev => ({ ...prev, [key]: val }));
 
   const handleSignUp = async () => {
     setError("");
-    if (!form.first_name.trim())     { setError("First name is required."); return; }
-    if (!form.last_name.trim())      { setError("Last name is required."); return; }
-    if (!form.username.trim())       { setError("Username is required."); return; }
-    if (!form.email.trim())          { setError("Email address is required."); return; }
+    if (!form.first_name.trim()) { setError("First name is required."); return; }
+    if (!form.last_name.trim()) { setError("Last name is required."); return; }
+    if (!form.username.trim()) { setError("Username is required."); return; }
+    if (!form.email.trim()) { setError("Email address is required."); return; }
     if (!form.contact_number.trim()) { setError("Contact number is required."); return; }
-    if (!form.office)                { setError("Please select an office."); return; }
-    if (!form.position)              { setError("Please select a position."); return; }
-    if (!form.role)                  { setError("Please select a role."); return; }
-    if (!form.password)              { setError("Password is required."); return; }
-    if (form.password.length < 8)   { setError("Password must be at least 8 characters."); return; }
+    // FIX 6 — Validations use office_id, position_id, role_id
+    if (!form.office_id) { setError("Please select an office."); return; }
+    if (!form.position_id) { setError("Please select a position."); return; }
+    if (!form.role_id) { setError("Please select a role."); return; }
+    if (!form.password) { setError("Password is required."); return; }
+    if (form.password.length < 8) { setError("Password must be at least 8 characters."); return; }
 
     const passwordRegex = /^(?=.*[0-9])(?=.*[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]).{8,}$/;
     if (!passwordRegex.test(form.password)) {
@@ -171,10 +177,9 @@ export default function SignUpScreen({ onBack }) {
           </Text>
           <View style={styles.successCard}>
             <Text style={styles.successCardTitle}>What happens next?</Text>
-            <Text style={styles.successCardItem}>1.  An Admin will review your registration.</Text>
-            <Text style={styles.successCardItem}>2.  You will receive an email once approved.</Text>
-            <Text style={styles.successCardItem}>3.  Log in and start using GSU Gateway.</Text>
-          </View>
+            <Text style={styles.successCardItem}>Waiting for approval...</Text>
+
+          </View>*
           <View style={styles.noteBox}>
             <Text style={styles.noteText}>
               Check your spam folder if you don't receive an email.
@@ -258,15 +263,25 @@ export default function SignUpScreen({ onBack }) {
 
           {/* Work Information */}
           <SectionHeader title="Work Information" />
-          <DropdownField label="Select Office" value={form.office}
-            options={OFFICES} onSelect={v => set("office", v)} />
-          <DropdownField label="Select Position" value={form.position}
-            options={POSITIONS} onSelect={v => set("position", v)} />
+
+          {/* FIX 4 — Dropdowns now bind to IDs, display labels */}
+          <DropdownField
+            label="Select Office"
+            value={OFFICES.find(o => o.id === form.office_id)?.label || ""}
+            options={OFFICES.map(o => o.label)}
+            onSelect={v => set("office_id", OFFICES.find(o => o.label === v)?.id)}
+          />
+          <DropdownField
+            label="Select Position"
+            value={POSITIONS.find(p => p.id === form.position_id)?.label || ""}
+            options={POSITIONS.map(p => p.label)}
+            onSelect={v => set("position_id", POSITIONS.find(p => p.label === v)?.id)}
+          />
           <DropdownField
             label="Select Role"
-            value={form.role ? ROLES.find(r => r.key === form.role)?.label : ""}
+            value={ROLES.find(r => r.id === form.role_id)?.label || ""}
             options={ROLES.map(r => r.label)}
-            onSelect={v => set("role", ROLES.find(r => r.label === v)?.key || "")}
+            onSelect={v => set("role_id", ROLES.find(r => r.label === v)?.id)}
           />
 
           {/* Security */}
@@ -287,7 +302,7 @@ export default function SignUpScreen({ onBack }) {
                   value={form.password} onChangeText={v => set("password", v)}
                   secureTextEntry={!showPassword} autoCapitalize="none" />
                 <TouchableOpacity style={styles.eyeBtn} onPress={() => setShowPassword(!showPassword)}>
-                  <Text style={styles.eyeText}>{showPassword ? "🙈" : "👁"}</Text>
+                  <Text style={styles.eyeText}>{showPassword ? "  " : "👁"}</Text>
                 </TouchableOpacity>
               </View>
             </View>
@@ -298,7 +313,7 @@ export default function SignUpScreen({ onBack }) {
                   value={form.password_confirmation} onChangeText={v => set("password_confirmation", v)}
                   secureTextEntry={!showConfirm} autoCapitalize="none" />
                 <TouchableOpacity style={styles.eyeBtn} onPress={() => setShowConfirm(!showConfirm)}>
-                  <Text style={styles.eyeText}>{showConfirm ? "🙈" : "👁"}</Text>
+                  <Text style={styles.eyeText}>{showConfirm ? "  " : "👁"}</Text>
                 </TouchableOpacity>
               </View>
             </View>
@@ -324,29 +339,29 @@ export default function SignUpScreen({ onBack }) {
 }
 
 const styles = StyleSheet.create({
-  root:   { flex: 1, backgroundColor: C.bg },
+  root: { flex: 1, backgroundColor: C.bg },
   scroll: { paddingBottom: 40 },
 
-  topBar:         { height: 4, backgroundColor: C.gold },
-  header:         { backgroundColor: C.navy },
-  headerInner:    { paddingHorizontal: 20, paddingTop: 14 },
-  backBtn:        { alignSelf: "flex-start", paddingHorizontal: 12, paddingVertical: 5, borderRadius: 6, backgroundColor: "rgba(255,255,255,0.08)", borderWidth: 1, borderColor: "rgba(255,255,255,0.12)", marginBottom: 12 },
-  backText:       { color: "#8A9FC0", fontSize: 12, fontWeight: "700" },
-  headerOrg:      { color: "#fff", fontSize: 14, fontWeight: "800", textAlign: "center" },
-  headerSubOrg:   { color: "#6A85A8", fontSize: 11, textAlign: "center", marginTop: 3 },
+  topBar: { height: 4, backgroundColor: C.gold },
+  header: { backgroundColor: C.navy },
+  headerInner: { paddingHorizontal: 20, paddingTop: 14 },
+  backBtn: { alignSelf: "flex-start", paddingHorizontal: 12, paddingVertical: 5, borderRadius: 6, backgroundColor: "rgba(255,255,255,0.08)", borderWidth: 1, borderColor: "rgba(255,255,255,0.12)", marginBottom: 12 },
+  backText: { color: "#8A9FC0", fontSize: 12, fontWeight: "700" },
+  headerOrg: { color: "#fff", fontSize: 14, fontWeight: "800", textAlign: "center" },
+  headerSubOrg: { color: "#6A85A8", fontSize: 11, textAlign: "center", marginTop: 3 },
   headerTitleBox: { backgroundColor: C.steel, paddingVertical: 16, alignItems: "center", marginTop: 14 },
-  headerTitle:    { color: "#fff", fontSize: 18, fontWeight: "800" },
+  headerTitle: { color: "#fff", fontSize: 18, fontWeight: "800" },
   headerTitleSub: { color: "rgba(255,255,255,0.65)", fontSize: 11, marginTop: 2 },
 
-  body:      { padding: 16 },
-  errorBox:  { backgroundColor: C.dangerBg, borderLeftWidth: 4, borderLeftColor: C.danger, borderRadius: 10, padding: 12, marginBottom: 12 },
+  body: { padding: 16 },
+  errorBox: { backgroundColor: C.dangerBg, borderLeftWidth: 4, borderLeftColor: C.danger, borderRadius: 10, padding: 12, marginBottom: 12 },
   errorText: { color: C.danger, fontSize: 13, fontWeight: "600" },
 
   sectionHeader: { flexDirection: "row", alignItems: "center", gap: 8, marginTop: 18, marginBottom: 10 },
   sectionAccent: { width: 4, height: 16, backgroundColor: C.gold, borderRadius: 2 },
-  sectionTitle:  { fontSize: 12, fontWeight: "800", color: C.navy, textTransform: "uppercase", letterSpacing: 1 },
+  sectionTitle: { fontSize: 12, fontWeight: "800", color: C.navy, textTransform: "uppercase", letterSpacing: 1 },
 
-  row:  { flexDirection: "row", gap: 10, marginBottom: 0 },
+  row: { flexDirection: "row", gap: 10, marginBottom: 0 },
   half: { flex: 1 },
 
   input: {
@@ -355,40 +370,40 @@ const styles = StyleSheet.create({
   },
   inputFocused: { borderColor: C.steel },
 
-  dropdownWrap:           { marginBottom: 10 },
-  dropdownBtn:            { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 0 },
-  dropdownText:           { fontSize: 13, color: C.navy, flex: 1 },
-  dropdownArrow:          { fontSize: 9, color: C.textMute, marginLeft: 6 },
-  dropdownList:           { backgroundColor: C.surface, borderWidth: 1.5, borderColor: C.steel, borderRadius: 8, marginTop: 4, overflow: "hidden" },
-  dropdownItem:           { paddingHorizontal: 14, paddingVertical: 11, borderBottomWidth: 1, borderBottomColor: C.border },
-  dropdownItemActive:     { backgroundColor: "#EEF2FF" },
-  dropdownItemText:       { fontSize: 13, color: C.textMute },
+  dropdownWrap: { marginBottom: 10 },
+  dropdownBtn: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 0 },
+  dropdownText: { fontSize: 13, color: C.navy, flex: 1 },
+  dropdownArrow: { fontSize: 9, color: C.textMute, marginLeft: 6 },
+  dropdownList: { backgroundColor: C.surface, borderWidth: 1.5, borderColor: C.steel, borderRadius: 8, marginTop: 4, overflow: "hidden" },
+  dropdownItem: { paddingHorizontal: 14, paddingVertical: 11, borderBottomWidth: 1, borderBottomColor: C.border },
+  dropdownItemActive: { backgroundColor: "#EEF2FF" },
+  dropdownItemText: { fontSize: 13, color: C.textMute },
   dropdownItemTextActive: { color: C.navy, fontWeight: "800" },
 
-  hintBox:  { backgroundColor: "#EEF2FF", borderLeftWidth: 4, borderLeftColor: C.steel, borderRadius: 8, padding: 10, marginBottom: 10 },
+  hintBox: { backgroundColor: "#EEF2FF", borderLeftWidth: 4, borderLeftColor: C.steel, borderRadius: 8, padding: 10, marginBottom: 10 },
   hintText: { color: C.steel, fontSize: 11, lineHeight: 17 },
 
   passwordRow: { flexDirection: "row", alignItems: "center", gap: 6 },
-  eyeBtn:      { paddingHorizontal: 10, paddingVertical: 11, backgroundColor: C.surface, borderRadius: 8, borderWidth: 1.5, borderColor: C.border },
-  eyeText:     { fontSize: 14 },
+  eyeBtn: { paddingHorizontal: 10, paddingVertical: 11, backgroundColor: C.surface, borderRadius: 8, borderWidth: 1.5, borderColor: C.border },
+  eyeText: { fontSize: 14 },
 
-  noteBox:  { backgroundColor: "#FEF3E2", borderLeftWidth: 4, borderLeftColor: C.gold, borderRadius: 8, padding: 12, marginBottom: 16 },
+  noteBox: { backgroundColor: "#FEF3E2", borderLeftWidth: 4, borderLeftColor: C.gold, borderRadius: 8, padding: 12, marginBottom: 16 },
   noteText: { color: C.warn, fontSize: 12, lineHeight: 18 },
 
-  submitBtn:  { backgroundColor: C.steel, borderRadius: 10, paddingVertical: 15, alignItems: "center", marginTop: 20, elevation: 4 },
+  submitBtn: { backgroundColor: C.steel, borderRadius: 10, paddingVertical: 15, alignItems: "center", marginTop: 20, elevation: 4 },
   submitText: { color: "#fff", fontSize: 14, fontWeight: "800", letterSpacing: 2 },
 
-  loginLink:     { alignItems: "center", marginTop: 14 },
+  loginLink: { alignItems: "center", marginTop: 14 },
   loginLinkText: { color: C.textMute, fontSize: 13 },
 
-  successRoot:      { flex: 1, backgroundColor: C.bg },
-  successContent:   { flex: 1, alignItems: "center", paddingHorizontal: 24, paddingTop: 48, paddingBottom: 40 },
-  successBadge:     { width: 72, height: 72, borderRadius: 36, backgroundColor: C.navy, borderWidth: 3, borderColor: C.gold, alignItems: "center", justifyContent: "center", marginBottom: 20 },
+  successRoot: { flex: 1, backgroundColor: C.bg },
+  successContent: { flex: 1, alignItems: "center", paddingHorizontal: 24, paddingTop: 48, paddingBottom: 40 },
+  successBadge: { width: 72, height: 72, borderRadius: 36, backgroundColor: C.navy, borderWidth: 3, borderColor: C.gold, alignItems: "center", justifyContent: "center", marginBottom: 20 },
   successBadgeText: { fontSize: 28, color: C.gold, fontWeight: "900" },
-  successOrg:       { fontSize: 10, fontWeight: "900", color: C.textMute, letterSpacing: 2, textTransform: "uppercase", marginBottom: 8 },
-  successTitle:     { fontSize: 22, fontWeight: "900", color: C.navy, marginBottom: 8 },
-  successSub:       { fontSize: 13, color: C.textMute, textAlign: "center", lineHeight: 20, marginBottom: 24 },
-  successCard:      { width: "100%", backgroundColor: C.surface, borderRadius: 12, padding: 16, borderWidth: 1, borderColor: C.border, marginBottom: 12 },
+  successOrg: { fontSize: 10, fontWeight: "900", color: C.textMute, letterSpacing: 2, textTransform: "uppercase", marginBottom: 8 },
+  successTitle: { fontSize: 22, fontWeight: "900", color: C.navy, marginBottom: 8 },
+  successSub: { fontSize: 13, color: C.textMute, textAlign: "center", lineHeight: 20, marginBottom: 24 },
+  successCard: { width: "100%", backgroundColor: C.surface, borderRadius: 12, padding: 16, borderWidth: 1, borderColor: C.border, marginBottom: 12 },
   successCardTitle: { fontSize: 11, fontWeight: "800", color: C.textMute, textTransform: "uppercase", letterSpacing: 1, marginBottom: 12 },
-  successCardItem:  { fontSize: 13, color: C.navy, lineHeight: 22, fontWeight: "600" },
+  successCardItem: { fontSize: 13, color: C.navy, lineHeight: 22, fontWeight: "600" },
 });

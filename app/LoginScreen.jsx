@@ -1,19 +1,19 @@
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useState } from "react";
 import {
-  View,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  StyleSheet,
   ActivityIndicator,
+  Image,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
-  Image,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
 } from "react-native";
-import AsyncStorage from "@react-native-async-storage/async-storage";
 
-const API_URL = "https://manageit-test-api.coeofjrmsu.com/api";
+import { API_URL } from '../api';
 
 export default function LoginScreen({ onLoginSuccess, onSignUp }) {
   const [username, setUsername] = useState("");
@@ -91,7 +91,7 @@ export default function LoginScreen({ onLoginSuccess, onSignUp }) {
             {/* Username field */}
             <View style={styles.field}>
               <View style={styles.fieldIcon}>
-                <Text style={styles.fieldIconText}>👤</Text>
+                <Text style={styles.fieldIconText}>U</Text>
               </View>
               <View style={styles.inputPill}>
                 <TextInput
@@ -109,7 +109,7 @@ export default function LoginScreen({ onLoginSuccess, onSignUp }) {
             {/* Password field */}
             <View style={styles.field}>
               <View style={styles.fieldIcon}>
-                <Text style={styles.fieldIconText}>🔒</Text>
+                <Text style={styles.fieldIconText}>P</Text>
               </View>
               <View style={styles.inputPill}>
                 <TextInput
@@ -122,7 +122,7 @@ export default function LoginScreen({ onLoginSuccess, onSignUp }) {
                   autoCapitalize="none"
                 />
                 <TouchableOpacity onPress={() => setShowPassword(!showPassword)}>
-                  <Text style={styles.eyeText}>{showPassword ? "🙈" : "👁"}</Text>
+                  <Text style={styles.eyeText}>{showPassword ? "  " : "👁"}</Text>
                 </TouchableOpacity>
               </View>
             </View>
@@ -147,13 +147,13 @@ export default function LoginScreen({ onLoginSuccess, onSignUp }) {
           </View>
         </View>
 
-      {/* Sign up */}
-<View style={{ alignItems: "center", marginTop: 20 }}>
-  <Text style={styles.signupText}>Don't have an account yet?</Text>
-  <TouchableOpacity onPress={onSignUp}>
-    <Text style={styles.signupLink}>Sign up now</Text>
-  </TouchableOpacity>
-</View> 
+        {/* Sign up */}
+        <View style={{ alignItems: "center", marginTop: 20 }}>
+          <Text style={styles.signupText}>Don't have an account yet?</Text>
+          <TouchableOpacity onPress={onSignUp}>
+            <Text style={styles.signupLink}>Sign up now</Text>
+          </TouchableOpacity>
+        </View>
 
         {/* Version */}
         <Text style={styles.version}>
@@ -213,7 +213,7 @@ const styles = StyleSheet.create({
   errorText: { color: "#b91c1c", fontSize: 13, fontWeight: "600" },
   field: { flexDirection: "row", alignItems: "center", marginBottom: 12, width: "100%", gap: 10 },
   fieldIcon: { width: 36, height: 36, borderRadius: 10, backgroundColor: NAVY, alignItems: "center", justifyContent: "center" },
-  fieldIconText: { fontSize: 16 },
+  fieldIconText: { fontSize: 16, color: "#ffffff", fontWeight: "700" },
   inputPill: {
     flex: 1, flexDirection: "row", alignItems: "center",
     backgroundColor: TEAL_FIELD, borderRadius: 999, paddingHorizontal: 16, paddingVertical: 10,

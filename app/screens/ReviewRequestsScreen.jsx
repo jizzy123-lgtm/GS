@@ -25,6 +25,8 @@ export default function ReviewRequestsScreen({ user, onBack, onNavigate }) {
   const [selected, setSelected] = useState(null);
   const [actionLoading, setActionLoading] = useState(false);
   const [actionMsg, setActionMsg] = useState("");
+  const [rejectId, setRejectId] = useState(null);
+  const [rejectReason, setRejectReason] = useState("");
   const roleId = user?.role_id;
 
   const fetchRequests = async () => {
@@ -63,7 +65,7 @@ export default function ReviewRequestsScreen({ user, onBack, onNavigate }) {
     return s === filter.toLowerCase();
   });
 
-  const doAction = async (id, action) => {
+  const doAction = async (id, action, reason = "") => {
     setActionLoading(true); setActionMsg("");
     try {
       const token = await AsyncStorage.getItem("authToken") || await AsyncStorage.getItem("token");
@@ -71,11 +73,26 @@ export default function ReviewRequestsScreen({ user, onBack, onNavigate }) {
       if (action === "approve") {
         endpoint = roleId === 2 ? `/maintenance-requests/${id}/approve-head` : `/maintenance-requests/${id}/approve-director`;
       }
+
+      const payload = {
+        comment: reason || (action === "approve" ? "Approved" : "Disapproved")
+      };
+
       const res = await fetch(`${API_URL}${endpoint}`, {
         method: "PUT",
-        headers: { Authorization: `Bearer ${token}`, Accept: "application/json" }
+        headers: {
+          Authorization: `Bearer ${token}`,
+          Accept: "application/json",
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify(payload)
       });
-      if (res.ok) { setActionMsg(`Request ${action}d successfully.`); fetchRequests(); setSelected(null); }
+      if (res.ok) {
+        setActionMsg(`Request ${action}d successfully.`);
+        fetchRequests();
+        setSelected(null);
+        setRejectId(null);
+      }
       else { const d = await res.json(); setActionMsg(d.message || `Failed to ${action}.`); }
     } catch (e) { setActionMsg("Cannot connect to server."); }
     finally { setActionLoading(false); }
@@ -130,7 +147,7 @@ export default function ReviewRequestsScreen({ user, onBack, onNavigate }) {
               <TouchableOpacity style={[styles.approveBtn, actionLoading && { opacity: 0.6 }]} onPress={() => doAction(selected.id, "approve")} disabled={actionLoading}>
                 {actionLoading ? <ActivityIndicator color="#fff" /> : <Text style={styles.approveBtnText}>APPROVE</Text>}
               </TouchableOpacity>
-              <TouchableOpacity style={[styles.disapproveBtn, actionLoading && { opacity: 0.6 }]} onPress={() => doAction(selected.id, "disapprove")} disabled={actionLoading}>
+              <TouchableOpacity style={[styles.disapproveBtn, actionLoading && { opacity: 0.6 }]} onPress={() => setRejectId(selected.id)} disabled={actionLoading}>
                 <Text style={styles.disapproveBtnText}>DISAPPROVE</Text>
               </TouchableOpacity>
             </View>
@@ -141,6 +158,36 @@ export default function ReviewRequestsScreen({ user, onBack, onNavigate }) {
             </TouchableOpacity>
           )}
         </ScrollView>
+
+        {/* Rejection Modal */}
+        {rejectId && (
+          <View style={styles.modalBg}>
+            <View style={styles.modalContent}>
+              <Text style={styles.modalTitle}>Disapprove Request</Text>
+              <Text style={styles.modalLabel}>Please provide a reason (required):</Text>
+              <TextInput
+                style={styles.input}
+                multiline
+                numberOfLines={4}
+                placeholder="Type reason here..."
+                value={rejectReason}
+                onChangeText={setRejectReason}
+              />
+              <View style={styles.modalActions}>
+                <TouchableOpacity style={styles.cancelBtn} onPress={() => { setRejectId(null); setRejectReason(""); }}>
+                  <Text style={styles.cancelBtnText}>Cancel</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.saveBtn, (!rejectReason.trim() || actionLoading) && { opacity: 0.5 }]}
+                  onPress={() => doAction(rejectId, "disapprove", rejectReason)}
+                  disabled={!rejectReason.trim() || actionLoading}
+                >
+                  {actionLoading ? <ActivityIndicator color="#fff" /> : <Text style={styles.saveBtnText}>Confirm Disapproval</Text>}
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+        )}
       </View>
     );
   }
@@ -222,4 +269,14 @@ const styles = StyleSheet.create({
   disapproveBtnText: { color: C.danger, fontSize: 13, fontWeight: "800", letterSpacing: 1.5 },
   assignBtn: { backgroundColor: C.steel, borderRadius: 10, paddingVertical: 15, alignItems: "center", elevation: 4, marginTop: 6 },
   assignBtnText: { color: "#fff", fontSize: 14, fontWeight: "800", letterSpacing: 2 },
+  modalBg: { position: "absolute", top: 0, left: 0, right: 0, bottom: 0, backgroundColor: "rgba(0,0,0,0.5)", justifyContent: "center", padding: 20 },
+  modalContent: { backgroundColor: C.surface, borderRadius: 20, padding: 24, elevation: 5 },
+  modalTitle: { fontSize: 18, fontWeight: "900", color: C.navy, marginBottom: 12 },
+  modalLabel: { fontSize: 12, color: C.textMute, fontWeight: "600", marginBottom: 8 },
+  input: { backgroundColor: C.surfaceAlt, borderRadius: 12, paddingHorizontal: 16, paddingVertical: 12, fontSize: 14, color: C.navy, borderWidth: 1, borderColor: C.border, textAlignVertical: "top", marginBottom: 20 },
+  modalActions: { flexDirection: "row", gap: 12 },
+  cancelBtn: { flex: 1, paddingVertical: 14, borderRadius: 12, alignItems: "center", backgroundColor: C.bg },
+  cancelBtnText: { color: C.textMute, fontWeight: "800" },
+  saveBtn: { flex: 1, paddingVertical: 14, borderRadius: 12, alignItems: "center", backgroundColor: C.danger },
+  saveBtnText: { color: "#fff", fontWeight: "800" },
 });

@@ -10,6 +10,7 @@ import {
   View,
 } from "react-native";
 import ScreenHeader from "./ScreenHeader";
+console.log("ReviewRequestsScreen Loading...");
 
 import { API_URL } from '../../api';
 const C = { navy: "#0B1F3A", steel: "#1E4D8C", gold: "#C9A84C", bg: "#F0F2F5", surface: "#FFFFFF", surfaceAlt: "#F7F9FC", border: "#DDE3EC", textMute: "#8A9BB0", danger: "#9B1C1C", dangerBg: "#FEE8E8", success: "#1A7A4A", successBg: "#EAF6EF", warn: "#B45C10", warnBg: "#FEF3E2", info: "#155E8A", infoBg: "#E6F2FA" };

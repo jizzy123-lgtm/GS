@@ -103,12 +103,32 @@ export default function ReviewRequestsScreen({ user, onBack, onNavigate }) {
   if (selected) {
     const s = SM[selected.status?.toLowerCase()] || SM.pending;
     const isConfirmed = ["confirmed", "approved"].includes(selected.status?.toLowerCase());
-    const canApprove = (roleId === 2 || roleId === 5) && selected.status?.toLowerCase() === "pending";
+
+    // Approval Role Sequence: Head (2) -> Director (5)
+    const isHead = roleId === 2;
+    const isDirector = roleId === 5;
+    const skipPending = selected.status?.toLowerCase() !== "pending";
+
+    const headApproved = !!selected.approved_by_1 || !!selected.approver1;
+    const directorApproved = !!selected.approved_by_2 || !!selected.approver2;
+
+    const canApprove = !skipPending && (
+      (isHead && !headApproved) ||
+      (isDirector && headApproved && !directorApproved)
+    );
+
+    const needsHeadFirst = isDirector && !headApproved && !skipPending;
+
     const canAssign = roleId === 3 && isConfirmed;
     return (
       <View style={{ flex: 1, backgroundColor: C.bg }}>
         <ScreenHeader title="Request Details" onBack={() => { setSelected(null); setActionMsg(""); }} backLabel="← Back to List" />
         <ScrollView contentContainerStyle={{ padding: 14, paddingBottom: 40 }}>
+          {needsHeadFirst && (
+            <View style={[styles.msgBox, { borderLeftColor: C.warn, backgroundColor: C.warnBg }]}>
+              <Text style={[styles.msgText, { color: C.warn }]}>Waiting for Head's Initial Approval</Text>
+            </View>
+          )}
           {actionMsg ? (
             <View style={[styles.msgBox, { borderLeftColor: actionMsg.includes("success") ? C.success : C.danger, backgroundColor: actionMsg.includes("success") ? C.successBg : C.dangerBg }]}>
               <Text style={[styles.msgText, { color: actionMsg.includes("success") ? C.success : C.danger }]}>{actionMsg}</Text>
@@ -127,11 +147,23 @@ export default function ReviewRequestsScreen({ user, onBack, onNavigate }) {
               ["Date", (selected.date_requested || selected.created_at)?.slice(0, 10)],
               ["Description", selected.details || selected.description]
             ].map(([l, v], i, arr) => (
-              <View key={i} style={[styles.dRow, i === arr.length - 1 && { borderBottomWidth: 0 }]}>
+              <View key={i} style={[styles.dRow, i === arr.length - 1 && !headApproved && { borderBottomWidth: 0 }]}>
                 <Text style={styles.dLabel}>{l}</Text>
                 <Text style={styles.dValue}>{v || "—"}</Text>
               </View>
             ))}
+            {headApproved && (
+              <View style={[styles.dRow, !directorApproved && { borderBottomWidth: 0 }]}>
+                <Text style={styles.dLabel}>Approved by Head</Text>
+                <Text style={[styles.dValue, { color: C.success }]}>✓ {selected.approver1?.last_name || "Head"}</Text>
+              </View>
+            )}
+            {directorApproved && (
+              <View style={[styles.dRow, { borderBottomWidth: 0 }]}>
+                <Text style={styles.dLabel}>Approved by Director</Text>
+                <Text style={[styles.dValue, { color: C.success }]}>✓ {selected.approver2?.last_name || "Campus Director"}</Text>
+              </View>
+            )}
           </View>
           {selected.scheduled_date && (
             <View style={styles.schedCard}>

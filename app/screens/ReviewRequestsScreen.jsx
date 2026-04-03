@@ -67,7 +67,14 @@ export default function ReviewRequestsScreen({ user, onBack, onNavigate }) {
     setActionLoading(true); setActionMsg("");
     try {
       const token = await AsyncStorage.getItem("authToken") || await AsyncStorage.getItem("token");
-      const res = await fetch(`${API_URL}/requests/${id}/${action}`, { method: "POST", headers: { Authorization: `Bearer ${token}`, Accept: "application/json" } });
+      let endpoint = `/maintenance-requests/${id}/disapprove`;
+      if (action === "approve") {
+        endpoint = roleId === 2 ? `/maintenance-requests/${id}/approve-head` : `/maintenance-requests/${id}/approve-director`;
+      }
+      const res = await fetch(`${API_URL}${endpoint}`, {
+        method: "PUT",
+        headers: { Authorization: `Bearer ${token}`, Accept: "application/json" }
+      });
       if (res.ok) { setActionMsg(`Request ${action}d successfully.`); fetchRequests(); setSelected(null); }
       else { const d = await res.json(); setActionMsg(d.message || `Failed to ${action}.`); }
     } catch (e) { setActionMsg("Cannot connect to server."); }

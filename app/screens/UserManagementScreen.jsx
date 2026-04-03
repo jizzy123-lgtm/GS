@@ -19,7 +19,7 @@ const C = {
     successBg: "#EAF6EF", info: "#155E8A", infoBg: "#E6F2FA", warn: "#B45C10", warnBg: "#FEF3E2"
 };
 
-export default function UserManagementScreen({ user, onBack }) {
+function UserManagementScreen({ user, onBack }) {
     const [users, setUsers] = useState([]);
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
@@ -251,3 +251,5 @@ const styles = StyleSheet.create({
     saveBtn: { flex: 1, paddingVertical: 14, borderRadius: 12, alignItems: "center", backgroundColor: C.steel },
     saveBtnText: { color: "#fff", fontWeight: "bold" },
 });
+
+export default UserManagementScreen;

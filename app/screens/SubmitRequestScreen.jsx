@@ -39,14 +39,19 @@ function WaitingScreen({ submittedType, onNewRequest, onGoHome }) {
   return (
     <View style={{ flex: 1, backgroundColor: C.bg, alignItems: "center", justifyContent: "center", padding: 24 }}>
       <View style={styles.waitBadge}>
-        <Text style={styles.waitBadgeText}>✓</Text>
+        <Text style={styles.waitBadgeText}>OK</Text>
       </View>
       <Text style={styles.waitOrg}>GSU GATEWAY</Text>
       <Text style={styles.waitTitle}>Request Submitted!</Text>
       <Text style={styles.waitSub}>Your <Text style={{ color: C.steel, fontWeight: "800" }}>{submittedType}</Text> request has been received.</Text>
       <View style={styles.waitCard}>
         <Text style={styles.waitCardTitle}>What happens next?</Text>
-        {["Head/Director reviews your request", "Request gets approved or disapproved", "Service is scheduled and completed", "You provide feedback on the service"].map((s, i) => (
+        {[
+          "Staff verifies your request first",
+          "Head reviews after staff verification",
+          "Campus Director reviews after Head approval",
+          "Staff assigns priority, then schedule and completion follows",
+        ].map((s, i) => (
           <View key={i} style={styles.stepRow}>
             <View style={[styles.stepNum, i === 0 && styles.stepNumActive]}>
               <Text style={[styles.stepNumText, i === 0 && styles.stepNumTextActive]}>{i + 1}</Text>
@@ -91,7 +96,7 @@ export default function SubmitRequestScreen({ onBack, onSuccess }) {
       if (userStr) setUserData(JSON.parse(userStr));
 
       // Fetch maintenance types from API
-      const token = await AsyncStorage.getItem("token");
+      const token = await AsyncStorage.getItem("authToken") || await AsyncStorage.getItem("token");
       const res = await fetch(`${API_URL}/maintenance-types`, {
         headers: { Authorization: `Bearer ${token}`, Accept: "application/json" },
       });
@@ -114,11 +119,11 @@ export default function SubmitRequestScreen({ onBack, onSuccess }) {
 
     setLoading(true);
     try {
-      const token = await AsyncStorage.getItem("token");
+      const token = await AsyncStorage.getItem("authToken") || await AsyncStorage.getItem("token");
 
-      // ✅ Send correct fields matching backend expectation
+      // Send request fields matching backend expectation.
       const payload = {
-        date_requested: new Date().toISOString().slice(0, 10), // today's date
+        date_requested: new Date().toISOString().slice(0, 10),
         details: description,
         requesting_personnel: userData.id,
         position_id: userData.position_id,
@@ -147,13 +152,13 @@ export default function SubmitRequestScreen({ onBack, onSuccess }) {
       } else {
         // Show validation errors if any
         if (data.errors) {
-          const firstError = Object.values(data.errors)[0];
-          setError(Array.isArray(firstError) ? firstError[0] : firstError);
+          const mergedErrors = Object.values(data.errors).flat().join("\n");
+          setError(mergedErrors || data.message || "Failed to submit.");
         } else {
           setError(data.message || "Failed to submit.");
         }
       }
-    } catch (e) {
+    } catch (_e) {
       setError("Cannot connect to server.");
     } finally {
       setLoading(false);
@@ -225,7 +230,7 @@ export default function SubmitRequestScreen({ onBack, onSuccess }) {
           />
 
           <View style={styles.noteBox}>
-            <Text style={styles.noteText}>Your request will be reviewed by the Head / Campus Director before processing.</Text>
+            <Text style={styles.noteText}>Your request goes through Staff verification, Head approval, and Campus Director approval before final scheduling.</Text>
           </View>
 
           <TouchableOpacity
@@ -281,3 +286,4 @@ const styles = StyleSheet.create({
   homeBtn: { width: "100%", borderRadius: 10, paddingVertical: 14, alignItems: "center", borderWidth: 1.5, borderColor: C.border, backgroundColor: C.surface },
   homeBtnText: { color: C.navy, fontSize: 13, fontWeight: "800", letterSpacing: 1.5 },
 });
+

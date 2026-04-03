@@ -9,8 +9,9 @@ import {
   View,
 } from "react-native";
 import ScreenHeader from "./ScreenHeader";
+import { MAINTENANCE_STATUS, normalizeMaintenanceStatus } from "../constants/maintenanceStatus";
+import { normalizeRoleId, ROLE_IDS } from "../constants/roles";
 
-// ✅ FIX 1: Consistent API URL — same sa ReviewRequestsScreen
 import { API_URL } from '../../api';
 
 const C = {
@@ -20,55 +21,103 @@ const C = {
   danger: "#9B1C1C", dangerBg: "#FEE8E8", info: "#155E8A", infoBg: "#E6F2FA",
 };
 const STATUS = {
-  pending: { color: "#f59e0b", bg: "#fffbeb", label: "Pending", icon: "⏳" },
-  approved: { color: "#10b981", bg: "#f0fdf4", label: "Approved", icon: "✅" },
-  disapproved: { color: "#ef4444", bg: "#fff0f0", label: "Disapproved", icon: "❌" },
-  completed: { color: "#3b82f6", bg: "#eff6ff", label: "Completed", icon: "🎉" },
-  in_progress: { color: "#8b5cf6", bg: "#f5f3ff", label: "In Progress", icon: "🔧" },
-  confirmed: { color: "#155E8A", bg: "#E6F2FA", label: "Confirmed", icon: "📋" },
+  [MAINTENANCE_STATUS.PENDING]: { color: C.warn, bg: C.warnBg, label: "Pending", icon: "P" },
+  [MAINTENANCE_STATUS.APPROVED]: { color: C.success, bg: C.successBg, label: "Approved", icon: "A" },
+  [MAINTENANCE_STATUS.DISAPPROVED]: { color: C.danger, bg: C.dangerBg, label: "Disapproved", icon: "D" },
+  [MAINTENANCE_STATUS.DONE]: { color: C.navy, bg: C.surfaceAlt, label: "Done", icon: "N" },
+  [MAINTENANCE_STATUS.CANCELLED]: { color: C.textMute, bg: C.surfaceAlt, label: "Cancelled", icon: "C" },
 };
-const STATUS_MAP = { 1: "pending", 2: "approved", 3: "disapproved", 4: "confirmed", 5: "completed" };
-const FILTERS = ["All", "Pending", "Approved", "Confirmed", "Completed", "Disapproved"];
+const FILTERS = ["All", "Pending", "Approved", "Done", "Disapproved", "Cancelled"];
 
-export default function ViewRequestStatusScreen({ onBack, onNavigate, user }) {
+const toNumberOrNull = (value) => {
+  const n = Number(value);
+  return Number.isFinite(n) ? n : null;
+};
+
+const isRequestOwnedByUser = (request, user) => {
+  const userIds = [user?.id, user?.user_id].map(toNumberOrNull).filter(v => v !== null);
+  const ownerIds = [
+    request?.requesting_personnel,
+    request?.requesting_personnel_id,
+    request?.requester_id,
+    request?.user_id,
+    request?.personnel_id,
+    request?.requested_by,
+    request?.user?.id,
+    request?.user?.user_id,
+    request?.requester?.id,
+    request?.requester?.user_id,
+  ].map(toNumberOrNull).filter(v => v !== null);
+
+  if (userIds.length > 0 && ownerIds.length > 0) return ownerIds.some(id => userIds.includes(id));
+
+  const ownerUsername = String(request?.username || request?.requester?.username || request?.user?.username || "").trim().toLowerCase();
+  const currentUsername = String(user?.username || "").trim().toLowerCase();
+  return Boolean(ownerUsername && currentUsername && ownerUsername === currentUsername);
+};
+const normalizeFilter = (value) => {
+  const target = String(value || "").toLowerCase();
+  return FILTERS.find(f => f.toLowerCase() === target) || "All";
+};
+const sortRequestsDescending = (list) => {
+  const getTimestamp = (request) => {
+    const value = request?.created_at || request?.date_requested || request?.updated_at;
+    const ts = Date.parse(value || "");
+    return Number.isNaN(ts) ? -Infinity : ts;
+  };
+
+  return [...list].sort((a, b) => {
+    const byDate = getTimestamp(b) - getTimestamp(a);
+    if (byDate !== 0) return byDate;
+    return Number(b?.id || 0) - Number(a?.id || 0);
+  });
+};
+const normalizeRequestScope = (value) => {
+  const target = String(value || "").toLowerCase();
+  if (target === "all" || target === "my") return target;
+  return null;
+};
+
+export default function ViewRequestStatusScreen({ onBack, onNavigate, user, initialFilter, requestScope, requestId }) {
   const [requests, setRequests] = useState([]);
   const [filtered, setFiltered] = useState([]);
-  const [activeFilter, setActiveFilter] = useState("All");
+  const [activeFilter, setActiveFilter] = useState(normalizeFilter(initialFilter));
   const [types, setTypes] = useState({});
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [selected, setSelected] = useState(null);
+  const [actionLoading, setActionLoading] = useState(false);
+  const [actionMsg, setActionMsg] = useState("");
 
-  // ✅ FIX 2: Extract roleId from user prop
-  const roleId = user?.role_id;
+  const roleId = normalizeRoleId(user?.role_id);
+  const scope = normalizeRequestScope(requestScope) || (roleId === ROLE_IDS.REQUESTER ? "my" : "all");
+  const screenTitle = scope === "all" ? "All Requests" : "My Requests";
 
   const fetchRequests = async () => {
     try {
-      // ✅ FIX 3: Try both token keys for compatibility
-      const token = await AsyncStorage.getItem("authToken")
-        || await AsyncStorage.getItem("token");
+      const token = await AsyncStorage.getItem("authToken") || await AsyncStorage.getItem("token");
 
       if (!token) {
-        console.error("No token found! Please login again.");
         setRequests([]);
         return;
       }
 
-      // Unified endpoint for maintenance requests
       const ep = "/maintenance-requests";
 
-      console.log("Fetching from:", `${API_URL}${ep}`);
-      console.log("Role ID:", roleId);
-
-      const res = await fetch(`${API_URL}${ep}`, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-          Accept: "application/json",
-        },
-        signal: AbortSignal.timeout(45000),
-      });
-
-      console.log("Response status:", res.status);
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 45000);
+      let res;
+      try {
+        res = await fetch(`${API_URL}${ep}`, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            Accept: "application/json",
+          },
+          signal: controller.signal,
+        });
+      } finally {
+        clearTimeout(timeoutId);
+      }
 
       if (!res.ok) {
         throw new Error(`Server error: ${res.status}`);
@@ -89,14 +138,18 @@ export default function ViewRequestStatusScreen({ onBack, onNavigate, user }) {
         currentTypes = tMap;
       }
 
-      setRequests(reqList.map(r => ({
+      const normalizedRequests = reqList.map(r => ({
         ...r,
-        status: r.status || STATUS_MAP[r.status_id] || "pending",
+        status: normalizeMaintenanceStatus(r.status, r.status_id),
         maintenance_type_name: currentTypes[r.maintenance_type_id] || r.maintenance_type?.name || r.maintenance_type || r.type
-      })));
+      }));
 
-    } catch (e) {
-      console.error("fetchRequests error:", e.message);
+      const scoped = scope === "my"
+        ? normalizedRequests.filter((request) => isRequestOwnedByUser(request, user))
+        : normalizedRequests;
+      const sorted = sortRequestsDescending(scoped);
+      setRequests(sorted);
+    } catch (_e) {
       setRequests([]);
     } finally {
       setLoading(false);
@@ -106,30 +159,74 @@ export default function ViewRequestStatusScreen({ onBack, onNavigate, user }) {
 
   useEffect(() => { fetchRequests(); }, []);
   useEffect(() => {
+    setActiveFilter(normalizeFilter(initialFilter));
+  }, [initialFilter]);
+  useEffect(() => {
     setFiltered(
       activeFilter === "All"
         ? requests
         : requests.filter(r => {
-          const s = (r.status || "pending").toLowerCase();
+          const s = normalizeMaintenanceStatus(r.status, r.status_id);
           return s === activeFilter.toLowerCase();
         })
     );
   }, [activeFilter, requests]);
 
+  useEffect(() => {
+    if (!requestId || requests.length === 0) return;
+    const target = requests.find((request) => Number(request.id) === Number(requestId));
+    if (target) setSelected(target);
+  }, [requestId, requests]);
+
   const onRefresh = () => { setRefreshing(true); fetchRequests(); };
+
+  const cancelRequest = async (request) => {
+    setActionLoading(true);
+    setActionMsg("");
+
+    try {
+      const token = await AsyncStorage.getItem("authToken") || await AsyncStorage.getItem("token");
+      const res = await fetch(`${API_URL}/maintenance-requests/${request.id}/cancel`, {
+        method: "PUT",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          Accept: "application/json",
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({}),
+      });
+      const data = await res.json().catch(() => ({}));
+
+      if (!res.ok) {
+        setActionMsg(data?.message || "Failed to cancel request.");
+        return;
+      }
+
+      setActionMsg("Request cancelled successfully.");
+      setSelected(null);
+      fetchRequests();
+    } catch (_e) {
+      setActionMsg("Cannot connect to server.");
+    } finally {
+      setActionLoading(false);
+    }
+  };
 
   if (selected) return (
     <RequestDetail
       request={selected}
       onBack={() => setSelected(null)}
       user={user}
+      actionMsg={actionMsg}
+      onCancel={() => cancelRequest(selected)}
+      cancelLoading={actionLoading}
       onFeedback={() => onNavigate("Feedback", { requestId: selected.id })}
     />
   );
 
   return (
     <View style={{ flex: 1, backgroundColor: C.bg }}>
-      <ScreenHeader title="My Requests" subtitle={`${filtered.length} found`} onBack={onBack} />
+      <ScreenHeader title={screenTitle} subtitle={`${filtered.length} found`} onBack={onBack} />
       <ScrollView
         contentContainerStyle={styles.scroll}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={C.navy} />}
@@ -157,13 +254,13 @@ export default function ViewRequestStatusScreen({ onBack, onNavigate, user }) {
             : filtered.length === 0
               ? (
                 <View style={styles.empty}>
-                  <Text style={styles.emptyIcon}>📭</Text>
+                  <Text style={styles.emptyIcon}>-</Text>
                   <Text style={styles.emptyText}>No requests found.</Text>
                 </View>
               )
               : filtered.map((req, i) => {
-                const st = req.status?.toLowerCase() || "pending";
-                const s = STATUS[st] || STATUS.pending;
+                const st = normalizeMaintenanceStatus(req.status, req.status_id);
+                const s = STATUS[st] || STATUS[MAINTENANCE_STATUS.PENDING];
                 return (
                   <TouchableOpacity
                     key={i}
@@ -178,9 +275,9 @@ export default function ViewRequestStatusScreen({ onBack, onNavigate, user }) {
                       <Text style={styles.cardDate}>{req.created_at?.slice(0, 10)}</Text>
                     </View>
                     <Text style={styles.cardType}>{req.maintenance_type_name || req.maintenance_type?.name || "Maintenance Request"}</Text>
-                    <Text style={styles.cardLocation} numberOfLines={1}>📍 {req.location || "Office/Campus"}</Text>
+                    <Text style={styles.cardLocation} numberOfLines={1}>{req.location || "Office/Campus"}</Text>
                     <Text style={styles.cardDesc} numberOfLines={2}>{req.details || req.description || "No description provided."}</Text>
-                    <Text style={styles.viewMore}>View Details →</Text>
+                    <Text style={styles.viewMore}>View Details</Text>
                   </TouchableOpacity>
                 );
               })
@@ -191,30 +288,39 @@ export default function ViewRequestStatusScreen({ onBack, onNavigate, user }) {
   );
 }
 
-function RequestDetail({ request, onBack, user, onFeedback }) {
-  const st = request.status?.toLowerCase() || "pending";
-  const s = STATUS[st] || STATUS.pending;
-  const isCompleted = st === "completed";
-  const isRequester = user?.role_id === 4;
+function RequestDetail({ request, onBack, user, onFeedback, onCancel, cancelLoading, actionMsg }) {
+  const st = normalizeMaintenanceStatus(request.status, request.status_id);
+  const s = STATUS[st] || STATUS[MAINTENANCE_STATUS.PENDING];
+  const isDone = st === MAINTENANCE_STATUS.DONE;
+  const isPending = st === MAINTENANCE_STATUS.PENDING;
+  const isRequester = normalizeRoleId(user?.role_id) === ROLE_IDS.REQUESTER;
+  const canCancel = isRequester && isPending;
+  const actionError = /failed|cannot|only|unable|required|missing/i.test(String(actionMsg || ""));
+
   return (
     <View style={{ flex: 1, backgroundColor: "#F0F2F5" }}>
-      <ScreenHeader title="Request Details" onBack={onBack} backLabel="← Back to List" />
+      <ScreenHeader title="Request Details" onBack={onBack} backLabel="Back to List" />
       <ScrollView contentContainerStyle={{ paddingBottom: 40 }}>
         <View style={{ padding: 14 }}>
+          {actionMsg ? (
+            <View style={[styles.statusMessage, { borderLeftColor: actionError ? C.danger : C.success, backgroundColor: actionError ? C.dangerBg : C.successBg }]}>
+              <Text style={[styles.statusMessageText, { color: actionError ? C.danger : C.success }]}>{actionMsg}</Text>
+            </View>
+          ) : null}
           <View style={[styles.statusBanner, { backgroundColor: s.bg, borderColor: s.color }]}>
             <Text style={[styles.statusBannerText, { color: s.color }]}>{s.icon}  {s.label}</Text>
           </View>
           {[
             { l: "Request ID", v: `#${request.id}` },
             { l: "Maintenance Type", v: request.maintenance_type_name || request.maintenance_type?.name || "Unknown Type" },
-            { l: "Priority", v: request.priority || "Pending Review" },
+            { l: "Priority", v: request.priority_number || request.priority || "Pending priority assignment" },
             { l: "Location", v: request.location },
             { l: "Description", v: request.details || request.description },
             { l: "Submitted", v: (request.date_requested || request.created_at)?.slice(0, 10) },
           ].map((row, i) => (
             <View key={i} style={styles.detailRow}>
               <Text style={styles.detailLabel}>{row.l}</Text>
-              <Text style={styles.detailValue}>{row.v || "—"}</Text>
+              <Text style={styles.detailValue}>{row.v || "-"}</Text>
             </View>
           ))}
           {request.remarks && (
@@ -223,9 +329,14 @@ function RequestDetail({ request, onBack, user, onFeedback }) {
               <Text style={[styles.detailValue, { color: "#92400e", fontWeight: "700" }]}>{request.remarks}</Text>
             </View>
           )}
-          {isCompleted && isRequester && (
+          {canCancel && (
+            <TouchableOpacity style={[styles.feedbackBtn, cancelLoading && { opacity: 0.7 }]} onPress={onCancel} activeOpacity={0.85} disabled={cancelLoading}>
+              {cancelLoading ? <ActivityIndicator color="#fff" /> : <Text style={styles.feedbackBtnText}>Cancel Request</Text>}
+            </TouchableOpacity>
+          )}
+          {isDone && isRequester && (
             <TouchableOpacity style={styles.feedbackBtn} onPress={onFeedback} activeOpacity={0.85}>
-              <Text style={styles.feedbackBtnText}>💬 Leave Feedback</Text>
+              <Text style={styles.feedbackBtnText}>Leave Feedback</Text>
             </TouchableOpacity>
           )}
         </View>
@@ -254,6 +365,8 @@ const styles = StyleSheet.create({
   empty: { alignItems: "center", paddingVertical: 60 },
   emptyIcon: { fontSize: 44, marginBottom: 10 },
   emptyText: { fontSize: 15, color: "#94a3b8", fontWeight: "600" },
+  statusMessage: { borderLeftWidth: 4, borderRadius: 10, padding: 12, marginBottom: 12 },
+  statusMessageText: { fontSize: 13, fontWeight: "600" },
   statusBanner: { borderWidth: 1.5, borderRadius: 12, padding: 14, alignItems: "center", marginBottom: 14 },
   statusBannerText: { fontSize: 17, fontWeight: "800" },
   detailRow: { backgroundColor: "#fff", borderRadius: 10, padding: 14, marginBottom: 8, elevation: 1 },
@@ -262,3 +375,4 @@ const styles = StyleSheet.create({
   feedbackBtn: { backgroundColor: "#1a5c72", borderRadius: 14, paddingVertical: 14, alignItems: "center", marginTop: 14, elevation: 4 },
   feedbackBtnText: { color: "#fff", fontSize: 15, fontWeight: "800" },
 });
+

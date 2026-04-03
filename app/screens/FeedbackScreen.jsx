@@ -8,6 +8,7 @@ import {
   View,
 } from "react-native";
 import ScreenHeader from "./ScreenHeader";
+import { MAINTENANCE_STATUS, normalizeMaintenanceStatus } from "../constants/maintenanceStatus";
 
 import { API_URL } from '../../api';
 const C = { navy: "#0B1F3A", steel: "#1E4D8C", gold: "#C9A84C", bg: "#F0F2F5", surface: "#FFFFFF", border: "#DDE3EC", textMute: "#8A9BB0", danger: "#9B1C1C", dangerBg: "#FEE8E8", success: "#1A7A4A", successBg: "#EAF6EF", warn: "#B45C10", warnBg: "#FEF3E2", info: "#155E8A", infoBg: "#E6F2FA" };
@@ -26,12 +27,18 @@ export default function FeedbackScreen({ onBack, requestId, user }) {
 
   const fetchCompleted = async () => {
     try {
-      const token = await AsyncStorage.getItem("token");
-      const res = await fetch(`${API_URL}/requests`, { headers: { Authorization: `Bearer ${token}`, Accept: "application/json" } });
+      const token = await AsyncStorage.getItem("authToken") || await AsyncStorage.getItem("token");
+      const res = await fetch(`${API_URL}/maintenance-requests`, { headers: { Authorization: `Bearer ${token}`, Accept: "application/json" } });
       const data = await res.json();
       const list = Array.isArray(data) ? data : data.data || [];
-      setCompletedRequests(list.filter(r => r.status?.toLowerCase() === "completed" && !r.has_feedback));
-    } catch (e) { setCompletedRequests([]); }
+      setCompletedRequests(
+        list.filter(
+          (requestItem) =>
+            normalizeMaintenanceStatus(requestItem.status, requestItem.status_id) === MAINTENANCE_STATUS.DONE &&
+            !requestItem.has_feedback
+        )
+      );
+    } catch (_e) { setCompletedRequests([]); }
     finally { setFetchingRequests(false); }
   };
 
@@ -41,7 +48,7 @@ export default function FeedbackScreen({ onBack, requestId, user }) {
     if (!comment.trim()) { Alert.alert("Error", "Please write a comment."); return; }
     setLoading(true);
     try {
-      const token = await AsyncStorage.getItem("token");
+      const token = await AsyncStorage.getItem("authToken") || await AsyncStorage.getItem("token");
       const res = await fetch(`${API_URL}/feedback`, {
         method: "POST",
         headers: { "Content-Type": "application/json", Accept: "application/json", Authorization: `Bearer ${token}` },
@@ -50,13 +57,13 @@ export default function FeedbackScreen({ onBack, requestId, user }) {
       const data = await res.json();
       if (res.ok) setSubmitted(true);
       else Alert.alert("Error", data.message || "Failed to submit.");
-    } catch (e) { Alert.alert("Error", "Cannot connect to server."); }
+    } catch (_e) { Alert.alert("Error", "Cannot connect to server."); }
     finally { setLoading(false); }
   };
 
   if (submitted) return (
     <View style={styles.successScreen}>
-      <Text style={styles.successIcon}>🎉</Text>
+      <Text style={styles.successIcon}>OK</Text>
       <Text style={styles.successTitle}>Thank You!</Text>
       <Text style={styles.successSub}>Your feedback helps us improve our services.</Text>
       <TouchableOpacity style={styles.doneBtn} onPress={onBack} activeOpacity={0.85}>
@@ -73,16 +80,16 @@ export default function FeedbackScreen({ onBack, requestId, user }) {
 
           {!requestId && (
             <>
-              <Text style={styles.label}>Select Completed Request </Text>
+              <Text style={styles.label}>Select Done Request </Text>
               {fetchingRequests ? <ActivityIndicator color={C.navy} style={{ marginVertical: 16 }} />
-                : completedRequests.length === 0 ? <View style={styles.emptyBox}><Text style={styles.emptyText}>No completed requests available.</Text></View>
+                : completedRequests.length === 0 ? <View style={styles.emptyBox}><Text style={styles.emptyText}>No done requests available.</Text></View>
                   : completedRequests.map(req => (
                     <TouchableOpacity key={req.id} style={[styles.reqOption, selectedRequest === req.id && styles.reqOptionActive]} onPress={() => setSelectedRequest(req.id)} activeOpacity={0.8}>
                       <View style={{ flex: 1 }}>
                         <Text style={styles.reqType}>{req.maintenance_type || req.type}</Text>
                         <Text style={styles.reqDate}>{req.created_at?.slice(0, 10)}</Text>
                       </View>
-                      {selectedRequest === req.id && <View style={styles.check}><Text style={{ color: "#fff", fontSize: 12 }}>✓</Text></View>}
+                      {selectedRequest === req.id && <View style={styles.check}><Text style={{ color: "#fff", fontSize: 12 }}>OK</Text></View>}
                     </TouchableOpacity>
                   ))}
             </>
@@ -107,11 +114,11 @@ export default function FeedbackScreen({ onBack, requestId, user }) {
           <TextInput style={[styles.input, styles.textarea]} placeholder="Share your experience..." placeholderTextColor="#a0aec0" value={comment} onChangeText={setComment} multiline numberOfLines={5} textAlignVertical="top" />
 
           <View style={styles.noteBox}>
-            <Text style={styles.noteText}>📝 Feedback is mandatory after service completion.</Text>
+            <Text style={styles.noteText}>Feedback is mandatory after service completion.</Text>
           </View>
 
           <TouchableOpacity style={[styles.submitBtn, loading && { opacity: 0.7 }]} onPress={handleSubmit} disabled={loading} activeOpacity={0.85}>
-            {loading ? <ActivityIndicator color="#fff" /> : <Text style={styles.submitText}>SUBMIT FEEDBACK →</Text>}
+            {loading ? <ActivityIndicator color="#fff" /> : <Text style={styles.submitText}>SUBMIT FEEDBACK</Text>}
           </TouchableOpacity>
         </View>
       </ScrollView>
@@ -150,3 +157,4 @@ const styles = StyleSheet.create({
   doneBtn: { backgroundColor: C.navy, borderRadius: 14, paddingVertical: 15, paddingHorizontal: 48, elevation: 5 },
   doneBtnText: { color: "#fff", fontSize: 14, fontWeight: "800", letterSpacing: 2 },
 });
+

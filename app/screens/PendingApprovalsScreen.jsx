@@ -12,6 +12,7 @@ import {
     View,
 } from "react-native";
 import { API_URL } from "../../api";
+import { getRoleLabel, normalizeRoleId } from "../constants/roles";
 import ScreenHeader from "./ScreenHeader";
 
 const C = {
@@ -54,14 +55,6 @@ const POSITIONS = [
     { id: 2, label: "Staff" },
 ];
 
-const ROLES = [
-    { id: 1, label: "Admin" },
-    { id: 2, label: "Head" },
-    { id: 3, label: "Staff" },
-    { id: 4, label: "Requester" },
-    { id: 5, label: "Campus Director" },
-];
-
 export default function PendingApprovalsScreen({ user, onBack }) {
     const [accounts, setAccounts] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -78,7 +71,6 @@ export default function PendingApprovalsScreen({ user, onBack }) {
             const token = await AsyncStorage.getItem("authToken") || await AsyncStorage.getItem("token");
             const res = await fetch(`${API_URL}/pending-approvals`, {
                 headers: { Authorization: `Bearer ${token}`, Accept: "application/json" },
-                signal: AbortSignal.timeout(45000),
             });
             const data = await res.json();
             setAccounts(Array.isArray(data) ? data : data.data || []);
@@ -117,7 +109,6 @@ export default function PendingApprovalsScreen({ user, onBack }) {
                 method: "PUT",
                 headers: { Authorization: `Bearer ${token}`, Accept: "application/json", "Content-Type": "application/json" },
                 body: JSON.stringify(body),
-                signal: AbortSignal.timeout(45000),
             });
             if (res.ok) {
                 setSuccessMsg(action === "approve" ? "Account approved successfully." : "Account rejected successfully.");
@@ -130,7 +121,7 @@ export default function PendingApprovalsScreen({ user, onBack }) {
                 const d = await res.json();
                 setSuccessMsg(d.message || "Action failed.");
             }
-        } catch (e) {
+        } catch (_e) {
             setSuccessMsg("Cannot connect to server.");
         } finally {
             setActionLoading(false);
@@ -152,8 +143,8 @@ export default function PendingApprovalsScreen({ user, onBack }) {
             || selected?.office?.name || selected?.office_name || selected?.office;
         const positionLabel = POSITIONS.find(p => p.id === selected?.position_id)?.label
             || selected?.position?.name || selected?.position_name || selected?.position;
-        const roleLabel = ROLES.find(r => r.id === selected?.role_id)?.label
-            || selected?.role?.name || selected?.role_name || selected?.role;
+        const roleLabel = getRoleLabel(normalizeRoleId(selected?.role_id), "")
+            || selected?.role?.name || selected?.role_name || selected?.role || "User";
 
         return (
             <View style={{ flex: 1, backgroundColor: C.bg }}>
@@ -162,7 +153,7 @@ export default function PendingApprovalsScreen({ user, onBack }) {
                     onBack={() => { setSelected(null); setSuccessMsg(""); }}
                     backLabel="← Back to Requests"
                 />
-                <ScrollView contentContainerStyle={{ padding: 14, paddingBottom: 40 }}>
+                <ScrollView contentContainerStyle={{ padding: 14, paddingBottom: 40 }} keyboardShouldPersistTaps="handled">
 
                     {/* Success / Error Message */}
                     {!!successMsg && (
@@ -294,7 +285,7 @@ export default function PendingApprovalsScreen({ user, onBack }) {
     return (
         <View style={{ flex: 1, backgroundColor: C.bg }}>
             <ScreenHeader
-                title="Pending Approvals"
+                title="Account Approvals"
                 subtitle="Manage user account requests"
                 onBack={onBack}
             />
@@ -321,6 +312,7 @@ export default function PendingApprovalsScreen({ user, onBack }) {
             <ScrollView
                 contentContainerStyle={{ padding: 14, paddingBottom: 40 }}
                 refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={C.steel} />}
+                keyboardShouldPersistTaps="handled"
             >
                 {loading ? (
                     <ActivityIndicator color={C.steel} style={{ marginTop: 40 }} />

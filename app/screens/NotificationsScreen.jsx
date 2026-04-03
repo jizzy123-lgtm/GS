@@ -11,6 +11,7 @@ import {
   TouchableWithoutFeedback,
   View,
 } from "react-native";
+import { Ionicons } from "@expo/vector-icons";
 import ScreenHeader from "./ScreenHeader";
 
 import { API_URL } from '../../api';
@@ -20,7 +21,7 @@ const C = {
   warn: "#B45C10", warnBg: "#FEF3E2", danger: "#9B1C1C", dangerBg: "#FEE8E8",
   info: "#155E8A", infoBg: "#E6F2FA",
 };
-const ICONS = { approved: "✅", disapproved: "❌", completed: "🎉", pending: "⏳", feedback: "💬", schedule: "📅", default: "🔔" };
+const ICONS = { director: "notifications", request: "notifications", approved: "checkmark-circle", disapproved: "close-circle", completed: "ribbon", pending: "time", feedback: "chatbubble", schedule: "calendar", default: "notifications" };
 
 export default function NotificationsScreen({ onBack }) {
   const [notifications, setNotifications] = useState([]);
@@ -34,7 +35,7 @@ export default function NotificationsScreen({ onBack }) {
       const res = await fetch(`${API_URL}/notifications`, { headers: { Authorization: `Bearer ${token}`, Accept: "application/json" } });
       const data = await res.json();
       setNotifications(Array.isArray(data) ? data : data.data || []);
-    } catch (e) { setNotifications([]); }
+    } catch (_e) { setNotifications([]); }
     finally { setLoading(false); setRefreshing(false); }
   };
 
@@ -43,7 +44,7 @@ export default function NotificationsScreen({ onBack }) {
       const token = await AsyncStorage.getItem("token");
       await fetch(`${API_URL}/notifications/read-all`, { method: "POST", headers: { Authorization: `Bearer ${token}`, Accept: "application/json" } });
       setNotifications(prev => prev.map(n => ({ ...n, read_at: new Date().toISOString() })));
-    } catch (e) { }
+    } catch (_e) { }
   };
 
   const markRead = async (id) => {
@@ -51,7 +52,7 @@ export default function NotificationsScreen({ onBack }) {
       const token = await AsyncStorage.getItem("token");
       await fetch(`${API_URL}/notifications/${id}/read`, { method: "POST", headers: { Authorization: `Bearer ${token}`, Accept: "application/json" } });
       setNotifications(prev => prev.map(n => n.id === id ? { ...n, read_at: new Date().toISOString() } : n));
-    } catch (e) { }
+    } catch (_e) { }
   };
 
   const handleTap = (n) => { setSelected(n); if (!n.read_at) markRead(n.id); };
@@ -91,14 +92,14 @@ export default function NotificationsScreen({ onBack }) {
             <ActivityIndicator color={C.navy} style={{ marginTop: 40 }} />
           ) : notifications.length === 0 ? (
             <View style={styles.emptyCard}>
-              <Text style={styles.emptyIcon}>🔕</Text>
+              <Ionicons name="notifications-off" size={48} color="#8A9BB0" style={{ marginBottom: 12 }} />
               <Text style={styles.emptyTitle}>No Notifications</Text>
-              <Text style={styles.emptyText}>You're all caught up!</Text>
+              <Text style={styles.emptyText}>You are all caught up!</Text>
             </View>
           ) : notifications.map((n, i) => (
             <TouchableOpacity key={n.id || i} style={[styles.card, !n.read_at && styles.cardUnread]} onPress={() => handleTap(n)} activeOpacity={0.8}>
               <View style={[styles.iconBox, !n.read_at && styles.iconBoxUnread]}>
-                <Text style={styles.icon}>{getIcon(n)}</Text>
+                <Ionicons name={getIcon(n)} size={18} color={!n.read_at ? C.navy : C.textMute} />
               </View>
               <View style={{ flex: 1 }}>
                 <View style={styles.cardTop}>
@@ -123,7 +124,7 @@ export default function NotificationsScreen({ onBack }) {
               <View style={styles.modal}>
                 <View style={[styles.modalBar, { backgroundColor: selected ? getColor(selected).color : C.navy }]} />
                 <View style={[styles.modalIconBox, { backgroundColor: selected ? getColor(selected).bg : C.border }]}>
-                  <Text style={styles.modalIcon}>{selected ? getIcon(selected) : "🔔"}</Text>
+                  <Ionicons name={selected ? getIcon(selected) : "notifications"} size={26} color={selected ? getColor(selected).color : C.navy} />
                 </View>
                 <Text style={styles.modalTitle}>{selected?.data?.title || selected?.title || "Notification"}</Text>
                 <Text style={styles.modalTime}>{selected?.created_at?.slice(0, 16).replace("T", " ") || ""}</Text>
@@ -153,21 +154,18 @@ const styles = StyleSheet.create({
   cardUnread: { borderLeftWidth: 4, borderLeftColor: "#0B1F3A", backgroundColor: "#F0F4FF" },
   iconBox: { width: 42, height: 42, borderRadius: 21, backgroundColor: "#F0F2F5", alignItems: "center", justifyContent: "center" },
   iconBoxUnread: { backgroundColor: "#E0E8FF" },
-  icon: { fontSize: 18 },
   cardTop: { flexDirection: "row", alignItems: "center", gap: 6 },
   cardTitle: { fontSize: 14, fontWeight: "700", color: "#8A9BB0", flex: 1 },
   dot: { width: 8, height: 8, borderRadius: 4, backgroundColor: "#0B1F3A" },
   cardMsg: { fontSize: 13, color: "#64748b", marginTop: 2, lineHeight: 18 },
   cardTime: { fontSize: 11, color: "#8A9BB0", marginTop: 4 },
   emptyCard: { alignItems: "center", paddingVertical: 80 },
-  emptyIcon: { fontSize: 48, marginBottom: 12 },
   emptyTitle: { fontSize: 18, fontWeight: "800", color: "#0B1F3A", marginBottom: 6 },
   emptyText: { fontSize: 14, color: "#8A9BB0", textAlign: "center" },
   overlay: { flex: 1, backgroundColor: "rgba(0,0,0,0.5)", justifyContent: "center", alignItems: "center", padding: 20 },
   modal: { backgroundColor: "#fff", borderRadius: 20, width: "100%", overflow: "hidden", alignItems: "center", elevation: 20 },
   modalBar: { height: 5, width: "100%", marginBottom: 20 },
   modalIconBox: { width: 60, height: 60, borderRadius: 30, alignItems: "center", justifyContent: "center", marginBottom: 12 },
-  modalIcon: { fontSize: 26 },
   modalTitle: { fontSize: 17, fontWeight: "900", color: "#0B1F3A", textAlign: "center", paddingHorizontal: 20 },
   modalTime: { fontSize: 11, color: "#8A9BB0", marginTop: 4, marginBottom: 12 },
   modalDivider: { height: 1, backgroundColor: "#DDE3EC", width: "100%", marginBottom: 14 },

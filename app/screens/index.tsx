@@ -11,6 +11,7 @@ import ReviewRequestsScreen from '../screens/ReviewRequestsScreen';
 import SignUpScreen from '../screens/SignUpScreen';
 import SubmitRequestScreen from '../screens/SubmitRequestScreen';
 import ViewRequestStatusScreen from '../screens/ViewRequestStatusScreen';
+import { normalizeRoleId } from "../constants/roles";
 
 type Screen =
   | 'Login'
@@ -36,7 +37,7 @@ export default function HomeScreen() {
   };
 
   const handleLoginSuccess = (userData: any) => {
-    setUser(userData);
+    setUser({ ...userData, role_id: normalizeRoleId(userData?.role_id) });
     setScreen('Dashboard');
   };
 
@@ -89,6 +90,9 @@ export default function HomeScreen() {
     return (
       <ViewRequestStatusScreen
         user={user}
+        initialFilter={screenParams.filter}
+        requestScope={screenParams.requestScope}
+        requestId={screenParams.requestId}
         onBack={() => navigate('Dashboard')}
         onNavigate={navigate}
       />

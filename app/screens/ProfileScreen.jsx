@@ -10,12 +10,7 @@ import {
 import ScreenHeader from "./ScreenHeader";
 
 import { API_URL } from '../../api';
-const C = {
-  navy: "#0B1F3A", steel: "#1E4D8C", gold: "#C9A84C", bg: "#F0F2F5", surface: "#FFFFFF",
-  border: "#DDE3EC", textMute: "#8A9BB0", danger: "#9B1C1C", dangerBg: "#FEE8E8",
-  success: "#1A7A4A", successBg: "#EAF6EF", steelLight: "#2E6BC4",
-};
-const ROLE_LABELS = { 1: "Administrator", 2: "Head / Director", 3: "GSO Staff", 4: "Requester" };
+import { getRoleLabel, normalizeRoleId } from "../constants/roles";
 
 export default function ProfileScreen({ user, onBack, onUpdateUser }) {
   const [editing, setEditing] = useState(false);
@@ -48,12 +43,12 @@ export default function ProfileScreen({ user, onBack, onUpdateUser }) {
         onUpdateUser && onUpdateUser(u);
         setSuccess(true); setEditing(false);
       } else setError(data.message || "Failed to update.");
-    } catch (e) { setError("Cannot connect to server."); }
+    } catch (_e) { setError("Cannot connect to server."); }
     finally { setLoading(false); }
   };
 
   const initials = (user?.first_name?.[0] || "") + (user?.last_name?.[0] || "");
-  const roleLabel = ROLE_LABELS[user?.role_id] || "User";
+  const roleLabel = getRoleLabel(normalizeRoleId(user?.role_id));
 
   return (
     <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === "ios" ? "padding" : "height"}>

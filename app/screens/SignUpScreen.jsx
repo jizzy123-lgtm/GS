@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator, KeyboardAvoidingView, Platform,
   ScrollView,
@@ -22,35 +22,27 @@ const C = {
   warn: "#B45C10",
 };
 
-const SUFFIXES = ["Jr.", "Sr.", "II", "III", "IV"];
+const SUFFIXES = ["Jr.", "Sr.", "III", "IV", "V"];
+const REQUESTER_ROLE_ID = 4;
 
-// FIX 2 — Office now uses { id, label } objects
-const OFFICES = [
-  { id: 1, label: "College of Engineering" },
-  { id: 2, label: "College of Maritime Education" },
-  { id: 3, label: "College of Nursing and Allied Health Sciences" },
-  { id: 4, label: "School of Midwifery" },
-  { id: 5, label: "College of Teacher Education" },
-  { id: 6, label: "College of Business Administration" },
-  { id: 7, label: "College of Computer Studies" },
-  { id: 8, label: "College of Liberal Arts Mathematics and Sciences" },
-  { id: 9, label: "General Service Office" },
-];
+function isRoleActive(role) {
+  if (!role) return false;
 
-// FIX 1 — Position now uses { id, label } objects
-const POSITIONS = [
-  { id: 1, label: "Faculty" },
-  { id: 2, label: "Staff" },
-];
+  if (typeof role.is_active !== "undefined") {
+    return role.is_active === true || String(role.is_active) === "1";
+  }
 
-// FIX 3 — All roles with their backend IDs (verify IDs via GET /api/roles)
-const ROLES = [
-  { id: 1, label: "Admin" },
-  { id: 2, label: "Head" },
-  { id: 3, label: "Staff" },
-  { id: 4, label: "Requester" },
-  { id: 5, label: "Campus Director" },
-];
+  if (typeof role.active !== "undefined") {
+    return role.active === true || String(role.active) === "1";
+  }
+
+  if (typeof role.status !== "undefined") {
+    const status = String(role.status).toLowerCase();
+    return status === "active" || status === "1";
+  }
+
+  return true;
+}
 
 function SectionHeader({ title }) {
   return (
@@ -61,37 +53,61 @@ function SectionHeader({ title }) {
   );
 }
 
-function DropdownField({ label, value, options, onSelect }) {
+function DropdownField({ label, value, options, onSelect, disabled = false }) {
   const [open, setOpen] = useState(false);
+
+  useEffect(() => {
+    if (disabled) setOpen(false);
+  }, [disabled]);
+
   return (
     <View style={styles.dropdownWrap}>
       <TouchableOpacity
-        style={[styles.input, styles.dropdownBtn, open && styles.inputFocused]}
-        onPress={() => setOpen(!open)}
+        style={[
+          styles.input,
+          styles.dropdownBtn,
+          open && styles.inputFocused,
+          disabled && styles.dropdownBtnDisabled,
+        ]}
+        onPress={() => { if (!disabled) setOpen(!open); }}
         activeOpacity={0.8}
+        disabled={disabled}
       >
-        <Text style={[styles.dropdownText, !value && { color: "#a0aec0" }]} numberOfLines={1}>
+        <Text
+          style={[
+            styles.dropdownText,
+            !value && { color: "#a0aec0" },
+            disabled && styles.dropdownTextDisabled,
+          ]}
+          numberOfLines={1}
+        >
           {value || label}
         </Text>
-        <Text style={styles.dropdownArrow}>{open ? "▲" : "▼"}</Text>
+        <Text style={styles.dropdownArrow}>{open ? "^" : "v"}</Text>
       </TouchableOpacity>
       {open && (
         <View style={styles.dropdownList}>
-          {options.map((opt, i) => (
-            <TouchableOpacity
-              key={i}
-              style={[
-                styles.dropdownItem,
-                value === opt && styles.dropdownItemActive,
-                i === options.length - 1 && { borderBottomWidth: 0 },
-              ]}
-              onPress={() => { onSelect(opt); setOpen(false); }}
-            >
-              <Text style={[styles.dropdownItemText, value === opt && styles.dropdownItemTextActive]}>
-                {opt}
-              </Text>
-            </TouchableOpacity>
-          ))}
+          {options.length === 0 ? (
+            <View style={[styles.dropdownItem, { borderBottomWidth: 0 }]}>
+              <Text style={styles.dropdownItemText}>No options available</Text>
+            </View>
+          ) : (
+            options.map((opt, i) => (
+              <TouchableOpacity
+                key={i}
+                style={[
+                  styles.dropdownItem,
+                  value === opt && styles.dropdownItemActive,
+                  i === options.length - 1 && { borderBottomWidth: 0 },
+                ]}
+                onPress={() => { onSelect(opt); setOpen(false); }}
+              >
+                <Text style={[styles.dropdownItemText, value === opt && styles.dropdownItemTextActive]}>
+                  {opt}
+                </Text>
+              </TouchableOpacity>
+            ))
+          )}
         </View>
       )}
     </View>
@@ -99,13 +115,17 @@ function DropdownField({ label, value, options, onSelect }) {
 }
 
 export default function SignUpScreen({ onBack }) {
-  // FIX 5 — Initial state uses office_id, position_id, role_id (null, not "")
   const [form, setForm] = useState({
     first_name: "", last_name: "", middle_initial: "", suffix: "",
     username: "", email: "", contact_number: "",
     office_id: null, position_id: null, role_id: null,
     password: "", password_confirmation: "",
   });
+  const [offices, setOffices] = useState([]);
+  const [positions, setPositions] = useState([]);
+  const [roles, setRoles] = useState([]);
+  const [loadingCommonData, setLoadingCommonData] = useState(true);
+  const [commonDataError, setCommonDataError] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -114,17 +134,110 @@ export default function SignUpScreen({ onBack }) {
 
   const set = (key, val) => setForm(prev => ({ ...prev, [key]: val }));
 
+  const selectedOffice = useMemo(
+    () => offices.find(o => o.id === form.office_id),
+    [offices, form.office_id]
+  );
+  const isCollegeOffice = !!selectedOffice?.name?.startsWith("College of");
+
+  const activeRoles = useMemo(() => roles.filter(isRoleActive), [roles]);
+  const visibleRoles = useMemo(() => {
+    if (isCollegeOffice) {
+      return activeRoles.filter(r => Number(r.id) === REQUESTER_ROLE_ID);
+    }
+    return activeRoles;
+  }, [activeRoles, isCollegeOffice]);
+
+  const roleLabelById = (id) => roles.find(r => r.id === id)?.role_name || "";
+
+  const loadCommonData = async () => {
+    setLoadingCommonData(true);
+    setCommonDataError("");
+
+    try {
+      const res = await fetch(`${API_URL}/common-datas`, {
+        headers: { Accept: "application/json" },
+      });
+      const data = await res.json();
+
+      if (!res.ok) {
+        throw new Error(data.message || "Failed to load registration options.");
+      }
+
+      const payload = data?.data || data;
+      const mappedOffices = (Array.isArray(payload?.offices) ? payload.offices : [])
+        .map(o => ({ id: Number(o.id), name: o.name || o.office_name || "" }))
+        .filter(o => Number.isFinite(o.id) && o.name);
+
+      const mappedPositions = (Array.isArray(payload?.positions) ? payload.positions : [])
+        .map(p => ({ id: Number(p.id), name: p.name || p.position_name || "" }))
+        .filter(p => Number.isFinite(p.id) && p.name);
+
+      const mappedRoles = (Array.isArray(payload?.roles) ? payload.roles : [])
+        .map(r => ({
+          id: Number(r.id),
+          role_name: r.role_name || r.name || "",
+          is_active: r.is_active,
+          active: r.active,
+          status: r.status,
+        }))
+        .filter(r => Number.isFinite(r.id) && r.role_name);
+
+      setOffices(mappedOffices);
+      setPositions(mappedPositions);
+      setRoles(mappedRoles);
+    } catch (e) {
+      setCommonDataError(e.message || "Unable to load registration options.");
+    } finally {
+      setLoadingCommonData(false);
+    }
+  };
+
+  useEffect(() => {
+    loadCommonData();
+  }, []);
+
+  useEffect(() => {
+    if (isCollegeOffice && form.role_id !== REQUESTER_ROLE_ID) {
+      set("role_id", REQUESTER_ROLE_ID);
+    }
+  }, [isCollegeOffice, form.role_id]);
+
+  const handleOfficeSelect = (officeName) => {
+    const office = offices.find(o => o.name === officeName);
+    const officeId = office?.id || null;
+    const officeIsCollege = !!office?.name?.startsWith("College of");
+
+    setForm(prev => ({
+      ...prev,
+      office_id: officeId,
+      role_id: officeIsCollege
+        ? REQUESTER_ROLE_ID
+        : (prev.role_id === REQUESTER_ROLE_ID ? null : prev.role_id),
+    }));
+  };
+
   const handleSignUp = async () => {
     setError("");
-    if (!form.first_name.trim()) { setError("First name is required."); return; }
-    if (!form.last_name.trim()) { setError("Last name is required."); return; }
-    if (!form.username.trim()) { setError("Username is required."); return; }
-    if (!form.email.trim()) { setError("Email address is required."); return; }
-    if (!form.contact_number.trim()) { setError("Contact number is required."); return; }
-    // FIX 6 — Validations use office_id, position_id, role_id
+
+    const trimmedFirst = form.first_name.trim();
+    const trimmedLast = form.last_name.trim();
+    const trimmedUser = form.username.trim();
+    const trimmedEmail = form.email.trim();
+    const trimmedContact = form.contact_number.trim();
+    const finalRoleId = isCollegeOffice ? REQUESTER_ROLE_ID : form.role_id;
+
+    if (!trimmedFirst) { setError("First name is required."); return; }
+    if (!trimmedLast) { setError("Last name is required."); return; }
+    if (!trimmedUser) { setError("Username is required."); return; }
+    if (!trimmedContact) { setError("Contact number is required."); return; }
+    if (!/^09\d{9}$/.test(trimmedContact)) {
+      setError("Contact number must start with 09 and be exactly 11 digits.");
+      return;
+    }
     if (!form.office_id) { setError("Please select an office."); return; }
     if (!form.position_id) { setError("Please select a position."); return; }
-    if (!form.role_id) { setError("Please select a role."); return; }
+    if (!finalRoleId) { setError("Please select a role."); return; }
     if (!form.password) { setError("Password is required."); return; }
     if (form.password.length < 8) { setError("Password must be at least 8 characters."); return; }
 
@@ -136,32 +249,49 @@ export default function SignUpScreen({ onBack }) {
 
     if (form.password !== form.password_confirmation) { setError("Passwords do not match."); return; }
 
+    const payload = {
+      last_name: trimmedLast,
+      first_name: trimmedFirst,
+      middle_name: form.middle_initial.trim(),
+      suffix: form.suffix,
+      username: trimmedUser,
+      email: trimmedEmail,
+      position_id: form.position_id,
+      office_id: form.office_id,
+      contact_number: trimmedContact,
+      password: form.password,
+      password_confirmation: form.password_confirmation,
+      role_id: finalRoleId,
+    };
+
+    if (!payload.middle_name) delete payload.middle_name;
+    if (!payload.suffix) delete payload.suffix;
+    if (!payload.email) delete payload.email;
+
     setLoading(true);
     try {
       const res = await fetch(`${API_URL}/register`, {
         method: "POST",
         headers: { "Content-Type": "application/json", Accept: "application/json" },
-        body: JSON.stringify(form),
+        body: JSON.stringify(payload),
       });
       const data = await res.json();
       if (res.ok) {
         setSubmitted(true);
       } else {
         if (data.errors) {
-          const first = Object.values(data.errors)[0];
-          setError(Array.isArray(first) ? first[0] : first);
+          setError(Object.values(data.errors).flat().join("\n"));
         } else {
           setError(data.message || "Registration failed. Please try again.");
         }
       }
-    } catch (e) {
+    } catch (_e) {
       setError("Cannot connect to server. Check your connection.");
     } finally {
       setLoading(false);
     }
   };
 
-  // ── Success Screen ───────────────────────────────────────────
   if (submitted) {
     return (
       <View style={styles.successRoot}>
@@ -179,10 +309,10 @@ export default function SignUpScreen({ onBack }) {
             <Text style={styles.successCardTitle}>What happens next?</Text>
             <Text style={styles.successCardItem}>Waiting for approval...</Text>
 
-          </View>*
+          </View>
           <View style={styles.noteBox}>
             <Text style={styles.noteText}>
-              Check your spam folder if you don't receive an email.
+              Check your spam folder if you do not receive an email.
             </Text>
           </View>
           <TouchableOpacity style={styles.submitBtn} onPress={onBack} activeOpacity={0.85}>
@@ -259,30 +389,45 @@ export default function SignUpScreen({ onBack }) {
             </View>
           </View>
           <TextInput style={styles.input} placeholder="Contact Number *" placeholderTextColor="#a0aec0"
-            value={form.contact_number} onChangeText={v => set("contact_number", v)} keyboardType="phone-pad" />
+            value={form.contact_number} onChangeText={v => set("contact_number", v)} keyboardType="phone-pad" maxLength={11} />
 
           {/* Work Information */}
           <SectionHeader title="Work Information" />
 
-          {/* FIX 4 — Dropdowns now bind to IDs, display labels */}
-          <DropdownField
-            label="Select Office"
-            value={OFFICES.find(o => o.id === form.office_id)?.label || ""}
-            options={OFFICES.map(o => o.label)}
-            onSelect={v => set("office_id", OFFICES.find(o => o.label === v)?.id)}
-          />
-          <DropdownField
-            label="Select Position"
-            value={POSITIONS.find(p => p.id === form.position_id)?.label || ""}
-            options={POSITIONS.map(p => p.label)}
-            onSelect={v => set("position_id", POSITIONS.find(p => p.label === v)?.id)}
-          />
-          <DropdownField
-            label="Select Role"
-            value={ROLES.find(r => r.id === form.role_id)?.label || ""}
-            options={ROLES.map(r => r.label)}
-            onSelect={v => set("role_id", ROLES.find(r => r.label === v)?.id)}
-          />
+          {commonDataError ? (
+            <View style={styles.warnBox}>
+              <Text style={styles.warnText}>{commonDataError}</Text>
+              <TouchableOpacity style={styles.retryBtn} onPress={loadCommonData} activeOpacity={0.85}>
+                <Text style={styles.retryBtnText}>Retry Loading Options</Text>
+              </TouchableOpacity>
+            </View>
+          ) : null}
+
+          {loadingCommonData ? (
+            <ActivityIndicator color={C.steel} style={{ marginVertical: 12 }} />
+          ) : (
+            <>
+              <DropdownField
+                label="Select Office"
+                value={selectedOffice?.name || ""}
+                options={offices.map(o => o.name)}
+                onSelect={handleOfficeSelect}
+              />
+              <DropdownField
+                label="Select Position"
+                value={positions.find(p => p.id === form.position_id)?.name || ""}
+                options={positions.map(p => p.name)}
+                onSelect={v => set("position_id", positions.find(p => p.name === v)?.id)}
+              />
+              <DropdownField
+                label={isCollegeOffice ? "Role locked to Requester" : "Select Role"}
+                value={roleLabelById(form.role_id) || (isCollegeOffice && form.role_id === REQUESTER_ROLE_ID ? "Requester" : "")}
+                options={visibleRoles.map(r => r.role_name)}
+                onSelect={v => set("role_id", visibleRoles.find(r => r.role_name === v)?.id)}
+                disabled={isCollegeOffice}
+              />
+            </>
+          )}
 
           {/* Security */}
           <SectionHeader title="Security" />
@@ -320,8 +465,8 @@ export default function SignUpScreen({ onBack }) {
           </View>
 
           {/* Submit */}
-          <TouchableOpacity style={[styles.submitBtn, loading && { opacity: 0.7 }]}
-            onPress={handleSignUp} disabled={loading} activeOpacity={0.85}>
+          <TouchableOpacity style={[styles.submitBtn, (loading || loadingCommonData) && { opacity: 0.7 }]}
+            onPress={handleSignUp} disabled={loading || loadingCommonData} activeOpacity={0.85}>
             {loading ? <ActivityIndicator color="#fff" /> : <Text style={styles.submitText}>CREATE ACCOUNT</Text>}
           </TouchableOpacity>
 
@@ -356,6 +501,10 @@ const styles = StyleSheet.create({
   body: { padding: 16 },
   errorBox: { backgroundColor: C.dangerBg, borderLeftWidth: 4, borderLeftColor: C.danger, borderRadius: 10, padding: 12, marginBottom: 12 },
   errorText: { color: C.danger, fontSize: 13, fontWeight: "600" },
+  warnBox: { backgroundColor: "#EEF2FF", borderLeftWidth: 4, borderLeftColor: C.steel, borderRadius: 10, padding: 12, marginBottom: 10 },
+  warnText: { color: C.steel, fontSize: 12, lineHeight: 18, marginBottom: 8 },
+  retryBtn: { alignSelf: "flex-start", backgroundColor: C.steel, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 8 },
+  retryBtnText: { color: "#fff", fontSize: 12, fontWeight: "700" },
 
   sectionHeader: { flexDirection: "row", alignItems: "center", gap: 8, marginTop: 18, marginBottom: 10 },
   sectionAccent: { width: 4, height: 16, backgroundColor: C.gold, borderRadius: 2 },
@@ -372,7 +521,9 @@ const styles = StyleSheet.create({
 
   dropdownWrap: { marginBottom: 10 },
   dropdownBtn: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 0 },
+  dropdownBtnDisabled: { backgroundColor: "#F7F9FC", borderColor: "#CBD5E1" },
   dropdownText: { fontSize: 13, color: C.navy, flex: 1 },
+  dropdownTextDisabled: { color: "#64748B" },
   dropdownArrow: { fontSize: 9, color: C.textMute, marginLeft: 6 },
   dropdownList: { backgroundColor: C.surface, borderWidth: 1.5, borderColor: C.steel, borderRadius: 8, marginTop: 4, overflow: "hidden" },
   dropdownItem: { paddingHorizontal: 14, paddingVertical: 11, borderBottomWidth: 1, borderBottomColor: C.border },
@@ -407,3 +558,4 @@ const styles = StyleSheet.create({
   successCardTitle: { fontSize: 11, fontWeight: "800", color: C.textMute, textTransform: "uppercase", letterSpacing: 1, marginBottom: 12 },
   successCardItem: { fontSize: 13, color: C.navy, lineHeight: 22, fontWeight: "600" },
 });
+

@@ -14,6 +14,8 @@ import {
 } from "react-native";
 
 import { API_URL } from '../api';
+import { normalizeRoleId } from "./constants/roles";
+import { registerForPushNotificationsAsync } from '../hooks/usePushNotifications';
 
 export default function LoginScreen({ onLoginSuccess, onSignUp }) {
   const [username, setUsername] = useState("");
@@ -37,13 +39,22 @@ export default function LoginScreen({ onLoginSuccess, onSignUp }) {
       });
       const data = await response.json();
       if (response.ok) {
+        const normalizedUser = {
+          ...data.user,
+          role_id: normalizeRoleId(data?.user?.role_id),
+        };
         await AsyncStorage.setItem("token", data.token);
-        await AsyncStorage.setItem("user", JSON.stringify(data.user));
-        onLoginSuccess && onLoginSuccess(data.user);
+        await AsyncStorage.setItem("authToken", data.token);
+        await AsyncStorage.setItem("user", JSON.stringify(normalizedUser));
+        
+        // Register push token remotely with backend
+        await registerForPushNotificationsAsync(data.token);
+        
+        onLoginSuccess && onLoginSuccess(normalizedUser);
       } else {
         setError(data.message || "Login failed. Please try again.");
       }
-    } catch (err) {
+    } catch (_err) {
       setError("Cannot connect to server. Check your connection.");
     } finally {
       setLoading(false);
@@ -149,7 +160,7 @@ export default function LoginScreen({ onLoginSuccess, onSignUp }) {
 
         {/* Sign up */}
         <View style={{ alignItems: "center", marginTop: 20 }}>
-          <Text style={styles.signupText}>Don't have an account yet?</Text>
+          <Text style={styles.signupText}>Do not have an account yet?</Text>
           <TouchableOpacity onPress={onSignUp}>
             <Text style={styles.signupLink}>Sign up now</Text>
           </TouchableOpacity>

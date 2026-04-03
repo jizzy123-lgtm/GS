@@ -10,6 +10,7 @@ import {
     View,
 } from "react-native";
 import { API_URL } from "../../api";
+import { getRoleLabel, normalizeRoleId } from "../constants/roles";
 import ScreenHeader from "./ScreenHeader";
 
 const C = {
@@ -32,7 +33,6 @@ function UserManagementScreen({ user, onBack }) {
             const token = await AsyncStorage.getItem("authToken") || await AsyncStorage.getItem("token");
             const res = await fetch(`${API_URL}/users-list`, {
                 headers: { Authorization: `Bearer ${token}`, Accept: "application/json" },
-                signal: AbortSignal.timeout(30000),
             });
             const data = await res.json();
             setUsers(Array.isArray(data) ? data : []);
@@ -62,7 +62,6 @@ function UserManagementScreen({ user, onBack }) {
                             const res = await fetch(`${API_URL}/users/${user.user_id}`, {
                                 method: "DELETE",
                                 headers: { Authorization: `Bearer ${token}`, Accept: "application/json" },
-                                signal: AbortSignal.timeout(30000),
                             });
                             if (res.ok) {
                                 Alert.alert("Success", "Account deleted.");
@@ -71,7 +70,7 @@ function UserManagementScreen({ user, onBack }) {
                                 const d = await res.json();
                                 Alert.alert("Error", d.message || "Failed to delete.");
                             }
-                        } catch (e) { Alert.alert("Error", "Connection failed."); }
+                        } catch (_e) { Alert.alert("Error", "Connection failed."); }
                         finally { setActionLoading(false); }
                     }
                 }
@@ -102,7 +101,6 @@ function UserManagementScreen({ user, onBack }) {
                     "Content-Type": "application/json"
                 },
                 body: JSON.stringify(editForm),
-                signal: AbortSignal.timeout(30000),
             });
             if (res.ok) {
                 Alert.alert("Success", "User updated successfully.");
@@ -112,7 +110,7 @@ function UserManagementScreen({ user, onBack }) {
                 const d = await res.json();
                 Alert.alert("Error", d.message || "Failed to update.");
             }
-        } catch (e) {
+        } catch (_e) {
             Alert.alert("Error", "Connection failed.");
         } finally {
             setActionLoading(false);
@@ -129,6 +127,7 @@ function UserManagementScreen({ user, onBack }) {
                 <ScrollView
                     refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); fetchUsers(); }} />}
                     contentContainerStyle={styles.scroll}
+                    keyboardShouldPersistTaps="handled"
                 >
                     {users.map((u) => (
                         <View key={u.user_id} style={styles.card}>
@@ -148,7 +147,7 @@ function UserManagementScreen({ user, onBack }) {
                             </View>
 
                             <View style={styles.cardBody}>
-                                <InfoRow label="Role" value={u.role || "User"} />
+                                <InfoRow label="Role" value={getRoleLabel(normalizeRoleId(u.role_id), "") || u.role || "User"} />
                                 <InfoRow label="Office" value={u.office || "N/A"} />
                                 <InfoRow label="Contact" value={u.contact_number || "N/A"} />
                             </View>
@@ -171,7 +170,7 @@ function UserManagementScreen({ user, onBack }) {
                 <View style={styles.modalBg}>
                     <View style={styles.modalContent}>
                         <Text style={styles.modalTitle}>Edit User Info</Text>
-                        <ScrollView style={{ maxHeight: 400 }}>
+                        <ScrollView style={{ maxHeight: 400 }} keyboardShouldPersistTaps="handled">
                             <Label>First Name</Label>
                             <Input value={editForm.first_name} onChangeText={(v) => setEditForm({ ...editForm, first_name: v })} />
 

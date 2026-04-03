@@ -11,6 +11,8 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { API_URL } from '../../api';
+import { MAINTENANCE_STATUS, normalizeMaintenanceStatus } from "../constants/maintenanceStatus";
+import { getRoleLabel, normalizeRoleId, ROLE_IDS } from "../constants/roles";
 const C = {
   bg: "#F0F2F5", surface: "#FFFFFF", surfaceAlt: "#F7F9FC", navy: "#0B1F3A",
   navyMid: "#162C50", steel: "#1E4D8C", steelLight: "#2E6BC4", gold: "#C9A84C",
@@ -18,9 +20,56 @@ const C = {
   success: "#1A7A4A", successBg: "#EAF6EF", warn: "#B45C10", warnBg: "#FEF3E2",
   danger: "#9B1C1C", dangerBg: "#FEE8E8", info: "#155E8A", infoBg: "#E6F2FA",
 };
-const ROLE_LABELS = { 1: "Administrator", 2: "Head / Director", 3: "GSO Staff", 4: "Requester" };
-const ROLE_COLORS = { 1: C.danger, 2: C.steel, 3: C.success, 4: C.navyMid };
-const STATUS_MAP = { 1: "pending", 2: "approved", 3: "disapproved", 4: "confirmed", 5: "completed" };
+const ROLE_COLORS = {
+  [ROLE_IDS.SYSTEM_ADMIN]: C.danger,
+  [ROLE_IDS.HEAD]: C.steel,
+  [ROLE_IDS.STAFF]: C.success,
+  [ROLE_IDS.REQUESTER]: C.navyMid,
+  [ROLE_IDS.CAMPUS_DIRECTOR]: C.info,
+};
+const toNumberOrNull = (value) => {
+  const n = Number(value);
+  return Number.isFinite(n) ? n : null;
+};
+
+const isRequestOwnedByUser = (request, currentUser) => {
+  const userIds = [
+    currentUser?.id,
+    currentUser?.user_id,
+  ]
+    .map(toNumberOrNull)
+    .filter(v => v !== null);
+
+  const requestOwnerIds = [
+    request?.requesting_personnel,
+    request?.requesting_personnel_id,
+    request?.requester_id,
+    request?.user_id,
+    request?.personnel_id,
+    request?.requested_by,
+    request?.user?.id,
+    request?.user?.user_id,
+    request?.requester?.id,
+    request?.requester?.user_id,
+  ]
+    .map(toNumberOrNull)
+    .filter(v => v !== null);
+
+  if (userIds.length > 0 && requestOwnerIds.length > 0) {
+    return requestOwnerIds.some(id => userIds.includes(id));
+  }
+
+  const requestUsername = String(
+    request?.username ||
+    request?.requester?.username ||
+    request?.user?.username ||
+    ""
+  ).trim().toLowerCase();
+  const currentUsername = String(currentUser?.username || "").trim().toLowerCase();
+  if (requestUsername && currentUsername) return requestUsername === currentUsername;
+
+  return false;
+};
 
 export default function DashboardScreen({ user, onLogout, onNavigate }) {
   const [stats, setStats] = useState(null);
@@ -29,24 +78,27 @@ export default function DashboardScreen({ user, onLogout, onNavigate }) {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const insets = useSafeAreaInsets();
-  const roleId = user?.role_id;
+  const roleId = normalizeRoleId(user?.role_id);
 
   const fetchDashboard = async () => {
     try {
       const token = await AsyncStorage.getItem("authToken") || await AsyncStorage.getItem("token");
       const headers = { Authorization: `Bearer ${token}`, Accept: "application/json" };
-      const signal = AbortSignal.timeout(45000);
-      // role 1=Admin uses /pending-approvals (user account requests)
-      // All other roles (Head, Staff, Requester) use /maintenance-requests
-      let ep = "/maintenance-requests";
-      if (roleId === 1) ep = "/pending-approvals";
-      const res = await fetch(`${API_URL}${ep}`, { headers, signal });
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 45000);
+      const ep = "/maintenance-requests";
+      let res;
+      try {
+        res = await fetch(`${API_URL}${ep}`, { headers, signal: controller.signal });
+      } finally {
+        clearTimeout(timeoutId);
+      }
       const data = await res.json();
       const reqList = Array.isArray(data) ? data : data.data || [];
 
       // Fetch maintenance types if not loaded
       let currentTypes = types;
-      if (roleId !== 1 && Object.keys(currentTypes).length === 0) {
+      if (roleId !== ROLE_IDS.SYSTEM_ADMIN && Object.keys(currentTypes).length === 0) {
         const tRes = await fetch(`${API_URL}/maintenance-types`, { headers: { Authorization: `Bearer ${token}` } });
         const tData = await tRes.json();
         const tList = Array.isArray(tData) ? tData : tData.data || [];
@@ -58,35 +110,36 @@ export default function DashboardScreen({ user, onLogout, onNavigate }) {
 
       const reqs = reqList.map(r => ({
         ...r,
-        status: r.status || STATUS_MAP[r.status_id] || "pending",
+        status: normalizeMaintenanceStatus(r.status, r.status_id),
         maintenance_type_name: currentTypes[r.maintenance_type_id] || r.maintenance_type?.name || r.maintenance_type || r.type
       }));
-      setRecentRequests(reqs.slice(0, 4));
-      if (roleId === 1) {
-        // Admin stats: account approval counts
-        setStats({
-          total: reqs.length,
-          pending: reqs.filter(r => (r.account_status || r.status)?.toLowerCase() === "pending").length,
-          approved: reqs.filter(r => (r.account_status || r.status)?.toLowerCase() === "approved").length,
-          completed: reqs.filter(r => (r.account_status || r.status)?.toLowerCase() === "disapproved").length,
-        });
-      } else if (roleId === 5 || roleId === 2) {
+      const requesterScopedReqs = roleId === ROLE_IDS.REQUESTER
+        ? reqs.filter(r => isRequestOwnedByUser(r, user))
+        : reqs;
+
+      setRecentRequests(requesterScopedReqs.slice(0, 4));
+      if (roleId === ROLE_IDS.SYSTEM_ADMIN || roleId === ROLE_IDS.CAMPUS_DIRECTOR || roleId === ROLE_IDS.HEAD) {
         // Campus Director and Head stats
         setStats({
           total: reqs.length,
-          pending: reqs.filter(r => r.status?.toLowerCase() === "pending").length,
-          approved: reqs.filter(r => r.status?.toLowerCase() === "approved").length,
-          completed: reqs.filter(r => r.status?.toLowerCase() === "completed").length,
+          pending: reqs.filter(r => r.status === MAINTENANCE_STATUS.PENDING).length,
+          approved: reqs.filter(r => r.status === MAINTENANCE_STATUS.APPROVED).length,
+          completed: reqs.filter(r => r.status === MAINTENANCE_STATUS.DONE).length,
+          disapproved: reqs.filter(r => r.status === MAINTENANCE_STATUS.DISAPPROVED).length,
+          cancelled: reqs.filter(r => r.status === MAINTENANCE_STATUS.CANCELLED).length,
         });
       } else {
+        const statsSource = roleId === ROLE_IDS.REQUESTER ? requesterScopedReqs : reqs;
         setStats({
-          total: reqs.length,
-          pending: reqs.filter(r => r.status?.toLowerCase() === "pending").length,
-          approved: reqs.filter(r => r.status?.toLowerCase() === "approved").length,
-          completed: reqs.filter(r => r.status?.toLowerCase() === "completed").length,
+          total: statsSource.length,
+          pending: statsSource.filter(r => r.status === MAINTENANCE_STATUS.PENDING).length,
+          approved: statsSource.filter(r => r.status === MAINTENANCE_STATUS.APPROVED).length,
+          completed: statsSource.filter(r => r.status === MAINTENANCE_STATUS.DONE).length,
+          disapproved: statsSource.filter(r => r.status === MAINTENANCE_STATUS.DISAPPROVED).length,
+          cancelled: statsSource.filter(r => r.status === MAINTENANCE_STATUS.CANCELLED).length,
         });
       }
-    } catch (e) { setStats({ total: 0, pending: 0, approved: 0, completed: 0 }); }
+    } catch (_e) { setStats({ total: 0, pending: 0, approved: 0, completed: 0, disapproved: 0, cancelled: 0 }); }
     finally { setLoading(false); setRefreshing(false); }
   };
 
@@ -99,7 +152,7 @@ export default function DashboardScreen({ user, onLogout, onNavigate }) {
     onLogout && onLogout();
   };
 
-  const roleLabel = ROLE_LABELS[roleId] || "User";
+  const roleLabel = getRoleLabel(roleId);
   const roleColor = ROLE_COLORS[roleId] || C.navy;
   const today = new Date().toLocaleDateString("en-US", { weekday: "long", year: "numeric", month: "long", day: "numeric" });
 
@@ -147,10 +200,37 @@ export default function DashboardScreen({ user, onLogout, onNavigate }) {
             <View style={styles.section}>
               <SectionTitle title="Overview" />
               <View style={styles.kpiGrid}>
-                <KPI label="Total" value={stats?.total} color={C.steel} bg={C.infoBg} />
-                <KPI label="Pending" value={stats?.pending} color={C.warn} bg={C.warnBg} />
-                <KPI label="Approved" value={stats?.approved} color={C.success} bg={C.successBg} />
-                <KPI label={roleId === 1 ? "Rejected" : "Done"} value={stats?.completed} color={C.textMid} bg={C.surfaceAlt} />
+                <KPI
+                  label="Total"
+                  value={stats?.total}
+                  color={C.steel}
+                  bg={C.infoBg}
+                  onPress={() => onNavigate("ViewRequestStatus", { filter: "All" })}
+                />
+                <KPI
+                  label="Pending"
+                  value={stats?.pending}
+                  color={C.warn}
+                  bg={C.warnBg}
+                  onPress={() => onNavigate("ViewRequestStatus", { filter: "Pending" })}
+                />
+                <KPI
+                  label="Approved"
+                  value={stats?.approved}
+                  color={C.success}
+                  bg={C.successBg}
+                  onPress={() => onNavigate("ViewRequestStatus", { filter: "Approved" })}
+                />
+                <KPI
+                  label="Disapproved"
+                  value={stats?.disapproved}
+                  color={C.danger}
+                  bg={C.dangerBg}
+                  onPress={() => onNavigate("ViewRequestStatus", { filter: "Disapproved" })}
+                />
+                {roleId !== ROLE_IDS.SYSTEM_ADMIN && (
+                  <KPI label="Done" value={stats?.completed} color={C.textMid} bg={C.surfaceAlt} />
+                )}
               </View>
             </View>
 
@@ -187,10 +267,11 @@ export default function DashboardScreen({ user, onLogout, onNavigate }) {
                     const sm = {
                       pending: { c: C.warn, bg: C.warnBg, l: "Pending" },
                       approved: { c: C.success, bg: C.successBg, l: "Approved" },
-                      completed: { c: C.textMid, bg: C.surfaceAlt, l: "Done" },
+                      done: { c: C.textMid, bg: C.surfaceAlt, l: "Done" },
                       disapproved: { c: C.danger, bg: C.dangerBg, l: "Denied" },
+                      cancelled: { c: C.textMute, bg: C.surfaceAlt, l: "Cancelled" },
                     };
-                    const s = sm[req.status?.toLowerCase()] || sm.pending;
+                    const s = sm[req.status] || sm.pending;
                     return (
                       <TouchableOpacity key={i}
                         style={[styles.tableRow, i === recentRequests.length - 1 && { borderBottomWidth: 0 }]}
@@ -224,7 +305,20 @@ function SectionTitle({ title }) {
   );
 }
 
-function KPI({ label, value, color, bg }) {
+function KPI({ label, value, color, bg, onPress }) {
+  if (onPress) {
+    return (
+      <TouchableOpacity
+        style={[styles.kpiCard, { borderTopColor: color }]}
+        onPress={onPress}
+        activeOpacity={0.8}
+      >
+        <Text style={[styles.kpiValue, { color }]}>{value ?? 0}</Text>
+        <Text style={styles.kpiLabel}>{label}</Text>
+      </TouchableOpacity>
+    );
+  }
+
   return (
     <View style={[styles.kpiCard, { borderTopColor: color }]}>
       <Text style={[styles.kpiValue, { color }]}>{value ?? 0}</Text>
@@ -238,26 +332,26 @@ function getQuickActions(roleId, onNavigate) {
     { label: "My Profile", onPress: () => onNavigate("Profile") },
     { label: "Notifications", onPress: () => onNavigate("Notifications") },
   ];
-  if (roleId === 4) return [
+  if (roleId === ROLE_IDS.REQUESTER) return [
     { label: "New Request", onPress: () => onNavigate("SubmitRequest") },
-    { label: "My Requests", onPress: () => onNavigate("ViewRequestStatus") },
+    { label: "My Requests", onPress: () => onNavigate("ViewRequestStatus", { requestScope: "my" }) },
     { label: "Feedback", onPress: () => onNavigate("Feedback") },
     ...common,
   ];
-  if (roleId === 1) return [
-    { label: "Pending Approvals", onPress: () => onNavigate("PendingApprovals") },
+  if (roleId === ROLE_IDS.SYSTEM_ADMIN) return [
+    { label: "Account Approvals", onPress: () => onNavigate("PendingApprovals") },
     { label: "User Management", onPress: () => onNavigate("UserManagement") },
     ...common,
   ];
-  if (roleId === 2 || roleId === 5) return [
+  if (roleId === ROLE_IDS.HEAD || roleId === ROLE_IDS.CAMPUS_DIRECTOR) return [
     { label: "Review Requests", onPress: () => onNavigate("ReviewRequests") },
-    { label: "All Requests", onPress: () => onNavigate("ViewRequestStatus") },
+    { label: "All Requests", onPress: () => onNavigate("ViewRequestStatus", { requestScope: "all" }) },
     ...common,
   ];
-  if (roleId === 3) return [
+  if (roleId === ROLE_IDS.STAFF) return [
     { label: "Review Requests", onPress: () => onNavigate("ReviewRequests") },
     { label: "Assign Schedule", onPress: () => onNavigate("AssignSchedule") },
-    { label: "All Requests", onPress: () => onNavigate("ViewRequestStatus") },
+    { label: "All Requests", onPress: () => onNavigate("ViewRequestStatus", { requestScope: "all" }) },
     ...common,
   ];
   return common;

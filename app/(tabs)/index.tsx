@@ -10,12 +10,13 @@ import ProfileScreen from '../screens/ProfileScreen';
 import ReviewRequestsScreen from '../screens/ReviewRequestsScreen';
 import SignUpScreen from '../screens/SignUpScreen';
 import SubmitRequestScreen from '../screens/SubmitRequestScreen';
+import UserManagementScreen from '../screens/UserManagementScreen';
 import ViewRequestStatusScreen from '../screens/ViewRequestStatusScreen';
 
 type Screen =
   | 'Login' | 'SignUp' | 'Dashboard' | 'SubmitRequest'
   | 'ViewRequestStatus' | 'Feedback' | 'Notifications'
-  | 'ReviewRequests' | 'PendingApprovals' | 'Profile' | 'AssignSchedule';
+  | 'ReviewRequests' | 'PendingApprovals' | 'Profile' | 'AssignSchedule' | 'UserManagement';
 
 export default function HomeScreen() {
   const [user, setUser] = useState<any>(null);
@@ -63,6 +64,9 @@ export default function HomeScreen() {
   }
   if (screen === 'PendingApprovals') {
     return <PendingApprovalsScreen user={user} onBack={() => navigate('Dashboard')} />;
+  }
+  if (screen === 'UserManagement') {
+    return <UserManagementScreen user={user} onBack={() => navigate('Dashboard')} />;
   }
   if (screen === 'Profile') {
     return <ProfileScreen user={user} onBack={() => navigate('Dashboard')} onUpdateUser={(u: any) => setUser(u)} />;

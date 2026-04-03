@@ -77,7 +77,7 @@ export default function ReviewRequestsScreen({ user, onBack, onNavigate }) {
   if (selected) {
     const s = SM[selected.status?.toLowerCase()] || SM.pending;
     const isConfirmed = ["confirmed", "approved"].includes(selected.status?.toLowerCase());
-    const canApprove = roleId === 2 && selected.status?.toLowerCase() === "pending";
+    const canApprove = (roleId === 2 || roleId === 5) && selected.status?.toLowerCase() === "pending";
     const canAssign = roleId === 3 && isConfirmed;
     return (
       <View style={{ flex: 1, backgroundColor: C.bg }}>

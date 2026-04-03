@@ -70,6 +70,14 @@ export default function DashboardScreen({ user, onLogout, onNavigate }) {
           approved: reqs.filter(r => (r.account_status || r.status)?.toLowerCase() === "approved").length,
           completed: reqs.filter(r => (r.account_status || r.status)?.toLowerCase() === "disapproved").length,
         });
+      } else if (roleId === 5 || roleId === 2) {
+        // Campus Director and Head stats
+        setStats({
+          total: reqs.length,
+          pending: reqs.filter(r => r.status?.toLowerCase() === "pending").length,
+          approved: reqs.filter(r => r.status?.toLowerCase() === "approved").length,
+          completed: reqs.filter(r => r.status?.toLowerCase() === "completed").length,
+        });
       } else {
         setStats({
           total: reqs.length,
@@ -238,9 +246,10 @@ function getQuickActions(roleId, onNavigate) {
   ];
   if (roleId === 1) return [
     { label: "Pending Approvals", onPress: () => onNavigate("PendingApprovals") },
+    { label: "User Management", onPress: () => onNavigate("UserManagement") },
     ...common,
   ];
-  if (roleId === 2) return [
+  if (roleId === 2 || roleId === 5) return [
     { label: "Review Requests", onPress: () => onNavigate("ReviewRequests") },
     { label: "All Requests", onPress: () => onNavigate("ViewRequestStatus") },
     ...common,

@@ -1,19 +1,36 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useEffect, useState } from "react";
 import {
-  ActivityIndicator, KeyboardAvoidingView, Platform,
+  ActivityIndicator, KeyboardAvoidingView, Modal, Platform,
   ScrollView,
   StyleSheet,
   Text, TextInput, TouchableOpacity,
   View,
 } from "react-native";
-import ScreenHeader from "./ScreenHeader";
 import { MAINTENANCE_STATUS, normalizeMaintenanceStatus } from "../constants/maintenanceStatus";
+import ScreenHeader from "./ScreenHeader";
 
 import { API_URL } from '../../api';
 const C = { navy: "#0B1F3A", steel: "#1E4D8C", gold: "#C9A84C", bg: "#F0F2F5", surface: "#FFFFFF", border: "#DDE3EC", textMute: "#8A9BB0", danger: "#9B1C1C", dangerBg: "#FEE8E8", success: "#1A7A4A", successBg: "#EAF6EF", warn: "#B45C10", warnBg: "#FEF3E2", info: "#155E8A", infoBg: "#E6F2FA" };
 const PRIORITIES = [{ key: "low", label: "Low", color: C.success }, { key: "medium", label: "Medium", color: C.warn }, { key: "high", label: "High", color: C.danger }, { key: "urgent", label: "Urgent", color: "#6B21A8" }];
 const TIME_SLOTS = ["7:00 AM", "8:00 AM", "9:00 AM", "10:00 AM", "11:00 AM", "1:00 PM", "2:00 PM", "3:00 PM", "4:00 PM"];
+const MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+const DAY_LABELS = ["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"];
+
+function buildCalendarCells(viewDate) {
+  const year = viewDate.getFullYear();
+  const month = viewDate.getMonth();
+  const firstDay = new Date(year, month, 1).getDay();
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+  const today = new Date(); today.setHours(0, 0, 0, 0);
+  const cells = [];
+  for (let i = 0; i < firstDay; i++) cells.push(null);
+  for (let d = 1; d <= daysInMonth; d++) {
+    const cellDate = new Date(year, month, d);
+    cells.push({ day: d, dateStr: cellDate.toISOString().split("T")[0], past: cellDate < today });
+  }
+  return cells;
+}
 
 export default function AssignScheduleScreen({ user, request, onBack, onSuccess }) {
   const [approvedRequests, setApprovedRequests] = useState([]);
@@ -23,6 +40,8 @@ export default function AssignScheduleScreen({ user, request, onBack, onSuccess 
   const [success, setSuccess] = useState(false);
   const [error, setError] = useState("");
   const [scheduledDate, setScheduledDate] = useState("");
+  const [showCalendar, setShowCalendar] = useState(false);
+  const [calendarMonth, setCalendarMonth] = useState(new Date());
   const [scheduledTime, setScheduledTime] = useState("");
   const [assignedStaff, setAssignedStaff] = useState(`${user?.first_name || ""} ${user?.last_name || ""}`.trim());
   const [priority, setPriority] = useState(request?.priority || "medium");
@@ -37,8 +56,17 @@ export default function AssignScheduleScreen({ user, request, onBack, onSuccess 
       const res = await fetch(`${API_URL}/maintenance-requests`, { headers: { Authorization: `Bearer ${token}`, Accept: "application/json" } });
       const data = await res.json();
       const all = Array.isArray(data) ? data : data.data || [];
+
+      const tRes = await fetch(`${API_URL}/maintenance-types`, { headers: { Authorization: `Bearer ${token}` } });
+      const tData = await tRes.json();
+      const tList = Array.isArray(tData) ? tData : tData.data || [];
+      const tMap = {};
+      tList.forEach(t => { tMap[t.id] = t.name || t.type_name; });
+
       setApprovedRequests(
-        all.filter((requestItem) => normalizeMaintenanceStatus(requestItem.status, requestItem.status_id) === MAINTENANCE_STATUS.APPROVED && !requestItem.scheduled_date)
+        all
+          .filter((requestItem) => normalizeMaintenanceStatus(requestItem.status, requestItem.status_id) === MAINTENANCE_STATUS.APPROVED && !requestItem.scheduled_date)
+          .map(r => ({ ...r, maintenance_type_name: tMap[r.maintenance_type_id] || r.maintenance_type?.name || r.maintenance_type || r.type }))
       );
     } catch (_e) { setApprovedRequests([]); }
     finally { setLoading(false); }
@@ -53,7 +81,7 @@ export default function AssignScheduleScreen({ user, request, onBack, onSuccess 
     setSubmitting(true);
     try {
       const token = await AsyncStorage.getItem("authToken") || await AsyncStorage.getItem("token");
-      const res = await fetch(`${API_URL}/requests/${selectedRequest.id}/assign-schedule`, {
+      const res = await fetch(`${API_URL}/maintenance-requests/${selectedRequest.id}/assign-schedule`, {
         method: "POST",
         headers: { "Content-Type": "application/json", Accept: "application/json", Authorization: `Bearer ${token}` },
         body: JSON.stringify({ scheduled_date: scheduledDate, scheduled_time: scheduledTime, assigned_staff: assignedStaff, priority, notes }),
@@ -64,6 +92,10 @@ export default function AssignScheduleScreen({ user, request, onBack, onSuccess 
     } catch (_e) { setError("Cannot connect to server."); }
     finally { setSubmitting(false); }
   };
+
+  const prevMonth = () => setCalendarMonth(m => new Date(m.getFullYear(), m.getMonth() - 1));
+  const nextMonth = () => setCalendarMonth(m => new Date(m.getFullYear(), m.getMonth() + 1));
+  const calCells = buildCalendarCells(calendarMonth);
 
   if (success) return (
     <View style={{ flex: 1, backgroundColor: C.bg, alignItems: "center", justifyContent: "center", padding: 24 }}>
@@ -100,9 +132,21 @@ export default function AssignScheduleScreen({ user, request, onBack, onSuccess 
                 : approvedRequests.length === 0 ? <View style={styles.emptyCard}><Text style={styles.emptyText}>No approved requests awaiting schedule.</Text></View>
                   : approvedRequests.map((req, i) => (
                     <TouchableOpacity key={i} style={[styles.reqCard, selectedRequest?.id === req.id && styles.reqCardActive]} onPress={() => { setSelectedRequest(req); setPriority(req.priority || "medium"); }} activeOpacity={0.8}>
-                      <Text style={styles.reqType}>{req.maintenance_type || req.type}</Text>
-                      <Text style={styles.reqMeta}>{req.location} - {req.created_at?.slice(0, 10)}</Text>
-                      {selectedRequest?.id === req.id && <View style={styles.selectedTag}><Text style={styles.selectedTagText}>Selected</Text></View>}
+                      <View style={styles.reqCardTopRow}>
+                        <Text style={styles.reqType} numberOfLines={1}>{req.maintenance_type_name || req.maintenance_type?.name || req.maintenance_type || req.type || "Maintenance Request"}</Text>
+                        {selectedRequest?.id === req.id && <View style={styles.selectedTag}><Text style={styles.selectedTagText}>Selected</Text></View>}
+                      </View>
+                      {[
+                        ["Location", req.location],
+                        ["Requested by", req.requester_name || req.user?.name || req.requester?.name],
+                        ["Date Submitted", req.date_requested?.slice(0, 10) || req.created_at?.slice(0, 10)],
+                        ["Description", req.details || req.description],
+                      ].map(([label, value], idx) => value ? (
+                        <View key={idx} style={styles.reqDetailRow}>
+                          <Text style={styles.reqDetailLabel}>{label}:</Text>
+                          <Text style={styles.reqDetailValue} numberOfLines={2}>{value}</Text>
+                        </View>
+                      ) : null)}
                     </TouchableOpacity>
                   ))}
             </>
@@ -118,7 +162,56 @@ export default function AssignScheduleScreen({ user, request, onBack, onSuccess 
 
           <SLabel title="Schedule Details" />
           <Text style={styles.label}>Scheduled Date *</Text>
-          <TextInput style={styles.input} placeholder="e.g. 2026-03-20" placeholderTextColor="#a0aec0" value={scheduledDate} onChangeText={setScheduledDate} />
+          <TouchableOpacity style={styles.dateBtn} onPress={() => setShowCalendar(true)} activeOpacity={0.8}>
+            <Text style={[styles.dateBtnText, !scheduledDate && { color: "#a0aec0" }]}>
+              {scheduledDate || "Select a date"}
+            </Text>
+            <Text style={styles.dateIcon}>📅</Text>
+          </TouchableOpacity>
+
+          <Modal transparent animationType="fade" visible={showCalendar} onRequestClose={() => setShowCalendar(false)}>
+            <View style={styles.modalOverlay}>
+              <View style={styles.calSheet}>
+                <View style={styles.calHeader}>
+                  <TouchableOpacity onPress={prevMonth} style={styles.navBtn}>
+                    <Text style={styles.navArrow}>‹</Text>
+                  </TouchableOpacity>
+                  <Text style={styles.calMonthLabel}>{MONTHS[calendarMonth.getMonth()]} {calendarMonth.getFullYear()}</Text>
+                  <TouchableOpacity onPress={nextMonth} style={styles.navBtn}>
+                    <Text style={styles.navArrow}>›</Text>
+                  </TouchableOpacity>
+                </View>
+
+                <View style={styles.dayRow}>
+                  {DAY_LABELS.map(d => <Text key={d} style={styles.dayLabel}>{d}</Text>)}
+                </View>
+
+                <View style={styles.calGrid}>
+                  {calCells.map((cell, i) => {
+                    if (!cell) return <View key={i} style={styles.calCell} />;
+                    const isSelected = scheduledDate === cell.dateStr;
+                    return (
+                      <TouchableOpacity
+                        key={i}
+                        style={[styles.calCell, isSelected && styles.calCellSelected, cell.past && styles.calCellPast]}
+                        onPress={() => { if (!cell.past) { setScheduledDate(cell.dateStr); setShowCalendar(false); } }}
+                        disabled={cell.past}
+                        activeOpacity={0.7}
+                      >
+                        <Text style={[styles.calCellText, isSelected && styles.calCellTextSelected, cell.past && styles.calCellTextPast]}>
+                          {cell.day}
+                        </Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
+
+                <TouchableOpacity style={styles.calCloseBtn} onPress={() => setShowCalendar(false)}>
+                  <Text style={styles.calCloseBtnText}>Cancel</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </Modal>
 
           <Text style={styles.label}>Time Slot *</Text>
           <View style={styles.timeGrid}>
@@ -174,9 +267,12 @@ const styles = StyleSheet.create({
   emptyText: { fontSize: 14, color: C.textMute, fontWeight: "600" },
   reqCard: { backgroundColor: C.surface, borderRadius: 10, padding: 14, marginBottom: 8, borderWidth: 1.5, borderColor: C.border },
   reqCardActive: { borderColor: C.steel, backgroundColor: C.infoBg },
-  reqType: { fontSize: 14, fontWeight: "700", color: C.navy },
-  reqMeta: { fontSize: 12, color: C.textMute, marginTop: 3 },
-  selectedTag: { marginTop: 6, backgroundColor: C.steel, borderRadius: 6, paddingHorizontal: 10, paddingVertical: 3, alignSelf: "flex-start" },
+  reqCardTopRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 8 },
+  reqType: { fontSize: 14, fontWeight: "800", color: C.navy, flex: 1 },
+  reqDetailRow: { flexDirection: "row", marginTop: 3 },
+  reqDetailLabel: { fontSize: 11, fontWeight: "700", color: C.textMute, width: 100 },
+  reqDetailValue: { fontSize: 11, color: C.navy, fontWeight: "600", flex: 1 },
+  selectedTag: { backgroundColor: C.steel, borderRadius: 6, paddingHorizontal: 10, paddingVertical: 3, marginLeft: 8 },
   selectedTagText: { fontSize: 11, color: "#fff", fontWeight: "700" },
   summaryCard: { backgroundColor: C.infoBg, borderRadius: 10, padding: 14, marginBottom: 4, borderLeftWidth: 4, borderLeftColor: C.steel },
   summaryTitle: { fontSize: 10, fontWeight: "800", color: C.info, textTransform: "uppercase", letterSpacing: 1, marginBottom: 4 },
@@ -207,5 +303,26 @@ const styles = StyleSheet.create({
   dValue: { fontSize: 13, color: C.navy, fontWeight: "700" },
   doneBtn: { width: "100%", backgroundColor: C.navy, borderRadius: 10, paddingVertical: 14, alignItems: "center", elevation: 4 },
   doneBtnText: { color: "#fff", fontSize: 14, fontWeight: "800", letterSpacing: 2 },
+  // Date button
+  dateBtn: { backgroundColor: C.surface, borderRadius: 8, paddingHorizontal: 14, paddingVertical: 12, borderWidth: 1.5, borderColor: C.border, flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
+  dateBtnText: { fontSize: 13, color: C.navy, fontWeight: "600" },
+  dateIcon: { fontSize: 16 },
+  // Calendar modal
+  modalOverlay: { flex: 1, backgroundColor: "rgba(0,0,0,0.5)", justifyContent: "center", alignItems: "center", padding: 16 },
+  calSheet: { backgroundColor: C.surface, borderRadius: 16, padding: 16, width: "100%", maxWidth: 360 },
+  calHeader: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 12 },
+  navBtn: { padding: 8 },
+  navArrow: { fontSize: 24, color: C.navy, fontWeight: "700" },
+  calMonthLabel: { fontSize: 15, fontWeight: "800", color: C.navy },
+  dayRow: { flexDirection: "row", marginBottom: 4 },
+  dayLabel: { flex: 1, textAlign: "center", fontSize: 11, fontWeight: "700", color: C.textMute, paddingVertical: 4 },
+  calGrid: { flexDirection: "row", flexWrap: "wrap" },
+  calCell: { width: "14.28%", aspectRatio: 1, alignItems: "center", justifyContent: "center" },
+  calCellSelected: { backgroundColor: C.navy, borderRadius: 100 },
+  calCellPast: { opacity: 0.3 },
+  calCellText: { fontSize: 13, fontWeight: "600", color: C.navy },
+  calCellTextSelected: { color: "#fff", fontWeight: "800" },
+  calCellTextPast: { color: C.textMute },
+  calCloseBtn: { marginTop: 12, paddingVertical: 10, alignItems: "center", borderTopWidth: 1, borderTopColor: C.border },
+  calCloseBtnText: { fontSize: 14, fontWeight: "700", color: C.danger },
 });
-

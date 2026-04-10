@@ -45,3 +45,5 @@ export function normalizeMaintenanceStatus(value, statusId) {
 
   return MAINTENANCE_STATUS.PENDING;
 }
+
+export default {};

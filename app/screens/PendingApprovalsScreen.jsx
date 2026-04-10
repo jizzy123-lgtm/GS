@@ -69,7 +69,7 @@ export default function PendingApprovalsScreen({ user, onBack }) {
     const fetchAccounts = async () => {
         try {
             const token = await AsyncStorage.getItem("authToken") || await AsyncStorage.getItem("token");
-            const res = await fetch(`${API_URL}/pending-approvals`, {
+            const res = await fetch(`${API_URL}/users-list`, {
                 headers: { Authorization: `Bearer ${token}`, Accept: "application/json" },
             });
             const data = await res.json();

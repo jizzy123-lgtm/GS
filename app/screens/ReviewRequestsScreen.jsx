@@ -424,6 +424,32 @@ export default function ReviewRequestsScreen({ user, onBack, onNavigate }) {
               </View>
             )}
           </View>
+          <View style={styles.approvalCard}>
+            <Text style={styles.approvalCardTitle}>Approval Progress</Text>
+            <View style={styles.approvalSteps}>
+              <ApprovalStepDetail
+                done={verified}
+                label="Staff Verified"
+                who={selected.verifier?.last_name || selected.verified_by_name || null}
+                date={selected.verified_at || selected.date_received || null}
+              />
+              <View style={[styles.approvalStepLine, { backgroundColor: headApproved ? C.success : C.border }]} />
+              <ApprovalStepDetail
+                done={headApproved}
+                label="Head Approved"
+                who={selected.approver1?.last_name || selected.approved_by_head || null}
+                date={selected.head_approved_at || null}
+              />
+              <View style={[styles.approvalStepLine, { backgroundColor: directorApproved ? C.success : C.border }]} />
+              <ApprovalStepDetail
+                done={directorApproved}
+                label="Director Approved"
+                who={selected.approver2?.last_name || selected.approved_by_director || null}
+                date={selected.director_approved_at || null}
+              />
+            </View>
+          </View>
+
           {selected.scheduled_date && (
             <View style={styles.schedCard}>
               <Text style={styles.schedTitle}>Assigned Schedule</Text>
@@ -584,8 +610,23 @@ export default function ReviewRequestsScreen({ user, onBack, onNavigate }) {
                       </View>
                     </View>
                     <Text style={styles.reqMeta}>{req.location || "Office/Campus"} - {(req.date_requested || req.created_at)?.slice(0, 10) || "-"}</Text>
+                    {roleId === ROLE_IDS.STAFF && (
+                      <View style={styles.approvalTrack}>
+                        <ApprovalStep done={verified} label="Verified" />
+                        <View style={[styles.trackLine, { backgroundColor: isHeadApproved(req) ? C.success : C.border }]} />
+                        <ApprovalStep done={isHeadApproved(req)} label="Head" />
+                        <View style={[styles.trackLine, { backgroundColor: directorApproved ? C.success : C.border }]} />
+                        <ApprovalStep done={directorApproved} label="Director" />
+                      </View>
+                    )}
                     {roleId === ROLE_IDS.STAFF && pending && !verified && (
                       <View style={styles.assignTag}><Text style={styles.assignTagText}>Needs Verification</Text></View>
+                    )}
+                    {roleId === ROLE_IDS.STAFF && pending && verified && !isHeadApproved(req) && (
+                      <View style={[styles.assignTag, { backgroundColor: C.infoBg }]}><Text style={[styles.assignTagText, { color: C.info }]}>Waiting for Head Approval</Text></View>
+                    )}
+                    {roleId === ROLE_IDS.STAFF && pending && isHeadApproved(req) && !directorApproved && (
+                      <View style={[styles.assignTag, { backgroundColor: C.infoBg }]}><Text style={[styles.assignTagText, { color: C.info }]}>Waiting for Director Approval</Text></View>
                     )}
                     {roleId === ROLE_IDS.STAFF && pending && verified && directorApproved && (
                       <View style={[styles.assignTag, { backgroundColor: C.warnBg }]}><Text style={[styles.assignTagText, { color: C.warn }]}>Needs Priority</Text></View>
@@ -599,6 +640,33 @@ export default function ReviewRequestsScreen({ user, onBack, onNavigate }) {
               })}
         </View>
       </ScrollView>
+    </View>
+  );
+}
+
+function ApprovalStep({ done, label }) {
+  return (
+    <View style={{ alignItems: "center" }}>
+      <View style={[{ width: 16, height: 16, borderRadius: 8, borderWidth: 2 }, done ? { backgroundColor: C.success, borderColor: C.success } : { backgroundColor: C.surface, borderColor: C.border }]} />
+      <Text style={{ fontSize: 9, color: done ? C.success : C.textMute, fontWeight: "700", marginTop: 2 }}>{label}</Text>
+    </View>
+  );
+}
+
+function ApprovalStepDetail({ done, label, who, date }) {
+  return (
+    <View style={{ flexDirection: "row", alignItems: "flex-start", gap: 12 }}>
+      <View style={{ alignItems: "center", paddingTop: 2 }}>
+        <View style={[{ width: 20, height: 20, borderRadius: 10, alignItems: "center", justifyContent: "center", borderWidth: 2 }, done ? { backgroundColor: C.success, borderColor: C.success } : { backgroundColor: C.surface, borderColor: C.border }]}>
+          {done && <Text style={{ color: "#fff", fontSize: 11, fontWeight: "900" }}>✓</Text>}
+        </View>
+      </View>
+      <View style={{ flex: 1 }}>
+        <Text style={{ fontSize: 13, fontWeight: "700", color: done ? C.navy : C.textMute }}>{label}</Text>
+        {done && who ? <Text style={{ fontSize: 11, color: C.success, fontWeight: "600", marginTop: 1 }}>by {who}</Text> : null}
+        {done && date ? <Text style={{ fontSize: 10, color: C.textMute, marginTop: 1 }}>{String(date).slice(0, 10)}</Text> : null}
+        {!done && <Text style={{ fontSize: 11, color: C.textMute, marginTop: 1 }}>Pending</Text>}
+      </View>
     </View>
   );
 }
@@ -619,6 +687,12 @@ const styles = StyleSheet.create({
   assignTag: { marginTop: 8, backgroundColor: C.infoBg, borderRadius: 6, paddingHorizontal: 10, paddingVertical: 4, alignSelf: "flex-start" },
   assignTagText: { fontSize: 11, color: C.info, fontWeight: "700" },
   scheduledText: { fontSize: 11, color: C.success, fontWeight: "600", marginTop: 6 },
+  approvalTrack: { flexDirection: "row", alignItems: "center", marginTop: 10 },
+  trackLine: { flex: 1, height: 2, marginHorizontal: 4 },
+  approvalCard: { backgroundColor: C.surface, borderRadius: 12, padding: 16, marginBottom: 12, borderWidth: 1, borderColor: C.border, elevation: 2 },
+  approvalCardTitle: { fontSize: 11, fontWeight: "800", color: C.textMute, textTransform: "uppercase", letterSpacing: 1, marginBottom: 14 },
+  approvalSteps: { gap: 12 },
+  approvalStepLine: { width: 2, height: 16, marginLeft: 9 },
   msgBox: { borderLeftWidth: 4, borderRadius: 10, padding: 12, marginBottom: 12 },
   msgText: { fontSize: 13, fontWeight: "600" },
   statusBanner: { borderLeftWidth: 4, borderRadius: 8, padding: 14, marginBottom: 12 },

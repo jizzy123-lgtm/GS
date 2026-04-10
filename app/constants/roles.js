@@ -22,3 +22,5 @@ export function normalizeRoleId(value) {
 export function getRoleLabel(roleId, fallback = "User") {
   return ROLE_LABELS[normalizeRoleId(roleId)] || fallback;
 }
+
+export default {};

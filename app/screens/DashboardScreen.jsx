@@ -74,6 +74,7 @@ const isRequestOwnedByUser = (request, currentUser) => {
 export default function DashboardScreen({ user, onLogout, onNavigate }) {
   const [stats, setStats] = useState(null);
   const [recentRequests, setRecentRequests] = useState([]);
+  const [recentUsers, setRecentUsers] = useState([]);
   const [types, setTypes] = useState({});
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -84,21 +85,38 @@ export default function DashboardScreen({ user, onLogout, onNavigate }) {
     try {
       const token = await AsyncStorage.getItem("authToken") || await AsyncStorage.getItem("token");
       const headers = { Authorization: `Bearer ${token}`, Accept: "application/json" };
+
+      if (roleId === ROLE_IDS.SYSTEM_ADMIN) {
+        const usersRes = await fetch(`${API_URL}/users-list`, { headers });
+        const usersData = await usersRes.json();
+        const users = Array.isArray(usersData) ? usersData : usersData.data || [];
+        const getAccountStatus = (u) => (u?.account_status || u?.status || "pending").toLowerCase();
+        setStats({
+          total: users.length,
+          pending: users.filter(u => getAccountStatus(u) === "pending").length,
+          approved: users.filter(u => getAccountStatus(u) === "approved").length,
+          disapproved: users.filter(u => ["disapproved", "rejected"].includes(getAccountStatus(u))).length,
+          completed: 0,
+          cancelled: 0,
+        });
+        const sorted = [...users].sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0));
+        setRecentUsers(sorted.slice(0, 4));
+        return;
+      }
+
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 45000);
-      const ep = "/maintenance-requests";
       let res;
       try {
-        res = await fetch(`${API_URL}${ep}`, { headers, signal: controller.signal });
+        res = await fetch(`${API_URL}/maintenance-requests`, { headers, signal: controller.signal });
       } finally {
         clearTimeout(timeoutId);
       }
       const data = await res.json();
       const reqList = Array.isArray(data) ? data : data.data || [];
 
-      // Fetch maintenance types if not loaded
       let currentTypes = types;
-      if (roleId !== ROLE_IDS.SYSTEM_ADMIN && Object.keys(currentTypes).length === 0) {
+      if (Object.keys(currentTypes).length === 0) {
         const tRes = await fetch(`${API_URL}/maintenance-types`, { headers: { Authorization: `Bearer ${token}` } });
         const tData = await tRes.json();
         const tList = Array.isArray(tData) ? tData : tData.data || [];
@@ -118,27 +136,15 @@ export default function DashboardScreen({ user, onLogout, onNavigate }) {
         : reqs;
 
       setRecentRequests(requesterScopedReqs.slice(0, 4));
-      if (roleId === ROLE_IDS.SYSTEM_ADMIN || roleId === ROLE_IDS.CAMPUS_DIRECTOR || roleId === ROLE_IDS.HEAD) {
-        // Campus Director and Head stats
-        setStats({
-          total: reqs.length,
-          pending: reqs.filter(r => r.status === MAINTENANCE_STATUS.PENDING).length,
-          approved: reqs.filter(r => r.status === MAINTENANCE_STATUS.APPROVED).length,
-          completed: reqs.filter(r => r.status === MAINTENANCE_STATUS.DONE).length,
-          disapproved: reqs.filter(r => r.status === MAINTENANCE_STATUS.DISAPPROVED).length,
-          cancelled: reqs.filter(r => r.status === MAINTENANCE_STATUS.CANCELLED).length,
-        });
-      } else {
-        const statsSource = roleId === ROLE_IDS.REQUESTER ? requesterScopedReqs : reqs;
-        setStats({
-          total: statsSource.length,
-          pending: statsSource.filter(r => r.status === MAINTENANCE_STATUS.PENDING).length,
-          approved: statsSource.filter(r => r.status === MAINTENANCE_STATUS.APPROVED).length,
-          completed: statsSource.filter(r => r.status === MAINTENANCE_STATUS.DONE).length,
-          disapproved: statsSource.filter(r => r.status === MAINTENANCE_STATUS.DISAPPROVED).length,
-          cancelled: statsSource.filter(r => r.status === MAINTENANCE_STATUS.CANCELLED).length,
-        });
-      }
+      const statsSource = roleId === ROLE_IDS.REQUESTER ? requesterScopedReqs : reqs;
+      setStats({
+        total: statsSource.length,
+        pending: statsSource.filter(r => r.status === MAINTENANCE_STATUS.PENDING).length,
+        approved: statsSource.filter(r => r.status === MAINTENANCE_STATUS.APPROVED).length,
+        completed: statsSource.filter(r => r.status === MAINTENANCE_STATUS.DONE).length,
+        disapproved: statsSource.filter(r => r.status === MAINTENANCE_STATUS.DISAPPROVED).length,
+        cancelled: statsSource.filter(r => r.status === MAINTENANCE_STATUS.CANCELLED).length,
+      });
     } catch (_e) { setStats({ total: 0, pending: 0, approved: 0, completed: 0, disapproved: 0, cancelled: 0 }); }
     finally { setLoading(false); setRefreshing(false); }
   };
@@ -200,36 +206,21 @@ export default function DashboardScreen({ user, onLogout, onNavigate }) {
             <View style={styles.section}>
               <SectionTitle title="Overview" />
               <View style={styles.kpiGrid}>
-                <KPI
-                  label="Total"
-                  value={stats?.total}
-                  color={C.steel}
-                  bg={C.infoBg}
-                  onPress={() => onNavigate("ViewRequestStatus", { filter: "All" })}
-                />
-                <KPI
-                  label="Pending"
-                  value={stats?.pending}
-                  color={C.warn}
-                  bg={C.warnBg}
-                  onPress={() => onNavigate("ViewRequestStatus", { filter: "Pending" })}
-                />
-                <KPI
-                  label="Approved"
-                  value={stats?.approved}
-                  color={C.success}
-                  bg={C.successBg}
-                  onPress={() => onNavigate("ViewRequestStatus", { filter: "Approved" })}
-                />
-                <KPI
-                  label="Disapproved"
-                  value={stats?.disapproved}
-                  color={C.danger}
-                  bg={C.dangerBg}
-                  onPress={() => onNavigate("ViewRequestStatus", { filter: "Disapproved" })}
-                />
-                {roleId !== ROLE_IDS.SYSTEM_ADMIN && (
-                  <KPI label="Done" value={stats?.completed} color={C.textMid} bg={C.surfaceAlt} />
+                {roleId === ROLE_IDS.SYSTEM_ADMIN ? (
+                  <>
+                    <KPI label="Total Accounts" value={stats?.total} color={C.steel} bg={C.infoBg} onPress={() => onNavigate("UserManagement")} />
+                    <KPI label="Pending" value={stats?.pending} color={C.warn} bg={C.warnBg} onPress={() => onNavigate("PendingApprovals")} />
+                    <KPI label="Approved" value={stats?.approved} color={C.success} bg={C.successBg} onPress={() => onNavigate("PendingApprovals")} />
+                    <KPI label="Disapproved" value={stats?.disapproved} color={C.danger} bg={C.dangerBg} onPress={() => onNavigate("PendingApprovals")} />
+                  </>
+                ) : (
+                  <>
+                    <KPI label="Total" value={stats?.total} color={C.steel} bg={C.infoBg} onPress={() => onNavigate("ViewRequestStatus", { filter: "All" })} />
+                    <KPI label="Pending" value={stats?.pending} color={C.warn} bg={C.warnBg} onPress={() => onNavigate("ViewRequestStatus", { filter: "Pending" })} />
+                    <KPI label="Approved" value={stats?.approved} color={C.success} bg={C.successBg} onPress={() => onNavigate("ViewRequestStatus", { filter: "Approved" })} />
+                    <KPI label="Disapproved" value={stats?.disapproved} color={C.danger} bg={C.dangerBg} onPress={() => onNavigate("ViewRequestStatus", { filter: "Disapproved" })} />
+                    <KPI label="Done" value={stats?.completed} color={C.textMid} bg={C.surfaceAlt} />
+                  </>
                 )}
               </View>
             </View>
@@ -249,44 +240,75 @@ export default function DashboardScreen({ user, onLogout, onNavigate }) {
             <View style={[styles.section, { marginBottom: 32 }]}>
               <View style={styles.sectionHeader}>
                 <View style={styles.sectionAccent} />
-                <Text style={styles.sectionTitle}>Recent Requests</Text>
-                <TouchableOpacity onPress={() => onNavigate("ViewRequestStatus")} style={styles.viewAllBtn}>
+                <Text style={styles.sectionTitle}>{roleId === ROLE_IDS.SYSTEM_ADMIN ? "Recently Created Accounts" : "Recent Requests"}</Text>
+                <TouchableOpacity onPress={() => onNavigate(roleId === ROLE_IDS.SYSTEM_ADMIN ? "UserManagement" : "ViewRequestStatus")} style={styles.viewAllBtn}>
                   <Text style={styles.viewAllText}>View All →</Text>
                 </TouchableOpacity>
               </View>
-              {recentRequests.length === 0 ? (
-                <View style={styles.emptyCard}><Text style={styles.emptyText}>No requests yet.</Text></View>
+
+              {roleId === ROLE_IDS.SYSTEM_ADMIN ? (
+                recentUsers.length === 0
+                  ? <View style={styles.emptyCard}><Text style={styles.emptyText}>No accounts yet.</Text></View>
+                  : <View style={styles.tableCard}>
+                      <View style={styles.tableHeader}>
+                        <Text style={[styles.thCell, { flex: 2.5 }]}>Name</Text>
+                        <Text style={[styles.thCell, { flex: 1.5 }]}>Date</Text>
+                        <Text style={[styles.thCell, { flex: 1.2, textAlign: "right" }]}>Status</Text>
+                      </View>
+                      {recentUsers.map((u, i) => {
+                        const st = (u?.account_status || u?.status || "pending").toLowerCase();
+                        const sm = {
+                          pending: { c: C.warn, bg: C.warnBg, l: "Pending" },
+                          approved: { c: C.success, bg: C.successBg, l: "Approved" },
+                          disapproved: { c: C.danger, bg: C.dangerBg, l: "Disapproved" },
+                          rejected: { c: C.danger, bg: C.dangerBg, l: "Rejected" },
+                        };
+                        const s = sm[st] || sm.pending;
+                        const fullName = `${u.first_name || ""} ${u.last_name || ""}`.trim() || u.name || u.username || "—";
+                        return (
+                          <View key={i} style={[styles.tableRow, i === recentUsers.length - 1 && { borderBottomWidth: 0 }]}>
+                            <Text style={[styles.tdCell, { flex: 2.5 }]} numberOfLines={1}>{fullName}</Text>
+                            <Text style={[styles.tdCell, { flex: 1.5, color: C.textMute }]}>{u.created_at?.slice(0, 10) || "—"}</Text>
+                            <View style={[styles.chip, { backgroundColor: s.bg, flex: 1.2, alignSelf: "center" }]}>
+                              <Text style={[styles.chipText, { color: s.c }]}>{s.l}</Text>
+                            </View>
+                          </View>
+                        );
+                      })}
+                    </View>
               ) : (
-                <View style={styles.tableCard}>
-                  <View style={styles.tableHeader}>
-                    <Text style={[styles.thCell, { flex: 2 }]}>Type</Text>
-                    <Text style={[styles.thCell, { flex: 1.5 }]}>Date</Text>
-                    <Text style={[styles.thCell, { flex: 1.2, textAlign: "right" }]}>Status</Text>
-                  </View>
-                  {recentRequests.map((req, i) => {
-                    const sm = {
-                      pending: { c: C.warn, bg: C.warnBg, l: "Pending" },
-                      approved: { c: C.success, bg: C.successBg, l: "Approved" },
-                      done: { c: C.textMid, bg: C.surfaceAlt, l: "Done" },
-                      disapproved: { c: C.danger, bg: C.dangerBg, l: "Denied" },
-                      cancelled: { c: C.textMute, bg: C.surfaceAlt, l: "Cancelled" },
-                    };
-                    const s = sm[req.status] || sm.pending;
-                    return (
-                      <TouchableOpacity key={i}
-                        style={[styles.tableRow, i === recentRequests.length - 1 && { borderBottomWidth: 0 }]}
-                        onPress={() => onNavigate("ViewRequestStatus", { requestId: req.id })}
-                        activeOpacity={0.7}
-                      >
-                        <Text style={[styles.tdCell, { flex: 2 }]} numberOfLines={1}>{req.maintenance_type_name || req.maintenance_type?.name || "Maintenance Request"}</Text>
-                        <Text style={[styles.tdCell, { flex: 1.5, color: C.textMute }]}>{(req.date_requested || req.created_at)?.slice(0, 10) || "—"}</Text>
-                        <View style={[styles.chip, { backgroundColor: s.bg, flex: 1.2, alignSelf: "center" }]}>
-                          <Text style={[styles.chipText, { color: s.c }]}>{s.l}</Text>
-                        </View>
-                      </TouchableOpacity>
-                    );
-                  })}
-                </View>
+                recentRequests.length === 0
+                  ? <View style={styles.emptyCard}><Text style={styles.emptyText}>No requests yet.</Text></View>
+                  : <View style={styles.tableCard}>
+                      <View style={styles.tableHeader}>
+                        <Text style={[styles.thCell, { flex: 2 }]}>Type</Text>
+                        <Text style={[styles.thCell, { flex: 1.5 }]}>Date</Text>
+                        <Text style={[styles.thCell, { flex: 1.2, textAlign: "right" }]}>Status</Text>
+                      </View>
+                      {recentRequests.map((req, i) => {
+                        const sm = {
+                          pending: { c: C.warn, bg: C.warnBg, l: "Pending" },
+                          approved: { c: C.success, bg: C.successBg, l: "Approved" },
+                          done: { c: C.textMid, bg: C.surfaceAlt, l: "Done" },
+                          disapproved: { c: C.danger, bg: C.dangerBg, l: "Denied" },
+                          cancelled: { c: C.textMute, bg: C.surfaceAlt, l: "Cancelled" },
+                        };
+                        const s = sm[req.status] || sm.pending;
+                        return (
+                          <TouchableOpacity key={i}
+                            style={[styles.tableRow, i === recentRequests.length - 1 && { borderBottomWidth: 0 }]}
+                            onPress={() => onNavigate("ViewRequestStatus", { requestId: req.id })}
+                            activeOpacity={0.7}
+                          >
+                            <Text style={[styles.tdCell, { flex: 2 }]} numberOfLines={1}>{req.maintenance_type_name || req.maintenance_type?.name || "Maintenance Request"}</Text>
+                            <Text style={[styles.tdCell, { flex: 1.5, color: C.textMute }]}>{(req.date_requested || req.created_at)?.slice(0, 10) || "—"}</Text>
+                            <View style={[styles.chip, { backgroundColor: s.bg, flex: 1.2, alignSelf: "center" }]}>
+                              <Text style={[styles.chipText, { color: s.c }]}>{s.l}</Text>
+                            </View>
+                          </TouchableOpacity>
+                        );
+                      })}
+                    </View>
               )}
             </View>
           </>

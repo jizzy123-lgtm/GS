@@ -5,6 +5,8 @@ import Constants from 'expo-constants';
 import { API_URL } from '../api';
 
 export async function registerForPushNotificationsAsync(authToken) {
+  if (Platform.OS === 'web') return null;
+
   let token;
 
   if (Platform.OS === 'android') {

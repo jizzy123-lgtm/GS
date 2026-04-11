@@ -12,8 +12,17 @@ import ScreenHeader from "./ScreenHeader";
 
 import { API_URL } from '../../api';
 const C = { navy: "#0B1F3A", steel: "#1E4D8C", gold: "#C9A84C", bg: "#F0F2F5", surface: "#FFFFFF", border: "#DDE3EC", textMute: "#8A9BB0", danger: "#9B1C1C", dangerBg: "#FEE8E8", success: "#1A7A4A", successBg: "#EAF6EF", warn: "#B45C10", warnBg: "#FEF3E2", info: "#155E8A", infoBg: "#E6F2FA" };
-const PRIORITIES = [{ key: "low", label: "Low", color: C.success }, { key: "medium", label: "Medium", color: C.warn }, { key: "high", label: "High", color: C.danger }, { key: "urgent", label: "Urgent", color: "#6B21A8" }];
-const TIME_SLOTS = ["7:00 AM", "8:00 AM", "9:00 AM", "10:00 AM", "11:00 AM", "1:00 PM", "2:00 PM", "3:00 PM", "4:00 PM"];
+const TIME_SLOTS = [
+  { label: "7:00 AM", value: "07:00" },
+  { label: "8:00 AM", value: "08:00" },
+  { label: "9:00 AM", value: "09:00" },
+  { label: "10:00 AM", value: "10:00" },
+  { label: "11:00 AM", value: "11:00" },
+  { label: "1:00 PM", value: "13:00" },
+  { label: "2:00 PM", value: "14:00" },
+  { label: "3:00 PM", value: "15:00" },
+  { label: "4:00 PM", value: "16:00" },
+];
 const MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
 const DAY_LABELS = ["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"];
 
@@ -43,8 +52,7 @@ export default function AssignScheduleScreen({ user, request, onBack, onSuccess 
   const [showCalendar, setShowCalendar] = useState(false);
   const [calendarMonth, setCalendarMonth] = useState(new Date());
   const [scheduledTime, setScheduledTime] = useState("");
-  const [assignedStaff, setAssignedStaff] = useState(`${user?.first_name || ""} ${user?.last_name || ""}`.trim());
-  const [priority, setPriority] = useState(request?.priority || "medium");
+  const [title, setTitle] = useState("Maintenance Schedule");
   const [notes, setNotes] = useState("");
 
   useEffect(() => { if (!request) fetchApproved(); }, []);
@@ -77,14 +85,20 @@ export default function AssignScheduleScreen({ user, request, onBack, onSuccess 
     if (!selectedRequest) { setError("Please select a request."); return; }
     if (!scheduledDate.trim()) { setError("Please enter a scheduled date."); return; }
     if (!scheduledTime) { setError("Please select a time slot."); return; }
-    if (!assignedStaff.trim()) { setError("Please enter the staff name."); return; }
+    if (!title.trim()) { setError("Please enter a title."); return; }
     setSubmitting(true);
     try {
       const token = await AsyncStorage.getItem("authToken") || await AsyncStorage.getItem("token");
-      const res = await fetch(`${API_URL}/maintenance-requests/${selectedRequest.id}/assign-schedule`, {
+      const res = await fetch(`${API_URL}/schedule-events`, {
         method: "POST",
         headers: { "Content-Type": "application/json", Accept: "application/json", Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ scheduled_date: scheduledDate, scheduled_time: scheduledTime, assigned_staff: assignedStaff, priority, notes }),
+        body: JSON.stringify({
+          maintenance_request_id: selectedRequest.id,
+          title: title.trim(),
+          date: scheduledDate,
+          time: scheduledTime,
+          notes,
+        }),
       });
       const data = await res.json();
       if (res.ok) setSuccess(true);
@@ -105,7 +119,7 @@ export default function AssignScheduleScreen({ user, request, onBack, onSuccess 
       <Text style={styles.successSub}>The requester will be notified of their schedule.</Text>
       <View style={styles.successCard}>
         <Text style={styles.successCardTitle}>Schedule Details</Text>
-        {[["Request", selectedRequest?.maintenance_type || selectedRequest?.type], ["Date", scheduledDate], ["Time", scheduledTime], ["Staff", assignedStaff], ["Priority", priority]].map(([l, v], i, arr) => (
+        {[["Request", selectedRequest?.maintenance_type_name || selectedRequest?.maintenance_type || selectedRequest?.type], ["Title", title], ["Date", scheduledDate], ["Time", scheduledTime]].map(([l, v], i, arr) => (
           <View key={i} style={[styles.dRow, i === arr.length - 1 && { borderBottomWidth: 0 }]}>
             <Text style={styles.dLabel}>{l}</Text>
             <Text style={styles.dValue}>{v || "-"}</Text>
@@ -131,7 +145,7 @@ export default function AssignScheduleScreen({ user, request, onBack, onSuccess 
               {loading ? <ActivityIndicator color={C.steel} style={{ marginVertical: 20 }} />
                 : approvedRequests.length === 0 ? <View style={styles.emptyCard}><Text style={styles.emptyText}>No approved requests awaiting schedule.</Text></View>
                   : approvedRequests.map((req, i) => (
-                    <TouchableOpacity key={i} style={[styles.reqCard, selectedRequest?.id === req.id && styles.reqCardActive]} onPress={() => { setSelectedRequest(req); setPriority(req.priority || "medium"); }} activeOpacity={0.8}>
+                    <TouchableOpacity key={i} style={[styles.reqCard, selectedRequest?.id === req.id && styles.reqCardActive]} onPress={() => setSelectedRequest(req)} activeOpacity={0.8}>
                       <View style={styles.reqCardTopRow}>
                         <Text style={styles.reqType} numberOfLines={1}>{req.maintenance_type_name || req.maintenance_type?.name || req.maintenance_type || req.type || "Maintenance Request"}</Text>
                         {selectedRequest?.id === req.id && <View style={styles.selectedTag}><Text style={styles.selectedTagText}>Selected</Text></View>}
@@ -213,23 +227,14 @@ export default function AssignScheduleScreen({ user, request, onBack, onSuccess 
             </View>
           </Modal>
 
+          <Text style={styles.label}>Title *</Text>
+          <TextInput style={styles.input} placeholder="e.g. Maintenance Schedule" placeholderTextColor="#a0aec0" value={title} onChangeText={setTitle} />
+
           <Text style={styles.label}>Time Slot *</Text>
           <View style={styles.timeGrid}>
             {TIME_SLOTS.map((slot, i) => (
-              <TouchableOpacity key={i} style={[styles.timeBtn, scheduledTime === slot && styles.timeBtnActive]} onPress={() => setScheduledTime(slot)} activeOpacity={0.8}>
-                <Text style={[styles.timeBtnText, scheduledTime === slot && styles.timeBtnTextActive]}>{slot}</Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-
-          <Text style={styles.label}>Assigned Staff *</Text>
-          <TextInput style={styles.input} placeholder="Staff name" placeholderTextColor="#a0aec0" value={assignedStaff} onChangeText={setAssignedStaff} />
-
-          <SLabel title="Priority Schedule" />
-          <View style={styles.priorityGrid}>
-            {PRIORITIES.map(p => (
-              <TouchableOpacity key={p.key} style={[styles.priorityBtn, priority === p.key && { backgroundColor: p.color, borderColor: p.color }]} onPress={() => setPriority(p.key)} activeOpacity={0.8}>
-                <Text style={[styles.priorityText, priority === p.key && { color: "#fff" }]}>{p.label}</Text>
+              <TouchableOpacity key={i} style={[styles.timeBtn, scheduledTime === slot.value && styles.timeBtnActive]} onPress={() => setScheduledTime(slot.value)} activeOpacity={0.8}>
+                <Text style={[styles.timeBtnText, scheduledTime === slot.value && styles.timeBtnTextActive]}>{slot.label}</Text>
               </TouchableOpacity>
             ))}
           </View>
@@ -286,9 +291,6 @@ const styles = StyleSheet.create({
   timeBtnActive: { backgroundColor: C.navy, borderColor: C.navy },
   timeBtnText: { fontSize: 12, fontWeight: "700", color: C.textMute },
   timeBtnTextActive: { color: "#fff" },
-  priorityGrid: { flexDirection: "row", gap: 8, flexWrap: "wrap" },
-  priorityBtn: { flex: 1, minWidth: "45%", paddingVertical: 10, borderRadius: 8, alignItems: "center", borderWidth: 1.5, borderColor: C.border, backgroundColor: C.surface },
-  priorityText: { fontSize: 12, fontWeight: "700", color: C.textMute },
   submitBtn: { backgroundColor: C.steel, borderRadius: 10, paddingVertical: 15, alignItems: "center", marginTop: 22, elevation: 4 },
   submitText: { color: "#fff", fontSize: 14, fontWeight: "800", letterSpacing: 2 },
   successBadge: { width: 70, height: 70, borderRadius: 35, backgroundColor: C.navy, borderWidth: 3, borderColor: C.gold, alignItems: "center", justifyContent: "center", marginBottom: 16 },

@@ -225,7 +225,7 @@ export default function PendingApprovalsScreen({ user, onBack }) {
                                 </TouchableOpacity>
                                 <TouchableOpacity
                                     style={[styles.approveBtn, actionLoading && { opacity: 0.6 }]}
-                                    onPress={() => doAction(selected.id, "approve")}
+                                    onPress={() => doAction(selected.user_id || selected.id, "approve")}
                                     disabled={actionLoading}
                                 >
                                     {actionLoading ? <ActivityIndicator color="#fff" size="small" /> : (
@@ -268,7 +268,7 @@ export default function PendingApprovalsScreen({ user, onBack }) {
                                         const r = rejectionReason;
                                         setIsRejectModalVisible(false);
                                         setRejectionReason("");
-                                        doAction(selected.id, "reject", r);
+                                        doAction(selected.user_id || selected.id, "reject", r);
                                     }}
                                 >
                                     <Text style={styles.modalSubmitText}>Reject and Send</Text>

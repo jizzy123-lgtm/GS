@@ -363,6 +363,7 @@ function getQuickActions(roleId, onNavigate) {
   if (roleId === ROLE_IDS.SYSTEM_ADMIN) return [
     { label: "Account Approvals", onPress: () => onNavigate("PendingApprovals") },
     { label: "User Management", onPress: () => onNavigate("UserManagement") },
+    { label: "Feedbacks", onPress: () => onNavigate("Feedbacks") },
     ...common,
   ];
   if (roleId === ROLE_IDS.HEAD || roleId === ROLE_IDS.CAMPUS_DIRECTOR) return [

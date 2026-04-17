@@ -1,5 +1,5 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import {
   ActivityIndicator, KeyboardAvoidingView, Modal, Platform,
   ScrollView,
@@ -7,15 +7,35 @@ import {
   Text, TextInput, TouchableOpacity,
   View,
 } from "react-native";
+import { normalizeImageUrls } from "../../utils/imageAttachments";
+import AttachedImagesSection from "../components/AttachedImagesSection";
 import { MAINTENANCE_STATUS, normalizeMaintenanceStatus } from "../constants/maintenanceStatus";
+import { normalizeRoleId, ROLE_IDS } from "../constants/roles";
 import ScreenHeader from "./ScreenHeader";
 
 import { API_URL } from '../../api';
 const C = { navy: "#0B1F3A", steel: "#1E4D8C", gold: "#C9A84C", bg: "#F0F2F5", surface: "#FFFFFF", border: "#DDE3EC", textMute: "#8A9BB0", danger: "#9B1C1C", dangerBg: "#FEE8E8", success: "#1A7A4A", successBg: "#EAF6EF", warn: "#B45C10", warnBg: "#FEF3E2", info: "#155E8A", infoBg: "#E6F2FA" };
 const PRIORITIES = [{ key: "low", label: "Low", color: C.success }, { key: "medium", label: "Medium", color: C.warn }, { key: "high", label: "High", color: C.danger }, { key: "urgent", label: "Urgent", color: "#6B21A8" }];
-const TIME_SLOTS = ["7:00 AM", "8:00 AM", "9:00 AM", "10:00 AM", "11:00 AM", "1:00 PM", "2:00 PM", "3:00 PM", "4:00 PM"];
+const TIME_SLOTS = ["07:00", "08:00", "09:00", "10:00", "11:00", "13:00", "14:00", "15:00", "16:00"];
 const MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
 const DAY_LABELS = ["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"];
+
+const getRoleDetailEndpoint = (roleId, requestId) => {
+  if (!requestId) return null;
+  if (roleId === ROLE_IDS.STAFF) return `${API_URL}/staffpov/${requestId}`;
+  if (roleId === ROLE_IDS.HEAD) return `${API_URL}/headpov/${requestId}`;
+  if (roleId === ROLE_IDS.CAMPUS_DIRECTOR) return `${API_URL}/directorpov/${requestId}`;
+  return null;
+};
+
+const hasPriorityAssigned = (request) =>
+  Boolean(String(request?.priority_number || request?.priority || "").trim());
+
+const isReadyForScheduling = (request) => {
+  const status = normalizeMaintenanceStatus(request?.status, request?.status_id);
+  if (status === MAINTENANCE_STATUS.APPROVED) return true;
+  return status === MAINTENANCE_STATUS.PENDING && hasPriorityAssigned(request);
+};
 
 function buildCalendarCells(viewDate) {
   const year = viewDate.getFullYear();
@@ -46,10 +66,10 @@ export default function AssignScheduleScreen({ user, request, onBack, onSuccess 
   const [assignedStaff, setAssignedStaff] = useState(`${user?.first_name || ""} ${user?.last_name || ""}`.trim());
   const [priority, setPriority] = useState(request?.priority || "medium");
   const [notes, setNotes] = useState("");
+  const [summaryImageUrls, setSummaryImageUrls] = useState(() => normalizeImageUrls(request?.image_urls));
+  const roleId = normalizeRoleId(user?.role_id);
 
-  useEffect(() => { if (!request) fetchApproved(); }, []);
-
-  const fetchApproved = async () => {
+  const fetchApproved = useCallback(async () => {
     setLoading(true);
     try {
       const token = await AsyncStorage.getItem("authToken") || await AsyncStorage.getItem("token");
@@ -65,26 +85,67 @@ export default function AssignScheduleScreen({ user, request, onBack, onSuccess 
 
       setApprovedRequests(
         all
-          .filter((requestItem) => normalizeMaintenanceStatus(requestItem.status, requestItem.status_id) === MAINTENANCE_STATUS.APPROVED && !requestItem.scheduled_date)
+          .filter((requestItem) => isReadyForScheduling(requestItem) && !requestItem.scheduled_date)
           .map(r => ({ ...r, maintenance_type_name: tMap[r.maintenance_type_id] || r.maintenance_type?.name || r.maintenance_type || r.type }))
       );
     } catch (_e) { setApprovedRequests([]); }
     finally { setLoading(false); }
-  };
+  }, []);
+
+  useEffect(() => { if (!request) fetchApproved(); }, [request, fetchApproved]);
+  useEffect(() => {
+    setSummaryImageUrls(normalizeImageUrls(selectedRequest?.image_urls));
+  }, [selectedRequest?.id, selectedRequest?.image_urls]);
+
+  useEffect(() => {
+    let mounted = true;
+
+    const fetchRoleDetailImages = async () => {
+      if (!selectedRequest?.id) return;
+      const initialUrls = normalizeImageUrls(selectedRequest?.image_urls);
+      if (initialUrls.length > 0) return;
+
+      const endpoint = getRoleDetailEndpoint(roleId, selectedRequest.id);
+      if (!endpoint) return;
+
+      try {
+        const token = await AsyncStorage.getItem("authToken") || await AsyncStorage.getItem("token");
+        const res = await fetch(endpoint, {
+          headers: { Authorization: `Bearer ${token}`, Accept: "application/json" },
+        });
+        const data = await res.json();
+        const detail = Array.isArray(data) ? data[0] : data?.data || data;
+        const urls = normalizeImageUrls(detail?.image_urls);
+        if (mounted && urls.length > 0) setSummaryImageUrls(urls);
+      } catch (_error) {
+        // Keep empty attachments when fallback fetch fails.
+      }
+    };
+
+    fetchRoleDetailImages();
+    return () => { mounted = false; };
+  }, [selectedRequest?.id, selectedRequest?.image_urls, roleId]);
 
   const handleAssign = async () => {
     setError("");
     if (!selectedRequest) { setError("Please select a request."); return; }
     if (!scheduledDate.trim()) { setError("Please enter a scheduled date."); return; }
     if (!scheduledTime) { setError("Please select a time slot."); return; }
-    if (!assignedStaff.trim()) { setError("Please enter the staff name."); return; }
+    const assignedStaffId = Number(user?.id || user?.user_id || 0);
+    if (!assignedStaffId) { setError("Unable to assign schedule: missing staff user id."); return; }
     setSubmitting(true);
     try {
       const token = await AsyncStorage.getItem("authToken") || await AsyncStorage.getItem("token");
       const res = await fetch(`${API_URL}/maintenance-requests/${selectedRequest.id}/assign-schedule`, {
         method: "POST",
         headers: { "Content-Type": "application/json", Accept: "application/json", Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ scheduled_date: scheduledDate, scheduled_time: scheduledTime, assigned_staff: assignedStaff, priority, notes }),
+        body: JSON.stringify({
+          scheduled_date: scheduledDate,
+          scheduled_time: scheduledTime,
+          assigned_staff: assignedStaffId,
+          scheduled_notes: notes,
+          priority,
+        }),
       });
       const data = await res.json();
       if (res.ok) setSuccess(true);
@@ -102,7 +163,7 @@ export default function AssignScheduleScreen({ user, request, onBack, onSuccess 
       <View style={styles.successBadge}><Text style={styles.successBadgeText}>OK</Text></View>
       <Text style={styles.successOrg}>GSU GATEWAY</Text>
       <Text style={styles.successTitle}>Schedule Assigned!</Text>
-      <Text style={styles.successSub}>The requester will be notified of their schedule.</Text>
+      <Text style={styles.successSub}>The request was auto-marked as done and the requester was notified for feedback.</Text>
       <View style={styles.successCard}>
         <Text style={styles.successCardTitle}>Schedule Details</Text>
         {[["Request", selectedRequest?.maintenance_type || selectedRequest?.type], ["Date", scheduledDate], ["Time", scheduledTime], ["Staff", assignedStaff], ["Priority", priority]].map(([l, v], i, arr) => (
@@ -120,7 +181,7 @@ export default function AssignScheduleScreen({ user, request, onBack, onSuccess 
 
   return (
     <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === "ios" ? "padding" : "height"}>
-      <ScreenHeader title="Assign Schedule" subtitle="Assign schedule for approved requests" onBack={onBack} />
+      <ScreenHeader title="Assign Schedule" subtitle="Assign schedule for requests awaiting scheduling" onBack={onBack} />
       <ScrollView style={styles.root} contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
         <View style={styles.body}>
           {error ? <View style={styles.errorBox}><Text style={styles.errorText}>{error}</Text></View> : null}
@@ -129,7 +190,7 @@ export default function AssignScheduleScreen({ user, request, onBack, onSuccess 
             <>
               <SLabel title="Select Request" />
               {loading ? <ActivityIndicator color={C.steel} style={{ marginVertical: 20 }} />
-                : approvedRequests.length === 0 ? <View style={styles.emptyCard}><Text style={styles.emptyText}>No approved requests awaiting schedule.</Text></View>
+                : approvedRequests.length === 0 ? <View style={styles.emptyCard}><Text style={styles.emptyText}>No requests awaiting schedule.</Text></View>
                   : approvedRequests.map((req, i) => (
                     <TouchableOpacity key={i} style={[styles.reqCard, selectedRequest?.id === req.id && styles.reqCardActive]} onPress={() => { setSelectedRequest(req); setPriority(req.priority || "medium"); }} activeOpacity={0.8}>
                       <View style={styles.reqCardTopRow}>
@@ -157,6 +218,7 @@ export default function AssignScheduleScreen({ user, request, onBack, onSuccess 
               <Text style={styles.summaryTitle}>Selected Request</Text>
               <Text style={styles.summaryType}>{selectedRequest.maintenance_type || selectedRequest.type}</Text>
               <Text style={styles.summaryMeta}>{selectedRequest.location} - Priority: {selectedRequest.priority_number || selectedRequest.priority || "Pending"}</Text>
+              <AttachedImagesSection imageUrls={summaryImageUrls} title="Attached Images" />
             </View>
           )}
 

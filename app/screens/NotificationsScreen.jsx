@@ -2,17 +2,18 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useEffect, useState } from "react";
 import {
   ActivityIndicator,
-  Modal,
+  Alert,
   RefreshControl,
   ScrollView,
   StyleSheet,
   Text,
   TouchableOpacity,
-  TouchableWithoutFeedback,
   View,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import ScreenHeader from "./ScreenHeader";
+import { normalizeRoleId } from "../constants/roles";
+import { getTargetFromNotificationLike } from "../../utils/notificationNavigation";
 
 import { API_URL } from '../../api';
 const C = {
@@ -23,11 +24,10 @@ const C = {
 };
 const ICONS = { director: "notifications", request: "notifications", approved: "checkmark-circle", disapproved: "close-circle", completed: "ribbon", pending: "time", feedback: "chatbubble", schedule: "calendar", default: "notifications" };
 
-export default function NotificationsScreen({ onBack }) {
+export default function NotificationsScreen({ user, onBack, onNavigate }) {
   const [notifications, setNotifications] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [selected, setSelected] = useState(null);
 
   const fetch_ = async () => {
     try {
@@ -55,7 +55,18 @@ export default function NotificationsScreen({ onBack }) {
     } catch (_e) { }
   };
 
-  const handleTap = (n) => { setSelected(n); if (!n.read_at) markRead(n.id); };
+  const handleTap = async (n) => {
+    if (!n?.read_at) await markRead(n.id);
+    const target = getTargetFromNotificationLike(n, normalizeRoleId(user?.role_id));
+    if (target?.screen && onNavigate) {
+      onNavigate(target.screen, target.params);
+      return;
+    }
+    Alert.alert(
+      n?.data?.title || n?.title || "Notification",
+      n?.data?.message || n?.message || n?.body || "You have a new notification."
+    );
+  };
 
   useEffect(() => { fetch_(); }, []);
   const onRefresh = () => { setRefreshing(true); fetch_(); };
@@ -67,14 +78,30 @@ export default function NotificationsScreen({ onBack }) {
     return ICONS.default;
   };
 
-  const getColor = (n) => {
-    const t = n?.type?.toLowerCase() || n?.data?.type?.toLowerCase() || "";
-    if (t.includes("approved")) return { color: C.success, bg: C.successBg };
-    if (t.includes("disapproved")) return { color: C.danger, bg: C.dangerBg };
-    if (t.includes("completed")) return { color: C.success, bg: C.successBg };
-    if (t.includes("schedule")) return { color: C.info, bg: C.infoBg };
-    if (t.includes("pending")) return { color: C.warn, bg: C.warnBg };
-    return { color: C.navy, bg: C.border };
+  const getNotificationReason = (n) => {
+    const candidates = [
+      n?.data?.rejection_reason,
+      n?.data?.disapproval_reason,
+      n?.data?.reason,
+      n?.data?.remarks,
+      n?.data?.comment,
+      n?.rejection_reason,
+      n?.disapproval_reason,
+      n?.reason,
+      n?.remarks,
+      n?.comment,
+    ];
+    const value = candidates.find((item) => String(item || "").trim().length > 0);
+    return value ? String(value).trim() : "";
+  };
+
+  const getDisplayMessage = (n) => {
+    const base = String(n?.data?.message || n?.message || n?.body || "New notification.").trim();
+    const reason = getNotificationReason(n);
+    if (!reason) return base;
+    const hasReasonAlready = /reason\s*:/i.test(base);
+    if (hasReasonAlready) return base;
+    return `${base}\nReason: ${reason}`;
   };
 
   return (
@@ -108,7 +135,7 @@ export default function NotificationsScreen({ onBack }) {
                   </Text>
                   {!n.read_at && <View style={styles.dot} />}
                 </View>
-                <Text style={styles.cardMsg} numberOfLines={2}>{n.data?.message || n.message || n.body || "New notification."}</Text>
+                <Text style={styles.cardMsg} numberOfLines={3}>{getDisplayMessage(n)}</Text>
                 <Text style={styles.cardTime}>{n.created_at?.slice(0, 16).replace("T", " ") || ""}</Text>
               </View>
             </TouchableOpacity>
@@ -116,33 +143,6 @@ export default function NotificationsScreen({ onBack }) {
         </View>
       </ScrollView>
 
-      {/* Modal */}
-      <Modal visible={!!selected} transparent animationType="fade" onRequestClose={() => setSelected(null)}>
-        <TouchableWithoutFeedback onPress={() => setSelected(null)}>
-          <View style={styles.overlay}>
-            <TouchableWithoutFeedback>
-              <View style={styles.modal}>
-                <View style={[styles.modalBar, { backgroundColor: selected ? getColor(selected).color : C.navy }]} />
-                <View style={[styles.modalIconBox, { backgroundColor: selected ? getColor(selected).bg : C.border }]}>
-                  <Ionicons name={selected ? getIcon(selected) : "notifications"} size={26} color={selected ? getColor(selected).color : C.navy} />
-                </View>
-                <Text style={styles.modalTitle}>{selected?.data?.title || selected?.title || "Notification"}</Text>
-                <Text style={styles.modalTime}>{selected?.created_at?.slice(0, 16).replace("T", " ") || ""}</Text>
-                <View style={styles.modalDivider} />
-                <Text style={styles.modalMsg}>{selected?.data?.message || selected?.message || selected?.body || "You have a new notification."}</Text>
-                {selected?.data?.request_id && (
-                  <View style={[styles.modalInfo, { backgroundColor: selected ? getColor(selected).bg : C.border }]}>
-                    <Text style={[styles.modalInfoText, { color: selected ? getColor(selected).color : C.navy }]}>Request #{selected.data.request_id}</Text>
-                  </View>
-                )}
-                <TouchableOpacity style={styles.modalClose} onPress={() => setSelected(null)} activeOpacity={0.85}>
-                  <Text style={styles.modalCloseText}>CLOSE</Text>
-                </TouchableOpacity>
-              </View>
-            </TouchableWithoutFeedback>
-          </View>
-        </TouchableWithoutFeedback>
-      </Modal>
     </>
   );
 }
@@ -162,16 +162,4 @@ const styles = StyleSheet.create({
   emptyCard: { alignItems: "center", paddingVertical: 80 },
   emptyTitle: { fontSize: 18, fontWeight: "800", color: "#0B1F3A", marginBottom: 6 },
   emptyText: { fontSize: 14, color: "#8A9BB0", textAlign: "center" },
-  overlay: { flex: 1, backgroundColor: "rgba(0,0,0,0.5)", justifyContent: "center", alignItems: "center", padding: 20 },
-  modal: { backgroundColor: "#fff", borderRadius: 20, width: "100%", overflow: "hidden", alignItems: "center", elevation: 20 },
-  modalBar: { height: 5, width: "100%", marginBottom: 20 },
-  modalIconBox: { width: 60, height: 60, borderRadius: 30, alignItems: "center", justifyContent: "center", marginBottom: 12 },
-  modalTitle: { fontSize: 17, fontWeight: "900", color: "#0B1F3A", textAlign: "center", paddingHorizontal: 20 },
-  modalTime: { fontSize: 11, color: "#8A9BB0", marginTop: 4, marginBottom: 12 },
-  modalDivider: { height: 1, backgroundColor: "#DDE3EC", width: "100%", marginBottom: 14 },
-  modalMsg: { fontSize: 14, color: "#3D5068", lineHeight: 22, textAlign: "center", paddingHorizontal: 20, marginBottom: 14 },
-  modalInfo: { paddingHorizontal: 14, paddingVertical: 7, borderRadius: 8, marginBottom: 14 },
-  modalInfoText: { fontSize: 13, fontWeight: "700" },
-  modalClose: { width: "100%", backgroundColor: "#0B1F3A", paddingVertical: 15, alignItems: "center" },
-  modalCloseText: { color: "#fff", fontSize: 14, fontWeight: "800", letterSpacing: 2 },
 });

@@ -1,8 +1,10 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import * as ImagePicker from "expo-image-picker";
 import { useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Animated,
+  Image,
   KeyboardAvoidingView, Platform,
   ScrollView,
   StyleSheet,
@@ -10,6 +12,11 @@ import {
   View,
 } from "react-native";
 import ScreenHeader from "./ScreenHeader";
+import {
+  MAX_IMAGE_ATTACHMENTS,
+  appendImageAssetsToFormData,
+  validateImageAsset,
+} from "../../utils/imageAttachments";
 
 import { API_URL } from '../../api';
 const C = {
@@ -26,7 +33,7 @@ function Toast({ visible, message }) {
       Animated.timing(op, { toValue: visible ? 1 : 0, duration: visible ? 300 : 250, useNativeDriver: true }),
       Animated.timing(ty, { toValue: visible ? 0 : -20, duration: visible ? 300 : 250, useNativeDriver: true }),
     ]).start();
-  }, [visible]);
+  }, [visible, op, ty]);
   return (
     <Animated.View style={[styles.toast, { opacity: op, transform: [{ translateY: ty }] }]}>
       <View style={styles.toastDot} />
@@ -83,6 +90,14 @@ export default function SubmitRequestScreen({ onBack, onSuccess }) {
   const [submitted, setSubmitted] = useState(false);
   const [submittedType, setSubmittedType] = useState("");
   const [userData, setUserData] = useState(null);
+  const [selectedImages, setSelectedImages] = useState([]);
+
+  const flattenErrorMessages = (value) => {
+    if (!value) return [];
+    if (Array.isArray(value)) return value.flatMap(flattenErrorMessages);
+    if (typeof value === "object") return Object.values(value).flatMap(flattenErrorMessages);
+    return [String(value)];
+  };
 
   // Load maintenance types and user data on mount
   useEffect(() => {
@@ -121,7 +136,6 @@ export default function SubmitRequestScreen({ onBack, onSuccess }) {
     try {
       const token = await AsyncStorage.getItem("authToken") || await AsyncStorage.getItem("token");
 
-      // Send request fields matching backend expectation.
       const payload = {
         date_requested: new Date().toISOString().slice(0, 10),
         details: description,
@@ -130,39 +144,106 @@ export default function SubmitRequestScreen({ onBack, onSuccess }) {
         requesting_office: userData.office_id,
         contact_number: userData.contact_number || "",
         maintenance_type_id: selectedTypeId,
-        location: location, // extra field for display
+        location: location,
+      };
+      const makeFormData = (mode = "brackets", includeImages = true) => {
+        const next = new FormData();
+        Object.entries(payload).forEach(([key, value]) => {
+          next.append(key, String(value ?? ""));
+        });
+        if (includeImages) appendImageAssetsToFormData(next, selectedImages, mode);
+        return next;
       };
 
-      const res = await fetch(`${API_URL}/maintenance-requests`, {
+      const submitRequest = async (body) => fetch(`${API_URL}/maintenance-requests`, {
         method: "POST",
         headers: {
-          "Content-Type": "application/json",
           Accept: "application/json",
           Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify(payload),
+        body,
       });
+      const uploadModes = ["brackets", "indexed", "single"];
+      let res = null;
+      let data = {};
+      let usedFallbackWithoutImages = false;
 
-      const data = await res.json();
+      if (selectedImages.length === 0) {
+        res = await submitRequest(makeFormData("brackets", false));
+        data = await res.json().catch(() => ({}));
+      } else {
+        for (const mode of uploadModes) {
+          res = await submitRequest(makeFormData(mode, true));
+          data = await res.json().catch(() => ({}));
+          if (res.ok) break;
+        }
+
+        if (res && !res.ok) {
+          const fallbackRes = await submitRequest(makeFormData("brackets", false));
+          const fallbackData = await fallbackRes.json().catch(() => ({}));
+          if (fallbackRes.ok) {
+            usedFallbackWithoutImages = true;
+            res = fallbackRes;
+            data = fallbackData;
+          }
+        }
+      }
 
       if (res.ok) {
+        if (usedFallbackWithoutImages) {
+          setError("Request submitted without images. Server rejected file upload; try smaller JPG/PNG (max 2MB).");
+        }
         setSubmittedType(selectedTypeName);
         setShowToast(true);
         setTimeout(() => { setShowToast(false); setSubmitted(true); }, 1800);
       } else {
-        // Show validation errors if any
-        if (data.errors) {
-          const mergedErrors = Object.values(data.errors).flat().join("\n");
-          setError(mergedErrors || data.message || "Failed to submit.");
-        } else {
-          setError(data.message || "Failed to submit.");
-        }
+        const mergedErrors = flattenErrorMessages(data?.errors).join("\n");
+        setError(mergedErrors || data?.message || "Failed to submit.");
       }
     } catch (_e) {
       setError("Cannot connect to server.");
     } finally {
       setLoading(false);
     }
+  };
+
+  const handlePickImages = async () => {
+    setError("");
+
+    if (selectedImages.length >= MAX_IMAGE_ATTACHMENTS) return;
+
+    const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (!permission.granted) {
+      setError("Please allow photo library access to attach images.");
+      return;
+    }
+
+    const remainingSlots = MAX_IMAGE_ATTACHMENTS - selectedImages.length;
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: false,
+      allowsMultipleSelection: true,
+      selectionLimit: remainingSlots,
+      quality: 0.4,
+    });
+
+    if (result.canceled || !Array.isArray(result.assets)) return;
+
+    const next = [...selectedImages];
+    for (const asset of result.assets) {
+      if (next.length >= MAX_IMAGE_ATTACHMENTS) break;
+      const validation = validateImageAsset(asset);
+      if (!validation.valid) {
+        setError(validation.message);
+        continue;
+      }
+      next.push(asset);
+    }
+    setSelectedImages(next.slice(0, MAX_IMAGE_ATTACHMENTS));
+  };
+
+  const removeSelectedImage = (indexToRemove) => {
+    setSelectedImages((prev) => prev.filter((_, idx) => idx !== indexToRemove));
   };
 
   const handleNew = () => {
@@ -173,7 +254,10 @@ export default function SubmitRequestScreen({ onBack, onSuccess }) {
     setError("");
     setSubmitted(false);
     setSubmittedType("");
+    setSelectedImages([]);
   };
+
+  const pickerLabel = selectedImages.length === 0 ? "Choose Files" : "Add File";
 
   if (submitted) return <WaitingScreen submittedType={submittedType} onNewRequest={handleNew} onGoHome={onSuccess} />;
 
@@ -229,6 +313,26 @@ export default function SubmitRequestScreen({ onBack, onSuccess }) {
             textAlignVertical="top"
           />
 
+          <Text style={styles.label}>Images (Optional)</Text>
+          <Text style={styles.imageCount}>{selectedImages.length}/{MAX_IMAGE_ATTACHMENTS} images selected</Text>
+          {selectedImages.length < MAX_IMAGE_ATTACHMENTS && (
+            <TouchableOpacity style={styles.pickBtn} onPress={handlePickImages} activeOpacity={0.85}>
+              <Text style={styles.pickBtnText}>{pickerLabel}</Text>
+            </TouchableOpacity>
+          )}
+          {selectedImages.length > 0 && (
+            <View style={styles.thumbGrid}>
+              {selectedImages.map((asset, index) => (
+                <View key={`${asset.uri}-${index}`} style={styles.thumbWrap}>
+                  <Image source={{ uri: asset.uri }} style={styles.thumb} />
+                  <TouchableOpacity style={styles.removeThumbBtn} onPress={() => removeSelectedImage(index)} activeOpacity={0.9}>
+                    <Text style={styles.removeThumbText}>X</Text>
+                  </TouchableOpacity>
+                </View>
+              ))}
+            </View>
+          )}
+
           <View style={styles.noteBox}>
             <Text style={styles.noteText}>Your request goes through Staff verification, Head approval, and Campus Director approval before final scheduling.</Text>
           </View>
@@ -265,6 +369,14 @@ const styles = StyleSheet.create({
   textarea: { height: 120, paddingTop: 12 },
   noteBox: { backgroundColor: C.warnBg, borderLeftWidth: 4, borderLeftColor: C.gold, borderRadius: 8, padding: 12, marginTop: 16 },
   noteText: { color: C.warn, fontSize: 12, lineHeight: 18 },
+  imageCount: { color: C.textMute, fontSize: 12, marginBottom: 8 },
+  pickBtn: { alignSelf: "flex-start", backgroundColor: C.surface, borderWidth: 1.5, borderColor: C.steel, borderRadius: 8, paddingHorizontal: 14, paddingVertical: 9 },
+  pickBtnText: { color: C.steel, fontSize: 12, fontWeight: "800", letterSpacing: 0.6 },
+  thumbGrid: { flexDirection: "row", flexWrap: "wrap", gap: 10, marginTop: 8 },
+  thumbWrap: { width: 82, height: 82, borderRadius: 8, overflow: "hidden", position: "relative", borderWidth: 1, borderColor: C.border, backgroundColor: C.surface },
+  thumb: { width: "100%", height: "100%" },
+  removeThumbBtn: { position: "absolute", top: 4, right: 4, width: 22, height: 22, borderRadius: 11, backgroundColor: "rgba(11,31,58,0.9)", alignItems: "center", justifyContent: "center" },
+  removeThumbText: { color: "#fff", fontSize: 11, fontWeight: "900" },
   submitBtn: { backgroundColor: C.navy, borderRadius: 10, paddingVertical: 15, alignItems: "center", marginTop: 22, elevation: 5 },
   submitText: { color: "#fff", fontSize: 14, fontWeight: "800", letterSpacing: 2 },
   waitBadge: { width: 70, height: 70, borderRadius: 35, backgroundColor: C.navy, borderWidth: 3, borderColor: C.gold, alignItems: "center", justifyContent: "center", marginBottom: 16 },

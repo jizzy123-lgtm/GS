@@ -1,5 +1,5 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import {
   ActivityIndicator, RefreshControl,
   ScrollView,
@@ -12,17 +12,21 @@ import {
 import ScreenHeader from "./ScreenHeader";
 import { MAINTENANCE_STATUS, normalizeMaintenanceStatus } from "../constants/maintenanceStatus";
 import { normalizeRoleId, ROLE_IDS } from "../constants/roles";
+import AttachedImagesSection from "../components/AttachedImagesSection";
+import { normalizeImageUrls } from "../../utils/imageAttachments";
 
 import { API_URL } from '../../api';
 const C = { navy: "#0B1F3A", steel: "#1E4D8C", gold: "#C9A84C", bg: "#F0F2F5", surface: "#FFFFFF", surfaceAlt: "#F7F9FC", border: "#DDE3EC", textMute: "#8A9BB0", danger: "#9B1C1C", dangerBg: "#FEE8E8", success: "#1A7A4A", successBg: "#EAF6EF", warn: "#B45C10", warnBg: "#FEF3E2", info: "#155E8A", infoBg: "#E6F2FA" };
 const SM = {
   [MAINTENANCE_STATUS.PENDING]: { color: C.warn, bg: C.warnBg, label: "Pending" },
   [MAINTENANCE_STATUS.APPROVED]: { color: C.success, bg: C.successBg, label: "Approved" },
+  [MAINTENANCE_STATUS.SCHEDULED]: { color: C.info, bg: C.infoBg, label: "Scheduled" },
   [MAINTENANCE_STATUS.DONE]: { color: C.navy, bg: C.surfaceAlt, label: "Done" },
   [MAINTENANCE_STATUS.DISAPPROVED]: { color: C.danger, bg: C.dangerBg, label: "Disapproved" },
   [MAINTENANCE_STATUS.CANCELLED]: { color: C.textMute, bg: C.surfaceAlt, label: "Cancelled" },
 };
-const FILTERS = ["All", "Pending", "Approved", "Done", "Disapproved", "Cancelled"];
+const FILTERS = ["All", "Pending", "Approved", "Scheduled", "Done", "Disapproved", "Cancelled"];
+const SCHEDULING_AUTO_COMPLETES_REQUEST = true;
 
 const sortRequestsDescending = (list) => {
   const getTimestamp = (request) => {
@@ -99,6 +103,24 @@ const isDirectorApproved = (request) =>
     request?.director_approver
   );
 
+const hasPriorityAssigned = (request) =>
+  Boolean(String(request?.priority_number || request?.priority || "").trim());
+
+const isReadyForScheduling = (request) => {
+  const status = normalizeMaintenanceStatus(request?.status, request?.status_id);
+  if (status === MAINTENANCE_STATUS.APPROVED) return true;
+  // Fallback when backend keeps request as pending after director approval.
+  return status === MAINTENANCE_STATUS.PENDING && isDirectorApproved(request) && hasPriorityAssigned(request);
+};
+
+const getRoleDetailEndpoint = (roleId, requestId) => {
+  if (!requestId) return null;
+  if (roleId === ROLE_IDS.STAFF) return `${API_URL}/staffpov/${requestId}`;
+  if (roleId === ROLE_IDS.HEAD) return `${API_URL}/headpov/${requestId}`;
+  if (roleId === ROLE_IDS.CAMPUS_DIRECTOR) return `${API_URL}/directorpov/${requestId}`;
+  return null;
+};
+
 export default function ReviewRequestsScreen({ user, onBack, onNavigate }) {
   const [requests, setRequests] = useState([]);
   const [types, setTypes] = useState({});
@@ -114,9 +136,10 @@ export default function ReviewRequestsScreen({ user, onBack, onNavigate }) {
   const [priorityTarget, setPriorityTarget] = useState(null);
   const [priorityNumber, setPriorityNumber] = useState("");
   const [priorityLoading, setPriorityLoading] = useState(false);
+  const [detailImageUrls, setDetailImageUrls] = useState([]);
   const roleId = normalizeRoleId(user?.role_id);
 
-  const fetchRequests = async () => {
+  const fetchRequests = useCallback(async () => {
     try {
       const token = await AsyncStorage.getItem("authToken") || await AsyncStorage.getItem("token");
       const ep = "/maintenance-requests";
@@ -150,15 +173,48 @@ export default function ReviewRequestsScreen({ user, onBack, onNavigate }) {
       }))));
     } catch (_e) { setRequests([]); }
     finally { setLoading(false); setRefreshing(false); }
-  };
+  }, [types]);
 
-  useEffect(() => { fetchRequests(); }, []);
+  useEffect(() => { fetchRequests(); }, [fetchRequests]);
+  useEffect(() => {
+    setDetailImageUrls(normalizeImageUrls(selected?.image_urls));
+  }, [selected?.id, selected?.image_urls]);
+  useEffect(() => {
+    let mounted = true;
+
+    const fetchRoleDetailImages = async () => {
+      if (!selected?.id) return;
+      const initialUrls = normalizeImageUrls(selected?.image_urls);
+      if (initialUrls.length > 0) return;
+
+      const endpoint = getRoleDetailEndpoint(roleId, selected.id);
+      if (!endpoint) return;
+
+      try {
+        const token = await AsyncStorage.getItem("authToken") || await AsyncStorage.getItem("token");
+        const res = await fetch(endpoint, {
+          headers: { Authorization: `Bearer ${token}`, Accept: "application/json" },
+        });
+        const data = await res.json();
+        const detail = Array.isArray(data) ? data[0] : data?.data || data;
+        const urls = normalizeImageUrls(detail?.image_urls);
+        if (mounted && urls.length > 0) setDetailImageUrls(urls);
+      } catch (_error) {
+        // Keep empty attachments when fallback detail fails.
+      }
+    };
+
+    fetchRoleDetailImages();
+    return () => { mounted = false; };
+  }, [selected?.id, selected?.image_urls, roleId]);
+
   const onRefresh = () => { setRefreshing(true); fetchRequests(); };
 
   const getSequentialPendingRequests = (reqs, role) => {
     const pendingReqs = reqs.filter(r => r.status === MAINTENANCE_STATUS.PENDING);
     if (role === ROLE_IDS.STAFF) {
-      return pendingReqs.filter(r => !isVerifiedByStaff(r));
+      // Staff must see all pending states (verify, waiting approvals, and post-director pending items).
+      return pendingReqs;
     }
     if (role === ROLE_IDS.HEAD) {
       return pendingReqs.filter(r => isVerifiedByStaff(r) && !isHeadApproved(r));
@@ -173,10 +229,6 @@ export default function ReviewRequestsScreen({ user, onBack, onNavigate }) {
 
   const filtered = (() => {
     if (filter === "All") {
-      if (roleNeedsSequentialFilter) {
-        const nonPending = requests.filter(r => r.status !== MAINTENANCE_STATUS.PENDING);
-        return sortRequestsDescending([...getSequentialPendingRequests(requests, roleId), ...nonPending]);
-      }
       return requests;
     }
     if (filter === "Pending" && roleNeedsSequentialFilter) {
@@ -231,7 +283,12 @@ export default function ReviewRequestsScreen({ user, onBack, onNavigate }) {
           return;
         }
         endpoint = `/maintenance-requests/${id}/disapprove`;
-        payload = { comment: reason || "Disapproved" };
+        payload = {
+          comment: reason || "Disapproved",
+          reason: reason || "Disapproved",
+          rejection_reason: reason || "Disapproved",
+          remarks: reason || "Disapproved",
+        };
       } else if (action === "deny") {
         if (roleId !== ROLE_IDS.STAFF) {
           setActionMsg("Only Staff can deny requests.");
@@ -242,6 +299,9 @@ export default function ReviewRequestsScreen({ user, onBack, onNavigate }) {
           date_received: dateReceived,
           time_received: timeReceived,
           comment: reason || "Denied by staff",
+          reason: reason || "Denied by staff",
+          rejection_reason: reason || "Denied by staff",
+          remarks: reason || "Denied by staff",
         };
       } else if (action === "assignPriority") {
         if (roleId !== ROLE_IDS.STAFF) {
@@ -340,7 +400,6 @@ export default function ReviewRequestsScreen({ user, onBack, onNavigate }) {
     const currentStatus = normalizeMaintenanceStatus(selected.status, selected.status_id);
     const s = SM[currentStatus] || SM[MAINTENANCE_STATUS.PENDING];
     const pending = currentStatus === MAINTENANCE_STATUS.PENDING;
-    const approved = currentStatus === MAINTENANCE_STATUS.APPROVED;
     const isHead = roleId === ROLE_IDS.HEAD;
     const isDirector = roleId === ROLE_IDS.CAMPUS_DIRECTOR;
     const isStaff = roleId === ROLE_IDS.STAFF;
@@ -349,6 +408,8 @@ export default function ReviewRequestsScreen({ user, onBack, onNavigate }) {
     const verified = isVerifiedByStaff(selected);
     const headApproved = isHeadApproved(selected);
     const directorApproved = isDirectorApproved(selected);
+    const readyForScheduling = isReadyForScheduling(selected);
+    const priorityAssigned = hasPriorityAssigned(selected);
 
     const canHeadApprove = isHead && pending && verified && !requesterHead && !headApproved;
     const canDirectorApprove = isDirector && pending && verified && (requesterHead || headApproved) && !directorApproved;
@@ -356,9 +417,13 @@ export default function ReviewRequestsScreen({ user, onBack, onNavigate }) {
     const canDisapprove = canHeadApprove || canDirectorApprove;
     const canVerify = isStaff && pending && !verified;
     const canDeny = isStaff && pending;
-    const canAssignPriority = isStaff && pending && directorApproved;
-    const canAssignSchedule = isStaff && approved;
-    const canMarkDone = isStaff && approved && Boolean(selected.scheduled_date);
+    const canAssignPriority = isStaff && pending && directorApproved && !priorityAssigned;
+    const canAssignSchedule = isStaff && readyForScheduling && !selected.scheduled_date;
+    const isScheduledStatus = currentStatus === MAINTENANCE_STATUS.SCHEDULED || Number(selected?.status_id) === 9;
+    const canMarkDone =
+      !SCHEDULING_AUTO_COMPLETES_REQUEST &&
+      isStaff &&
+      (isScheduledStatus || Boolean(selected.scheduled_date));
     const waitingForVerification = [ROLE_IDS.HEAD, ROLE_IDS.CAMPUS_DIRECTOR].includes(roleId) && pending && !verified;
     const waitingForHead = isDirector && pending && verified && !requesterHead && !headApproved;
     const actionError = /failed|cannot|only|unable|required|missing/i.test(String(actionMsg || ""));
@@ -449,6 +514,7 @@ export default function ReviewRequestsScreen({ user, onBack, onNavigate }) {
               />
             </View>
           </View>
+          <AttachedImagesSection imageUrls={detailImageUrls} />
 
           {selected.scheduled_date && (
             <View style={styles.schedCard}>
@@ -598,9 +664,10 @@ export default function ReviewRequestsScreen({ user, onBack, onNavigate }) {
                 const status = normalizeMaintenanceStatus(req.status, req.status_id);
                 const s = SM[status] || SM[MAINTENANCE_STATUS.PENDING];
                 const pending = status === MAINTENANCE_STATUS.PENDING;
-                const approved = status === MAINTENANCE_STATUS.APPROVED;
                 const verified = isVerifiedByStaff(req);
                 const directorApproved = isDirectorApproved(req);
+                const readyForScheduling = isReadyForScheduling(req);
+                const priorityAssigned = hasPriorityAssigned(req);
                 return (
                   <TouchableOpacity key={i} style={[styles.reqCard, { borderLeftColor: s.color }]} onPress={() => setSelected(req)} activeOpacity={0.8}>
                     <View style={styles.reqCardTop}>
@@ -628,10 +695,10 @@ export default function ReviewRequestsScreen({ user, onBack, onNavigate }) {
                     {roleId === ROLE_IDS.STAFF && pending && isHeadApproved(req) && !directorApproved && (
                       <View style={[styles.assignTag, { backgroundColor: C.infoBg }]}><Text style={[styles.assignTagText, { color: C.info }]}>Waiting for Director Approval</Text></View>
                     )}
-                    {roleId === ROLE_IDS.STAFF && pending && verified && directorApproved && (
+                    {roleId === ROLE_IDS.STAFF && pending && verified && directorApproved && !priorityAssigned && (
                       <View style={[styles.assignTag, { backgroundColor: C.warnBg }]}><Text style={[styles.assignTagText, { color: C.warn }]}>Needs Priority</Text></View>
                     )}
-                    {roleId === ROLE_IDS.STAFF && approved && !req.scheduled_date && (
+                    {roleId === ROLE_IDS.STAFF && readyForScheduling && !req.scheduled_date && (
                       <View style={styles.assignTag}><Text style={styles.assignTagText}>Needs Schedule</Text></View>
                     )}
                     {req.scheduled_date && <Text style={styles.scheduledText}>Scheduled: {req.scheduled_date}</Text>}

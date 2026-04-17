@@ -56,6 +56,20 @@ const C = {
   infoBg: "#E6F2FA",
 };
 
+const R = {
+  navy: "#0B1F3A",
+  steel: "#1E4D8C",
+  gold: "#C9A84C",
+  bg: "#F0F2F5",
+  surface: "#FFFFFF",
+  border: "#DDE3EC",
+  textMute: "#8A9BB0",
+  danger: "#9B1C1C",
+  dangerBg: "#FEE8E8",
+  warn: "#B45C10",
+  warnBg: "#FEF3E2",
+};
+
 const INTERNAL_ROLE_IDS = [ROLE_IDS.STAFF, ROLE_IDS.HEAD];
 
 const firstNonEmpty = (...values) => {
@@ -208,7 +222,7 @@ const getRoleCopy = (roleId) => {
   };
 };
 
-function Toast({ visible, message }) {
+function Toast({ visible, message, legacy = false }) {
   const opacity = useRef(new Animated.Value(0)).current;
   const translateY = useRef(new Animated.Value(-20)).current;
 
@@ -228,7 +242,7 @@ function Toast({ visible, message }) {
   }, [opacity, translateY, visible]);
 
   return (
-    <Animated.View style={[styles.toast, { opacity, transform: [{ translateY }] }]}>
+    <Animated.View style={[legacy ? styles.legacyToast : styles.toast, { opacity, transform: [{ translateY }] }]}>
       <View style={styles.toastDot} />
       <Text style={styles.toastText}>{message}</Text>
     </Animated.View>
@@ -238,6 +252,45 @@ function Toast({ visible, message }) {
 function WaitingScreen({ submittedType, onNewRequest, onGoHome, requesterRoleId }) {
   const isInternal = INTERNAL_ROLE_IDS.includes(requesterRoleId);
   const copy = getRoleCopy(requesterRoleId);
+
+  if (!isInternal) {
+    return (
+      <View style={styles.legacyWaitRoot}>
+        <View style={styles.legacyWaitBadge}>
+          <Text style={styles.legacyWaitBadgeText}>OK</Text>
+        </View>
+        <Text style={styles.legacyWaitOrg}>GSU GATEWAY</Text>
+        <Text style={styles.legacyWaitTitle}>Request Submitted!</Text>
+        <Text style={styles.legacyWaitSub}>
+          Your <Text style={styles.legacyWaitSubStrong}>{submittedType}</Text> request has been received.
+        </Text>
+        <View style={styles.legacyWaitCard}>
+          <Text style={styles.legacyWaitCardTitle}>What happens next?</Text>
+          {[
+            "Staff verifies your request first",
+            "Head reviews after staff verification",
+            "Campus Director reviews after Head approval",
+            "Staff assigns priority, then schedule and completion follows",
+          ].map((step, index) => (
+            <View key={`${step}-${index}`} style={styles.legacyStepRow}>
+              <View style={[styles.legacyStepNum, index === 0 && styles.legacyStepNumActive]}>
+                <Text style={[styles.legacyStepNumText, index === 0 && styles.legacyStepNumTextActive]}>
+                  {index + 1}
+                </Text>
+              </View>
+              <Text style={[styles.legacyStepLabel, index === 0 && styles.legacyStepLabelActive]}>{step}</Text>
+            </View>
+          ))}
+        </View>
+        <TouchableOpacity style={styles.legacyNewBtn} onPress={onNewRequest} activeOpacity={0.85}>
+          <Text style={styles.legacyNewBtnText}>SUBMIT ANOTHER</Text>
+        </TouchableOpacity>
+        <TouchableOpacity style={styles.legacyHomeBtn} onPress={onGoHome} activeOpacity={0.85}>
+          <Text style={styles.legacyHomeBtnText}>BACK TO HOME</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  }
 
   return (
     <View style={styles.waitRoot}>
@@ -378,30 +431,47 @@ export default function SubmitRequestScreen({ user, onBack, onSuccess }) {
   };
 
   const handleSubmit = async () => {
+    const internalRequester = INTERNAL_ROLE_IDS.includes(normalizeRoleId(requesterRoleId));
     setError("");
-    const nextFieldErrors = {};
+    if (internalRequester) {
+      const nextFieldErrors = {};
 
-    if (!selectedTypeId) {
-      nextFieldErrors.type = "Select a maintenance type to route this request.";
-    }
-    if (!location.trim()) {
-      nextFieldErrors.location = "Enter the exact campus location for dispatch.";
-    }
-    if (!description.trim()) {
-      nextFieldErrors.description = "Provide a work-order narrative before submitting.";
-    }
-    setFieldErrors(nextFieldErrors);
+      if (!selectedTypeId) {
+        nextFieldErrors.type = "Select a maintenance type to route this request.";
+      }
+      if (!location.trim()) {
+        nextFieldErrors.location = "Enter the exact campus location for dispatch.";
+      }
+      if (!description.trim()) {
+        nextFieldErrors.description = "Provide a work-order narrative before submitting.";
+      }
+      setFieldErrors(nextFieldErrors);
 
-    if (Object.keys(nextFieldErrors).length > 0) {
-      setError("Review the highlighted fields before submitting.");
-      return;
+      if (Object.keys(nextFieldErrors).length > 0) {
+        setError("Review the highlighted fields before submitting.");
+        return;
+      }
+    } else {
+      setFieldErrors({});
+      if (!selectedTypeId) {
+        setError("Please select a maintenance type.");
+        return;
+      }
+      if (!location.trim()) {
+        setError("Please enter the location.");
+        return;
+      }
+      if (!description.trim()) {
+        setError("Please describe the issue.");
+        return;
+      }
     }
     if (requesterRoleId !== null && ![ROLE_IDS.REQUESTER, ROLE_IDS.HEAD, ROLE_IDS.STAFF].includes(requesterRoleId)) {
       setError("This account is not allowed to submit maintenance requests.");
       return;
     }
     if (!requesterInfo) {
-      setError("Requester information not found. Please login again.");
+      setError(internalRequester ? "Requester information not found. Please login again." : "User data not found. Please login again.");
       return;
     }
 
@@ -471,15 +541,18 @@ export default function SubmitRequestScreen({ user, onBack, onSuccess }) {
   };
 
   const handlePickImages = async () => {
+    const internalRequester = INTERNAL_ROLE_IDS.includes(normalizeRoleId(requesterRoleId));
     setError("");
     if (selectedImages.length >= MAX_IMAGE_ATTACHMENTS) return;
 
     const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (!permission.granted) {
-      setFieldErrors((prev) => ({
-        ...prev,
-        images: "Photo library access is required to attach evidence images.",
-      }));
+      if (internalRequester) {
+        setFieldErrors((prev) => ({
+          ...prev,
+          images: "Photo library access is required to attach evidence images.",
+        }));
+      }
       setError("Please allow photo library access to attach images.");
       return;
     }
@@ -548,7 +621,13 @@ export default function SubmitRequestScreen({ user, onBack, onSuccess }) {
     day: "numeric",
     year: "numeric",
   });
-  const pickerLabel = selectedImages.length === 0 ? copy.uploadButtonLabel : "ADD MORE";
+  const pickerLabel = isInternalRequester
+    ? selectedImages.length === 0
+      ? copy.uploadButtonLabel
+      : "ADD MORE"
+    : selectedImages.length === 0
+      ? "Choose Files"
+      : "Add File";
   const locationPlaceholder = isInternalRequester
     ? "e.g. Records Office, 2nd floor, Admin Building"
     : "e.g. Room 204, Admin Building";
@@ -569,257 +648,324 @@ export default function SubmitRequestScreen({ user, onBack, onSuccess }) {
 
   return (
     <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === "ios" ? "padding" : "height"}>
-      <Toast visible={showToast} message="Request submitted successfully!" />
+      <Toast visible={showToast} message="Request submitted successfully!" legacy={!isInternalRequester} />
       <ScreenHeader title={copy.headerTitle} subtitle={copy.headerSubtitle} onBack={onBack} />
 
       <ScrollView
-        style={styles.root}
-        contentContainerStyle={styles.scroll}
+        style={isInternalRequester ? styles.root : styles.legacyRoot}
+        contentContainerStyle={isInternalRequester ? styles.scroll : styles.legacyScroll}
         keyboardShouldPersistTaps="handled"
-        showsVerticalScrollIndicator={false}
+        showsVerticalScrollIndicator={isInternalRequester ? false : true}
       >
-        <View style={styles.body}>
+        <View style={isInternalRequester ? styles.body : styles.legacyBody}>
           {error ? (
-            <View style={styles.errorBox}>
+            <View style={isInternalRequester ? styles.errorBox : styles.legacyErrorBox}>
               <Text style={styles.errorText}>{error}</Text>
             </View>
           ) : null}
 
-          {isInternalRequester ? (
-            <View style={styles.internalHero}>
-              <View style={styles.internalHeroAccent} />
-              <Text style={styles.heroEyebrow}>{copy.heroEyebrow}</Text>
-              <View style={styles.heroTopRow}>
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.heroTitle}>{copy.heroTitle}</Text>
-                  <Text style={styles.heroText}>{copy.heroText}</Text>
+          {!isInternalRequester ? (
+            <>
+              <Text style={styles.legacyLabel}>Maintenance Type *</Text>
+              {loadingTypes ? (
+                <ActivityIndicator color={R.steel} style={{ marginVertical: 16 }} />
+              ) : (
+                <View style={styles.legacyTypeGrid}>
+                  {maintenanceTypes.map((type) => {
+                    const label =
+                      type?.name || type?.type_name || type?.maintenance_type || getMaintenanceTypeLabel(type);
+                    const selected = selectedTypeId === type.id;
+                    return (
+                      <TouchableOpacity
+                        key={type.id}
+                        style={[styles.legacyTypeCard, selected && styles.legacyTypeCardActive]}
+                        onPress={() => {
+                          setSelectedTypeId(type.id);
+                          setSelectedTypeName(label);
+                        }}
+                        activeOpacity={0.8}
+                      >
+                        <Text style={[styles.legacyTypeLabel, selected && styles.legacyTypeLabelActive]}>{label}</Text>
+                      </TouchableOpacity>
+                    );
+                  })}
                 </View>
-                <View style={[styles.heroRoleBadge, roleId === ROLE_IDS.HEAD ? styles.heroRoleBadgeHead : styles.heroRoleBadgeStaff]}>
-                  <Text style={styles.heroRoleBadgeText}>{roleLabel}</Text>
-                </View>
-              </View>
-              <View style={styles.heroChipRow}>
-                <View style={styles.heroChip}>
-                  <Text style={styles.heroChipText}>SYNCED IDENTITY</Text>
-                </View>
-                <View style={styles.heroChip}>
-                  <Text style={styles.heroChipText}>CAMPUS WORK ORDER</Text>
-                </View>
-              </View>
-            </View>
-          ) : (
-            <View style={styles.requesterHero}>
-              <Text style={styles.requesterHeroEyebrow}>{copy.heroEyebrow}</Text>
-              <Text style={styles.requesterHeroTitle}>{copy.heroTitle}</Text>
-              <Text style={styles.requesterHeroText}>{copy.heroText}</Text>
-            </View>
-          )}
+              )}
 
-          {isInternalRequester ? (
-            <SectionCard
-              eyebrow="Personnel Identity"
-              title={copy.summaryTitle}
-              helper={copy.summaryHelper}
-              badgeLabel="READ ONLY"
-            >
-              <View style={styles.identityGrid}>
-                <IdentityField label="Requesting Personnel" value={requesterName} />
-                <IdentityField label="Role" value={roleLabel} />
-                <IdentityField label="Position" value={positionLabel} />
-                <IdentityField label="Office" value={officeLabel} />
-                <IdentityField label="Contact Number" value={contactLabel} />
-                <IdentityField label="Request Date" value={requestDateLabel} />
-              </View>
-            </SectionCard>
-          ) : null}
+              <Text style={styles.legacyLabel}>Location / Room *</Text>
+              <TextInput
+                style={styles.legacyInput}
+                placeholder="e.g. Room 204, Admin Building"
+                placeholderTextColor="#a0aec0"
+                value={location}
+                onChangeText={setLocation}
+              />
 
-          <SectionCard eyebrow="Maintenance Type" title={copy.typeTitle} helper={copy.typeHelper}>
-            {loadingTypes ? (
-              <ActivityIndicator color={C.steel} style={{ marginVertical: 16 }} />
-            ) : maintenanceTypes.length === 0 ? (
-              <View style={styles.emptyStateCard}>
-                <Text style={styles.emptyStateTitle}>No maintenance types available</Text>
-                <Text style={styles.emptyStateText}>Please refresh or try again later when service categories are available.</Text>
-              </View>
-            ) : isInternalRequester ? (
-              <View style={styles.internalTypeGrid}>
-                {maintenanceTypes.map((type) => {
-                  const label = getMaintenanceTypeLabel(type);
-                  const selected = selectedTypeId === type.id;
-                  return (
-                    <TouchableOpacity
-                      key={type.id}
-                      style={[styles.internalTypeCard, selected && styles.internalTypeCardActive]}
-                      onPress={() => {
-                        setSelectedTypeId(type.id);
-                        setSelectedTypeName(label);
-                        setFieldErrors((prev) => ({ ...prev, type: "" }));
-                      }}
-                      activeOpacity={0.84}
-                    >
-                      <View style={[styles.typeInitialBadge, selected && styles.typeInitialBadgeActive]}>
-                        <Text style={[styles.typeInitialText, selected && styles.typeInitialTextActive]}>
-                          {getTypeInitials(label)}
-                        </Text>
-                      </View>
-                      <Text style={[styles.internalTypeLabel, selected && styles.internalTypeLabelActive]}>{label}</Text>
-                      <Text style={[styles.internalTypeMeta, selected && styles.internalTypeMetaActive]}>
-                        {selected ? "Selected service lane" : "Tap to route this issue"}
-                      </Text>
-                    </TouchableOpacity>
-                  );
-                })}
-              </View>
-            ) : (
-              <View style={styles.requesterTypeGrid}>
-                {maintenanceTypes.map((type) => {
-                  const label = getMaintenanceTypeLabel(type);
-                  const selected = selectedTypeId === type.id;
-                  return (
-                    <TouchableOpacity
-                      key={type.id}
-                      style={[styles.requesterTypeChip, selected && styles.requesterTypeChipActive]}
-                      onPress={() => {
-                        setSelectedTypeId(type.id);
-                        setSelectedTypeName(label);
-                        setFieldErrors((prev) => ({ ...prev, type: "" }));
-                      }}
-                      activeOpacity={0.84}
-                    >
-                      <Text style={[styles.requesterTypeLabel, selected && styles.requesterTypeLabelActive]}>{label}</Text>
-                    </TouchableOpacity>
-                  );
-                })}
-              </View>
-            )}
-            {fieldErrors.type ? <Text style={styles.fieldErrorText}>{fieldErrors.type}</Text> : null}
-          </SectionCard>
+              <Text style={styles.legacyLabel}>Issue Description *</Text>
+              <TextInput
+                style={[styles.legacyInput, styles.legacyTextarea]}
+                placeholder="Describe the issue..."
+                placeholderTextColor="#a0aec0"
+                value={description}
+                onChangeText={setDescription}
+                multiline
+                numberOfLines={5}
+                textAlignVertical="top"
+              />
 
-          <SectionCard eyebrow="Service Location" title={copy.locationTitle} helper={copy.locationHelper}>
-            {isInternalRequester ? (
-              <View style={styles.locationCallout}>
-                <View style={styles.locationCalloutBadge}>
-                  <Text style={styles.locationCalloutBadgeText}>Dispatch Point</Text>
-                </View>
-                <Text style={styles.locationCalloutText}>
-                  Include the building, floor, room, office, or facility zone so the maintenance team can route the work order accurately.
-                </Text>
-              </View>
-            ) : null}
-            <Text style={styles.fieldLabel}>{isInternalRequester ? "Specific Building / Room / Facility" : "Location / Room"}</Text>
-            <TextInput
-              style={[styles.input, isInternalRequester && styles.inputInternal]}
-              placeholder={locationPlaceholder}
-              placeholderTextColor="#9BAABA"
-              value={location}
-              onChangeText={(value) => {
-                setLocation(value);
-                setFieldErrors((prev) => ({ ...prev, location: "" }));
-              }}
-            />
-            {fieldErrors.location ? <Text style={styles.fieldErrorText}>{fieldErrors.location}</Text> : null}
-          </SectionCard>
-
-          <SectionCard eyebrow="Issue Narrative" title={copy.descriptionTitle} helper={copy.descriptionHelper}>
-            <Text style={styles.fieldLabel}>{isInternalRequester ? "Operational Description" : "Issue Description"}</Text>
-            <TextInput
-              style={[styles.input, styles.textarea, isInternalRequester && styles.textareaInternal]}
-              placeholder={descriptionPlaceholder}
-              placeholderTextColor="#9BAABA"
-              value={description}
-              onChangeText={(value) => {
-                setDescription(value);
-                setFieldErrors((prev) => ({ ...prev, description: "" }));
-              }}
-              multiline
-              numberOfLines={6}
-              textAlignVertical="top"
-            />
-            {fieldErrors.description ? <Text style={styles.fieldErrorText}>{fieldErrors.description}</Text> : null}
-          </SectionCard>
-
-          <SectionCard
-            eyebrow="Evidence Upload"
-            title={copy.evidenceTitle}
-            helper={copy.evidenceHelper}
-            badgeLabel={`${selectedImages.length}/${MAX_IMAGE_ATTACHMENTS}`}
-          >
-            <View style={styles.uploadHeaderRow}>
-              <View style={{ flex: 1 }}>
-                <Text style={styles.uploadTitle}>{isInternalRequester ? "Photo Documentation" : "Attach Images"}</Text>
-                <Text style={styles.uploadSubtitle}>
-                  {isInternalRequester
-                    ? "Use images for visual proof, damage reference, or site context."
-                    : "Images are optional but can help explain the problem."}
-                </Text>
-              </View>
+              <Text style={styles.legacyLabel}>Images (Optional)</Text>
+              <Text style={styles.legacyImageCount}>
+                {selectedImages.length}/{MAX_IMAGE_ATTACHMENTS} images selected
+              </Text>
               {selectedImages.length < MAX_IMAGE_ATTACHMENTS ? (
-                <TouchableOpacity
-                  style={[styles.uploadBtn, isInternalRequester && styles.uploadBtnInternal]}
-                  onPress={handlePickImages}
-                  activeOpacity={0.85}
-                >
-                  <Text style={[styles.uploadBtnText, isInternalRequester && styles.uploadBtnTextInternal]}>{pickerLabel}</Text>
+                <TouchableOpacity style={styles.legacyPickBtn} onPress={handlePickImages} activeOpacity={0.85}>
+                  <Text style={styles.legacyPickBtnText}>{pickerLabel}</Text>
                 </TouchableOpacity>
               ) : null}
-            </View>
 
-            {selectedImages.length > 0 ? (
-              <View style={styles.thumbGrid}>
-                {selectedImages.map((asset, index) => (
-                  <View key={`${asset.uri}-${index}`} style={styles.thumbWrap}>
-                    <Image source={{ uri: asset.uri }} style={styles.thumb} />
-                    <TouchableOpacity
-                      style={styles.removeThumbBtn}
-                      onPress={() => removeSelectedImage(index)}
-                      activeOpacity={0.9}
-                    >
-                      <Text style={styles.removeThumbText}>X</Text>
-                    </TouchableOpacity>
-                  </View>
-                ))}
-              </View>
-            ) : (
-              <View style={styles.emptyUploadBox}>
-                <Text style={styles.emptyUploadTitle}>No attachments selected</Text>
-                <Text style={styles.emptyUploadText}>
-                  {isInternalRequester
-                    ? "Add evidence images if the issue benefits from visual documentation."
-                    : "You can submit now without images or add them for extra context."}
-                </Text>
-              </View>
-            )}
-            {fieldErrors.images ? <Text style={styles.fieldErrorText}>{fieldErrors.images}</Text> : null}
-          </SectionCard>
-
-          <View style={[styles.workflowCard, isInternalRequester && styles.workflowCardInternal]}>
-            <View style={styles.workflowTop}>
-              <View style={{ flex: 1 }}>
-                <Text style={styles.workflowEyebrow}>Approval Route</Text>
-                <Text style={styles.workflowTitle}>{copy.workflowTitle}</Text>
-              </View>
-              {isInternalRequester ? (
-                <View style={styles.workflowBadge}>
-                  <Text style={styles.workflowBadgeText}>INTERNAL FLOW</Text>
+              {selectedImages.length > 0 ? (
+                <View style={styles.legacyThumbGrid}>
+                  {selectedImages.map((asset, index) => (
+                    <View key={`${asset.uri}-${index}`} style={styles.legacyThumbWrap}>
+                      <Image source={{ uri: asset.uri }} style={styles.legacyThumb} />
+                      <TouchableOpacity
+                        style={styles.legacyRemoveThumbBtn}
+                        onPress={() => removeSelectedImage(index)}
+                        activeOpacity={0.9}
+                      >
+                        <Text style={styles.legacyRemoveThumbText}>X</Text>
+                      </TouchableOpacity>
+                    </View>
+                  ))}
                 </View>
               ) : null}
-            </View>
-            <Text style={styles.workflowLead}>{copy.workflowLead}</Text>
-            <View style={styles.workflowList}>
-              {copy.workflowSteps.map((step, index) => (
-                <WorkflowStep key={`${step}-${index}`} index={index} label={step} active={index === 0} />
-              ))}
-            </View>
-          </View>
 
-          <TouchableOpacity
-            style={[styles.submitBtn, isInternalRequester && styles.submitBtnInternal, loading && { opacity: 0.72 }]}
-            onPress={handleSubmit}
-            disabled={loading}
-            activeOpacity={0.86}
-          >
-            {loading ? <ActivityIndicator color="#fff" /> : <Text style={styles.submitText}>{copy.submitLabel}</Text>}
-          </TouchableOpacity>
+              <View style={styles.legacyNoteBox}>
+                <Text style={styles.legacyNoteText}>
+                  Your request goes through Staff verification, Head approval, and Campus Director approval before final
+                  scheduling.
+                </Text>
+              </View>
+
+              <TouchableOpacity
+                style={[styles.legacySubmitBtn, loading && { opacity: 0.7 }]}
+                onPress={handleSubmit}
+                disabled={loading}
+                activeOpacity={0.85}
+              >
+                {loading ? <ActivityIndicator color="#fff" /> : <Text style={styles.legacySubmitText}>SUBMIT REQUEST</Text>}
+              </TouchableOpacity>
+            </>
+          ) : (
+            <>
+              <View style={styles.internalHero}>
+                <View style={styles.internalHeroAccent} />
+                <Text style={styles.heroEyebrow}>{copy.heroEyebrow}</Text>
+                <View style={styles.heroTopRow}>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.heroTitle}>{copy.heroTitle}</Text>
+                    <Text style={styles.heroText}>{copy.heroText}</Text>
+                  </View>
+                  <View
+                    style={[
+                      styles.heroRoleBadge,
+                      roleId === ROLE_IDS.HEAD ? styles.heroRoleBadgeHead : styles.heroRoleBadgeStaff,
+                    ]}
+                  >
+                    <Text style={styles.heroRoleBadgeText}>{roleLabel}</Text>
+                  </View>
+                </View>
+                <View style={styles.heroChipRow}>
+                  <View style={styles.heroChip}>
+                    <Text style={styles.heroChipText}>SYNCED IDENTITY</Text>
+                  </View>
+                  <View style={styles.heroChip}>
+                    <Text style={styles.heroChipText}>CAMPUS WORK ORDER</Text>
+                  </View>
+                </View>
+              </View>
+
+              <SectionCard
+                eyebrow="Personnel Identity"
+                title={copy.summaryTitle}
+                helper={copy.summaryHelper}
+                badgeLabel="READ ONLY"
+              >
+                <View style={styles.identityGrid}>
+                  <IdentityField label="Requesting Personnel" value={requesterName} />
+                  <IdentityField label="Role" value={roleLabel} />
+                  <IdentityField label="Position" value={positionLabel} />
+                  <IdentityField label="Office" value={officeLabel} />
+                  <IdentityField label="Contact Number" value={contactLabel} />
+                  <IdentityField label="Request Date" value={requestDateLabel} />
+                </View>
+              </SectionCard>
+
+              <SectionCard eyebrow="Maintenance Type" title={copy.typeTitle} helper={copy.typeHelper}>
+                {loadingTypes ? (
+                  <ActivityIndicator color={C.steel} style={{ marginVertical: 16 }} />
+                ) : maintenanceTypes.length === 0 ? (
+                  <View style={styles.emptyStateCard}>
+                    <Text style={styles.emptyStateTitle}>No maintenance types available</Text>
+                    <Text style={styles.emptyStateText}>
+                      Please refresh or try again later when service categories are available.
+                    </Text>
+                  </View>
+                ) : (
+                  <View style={styles.internalTypeGrid}>
+                    {maintenanceTypes.map((type) => {
+                      const label = getMaintenanceTypeLabel(type);
+                      const selected = selectedTypeId === type.id;
+                      return (
+                        <TouchableOpacity
+                          key={type.id}
+                          style={[styles.internalTypeCard, selected && styles.internalTypeCardActive]}
+                          onPress={() => {
+                            setSelectedTypeId(type.id);
+                            setSelectedTypeName(label);
+                            setFieldErrors((prev) => ({ ...prev, type: "" }));
+                          }}
+                          activeOpacity={0.84}
+                        >
+                          <View style={[styles.typeInitialBadge, selected && styles.typeInitialBadgeActive]}>
+                            <Text style={[styles.typeInitialText, selected && styles.typeInitialTextActive]}>
+                              {getTypeInitials(label)}
+                            </Text>
+                          </View>
+                          <Text style={[styles.internalTypeLabel, selected && styles.internalTypeLabelActive]}>
+                            {label}
+                          </Text>
+                          <Text style={[styles.internalTypeMeta, selected && styles.internalTypeMetaActive]}>
+                            {selected ? "Selected service lane" : "Tap to route this issue"}
+                          </Text>
+                        </TouchableOpacity>
+                      );
+                    })}
+                  </View>
+                )}
+                {fieldErrors.type ? <Text style={styles.fieldErrorText}>{fieldErrors.type}</Text> : null}
+              </SectionCard>
+
+              <SectionCard eyebrow="Service Location" title={copy.locationTitle} helper={copy.locationHelper}>
+                <View style={styles.locationCallout}>
+                  <View style={styles.locationCalloutBadge}>
+                    <Text style={styles.locationCalloutBadgeText}>Dispatch Point</Text>
+                  </View>
+                  <Text style={styles.locationCalloutText}>
+                    Include the building, floor, room, office, or facility zone so the maintenance team can route the
+                    work order accurately.
+                  </Text>
+                </View>
+                <Text style={styles.fieldLabel}>Specific Building / Room / Facility</Text>
+                <TextInput
+                  style={[styles.input, styles.inputInternal]}
+                  placeholder={locationPlaceholder}
+                  placeholderTextColor="#9BAABA"
+                  value={location}
+                  onChangeText={(value) => {
+                    setLocation(value);
+                    setFieldErrors((prev) => ({ ...prev, location: "" }));
+                  }}
+                />
+                {fieldErrors.location ? <Text style={styles.fieldErrorText}>{fieldErrors.location}</Text> : null}
+              </SectionCard>
+
+              <SectionCard eyebrow="Issue Narrative" title={copy.descriptionTitle} helper={copy.descriptionHelper}>
+                <Text style={styles.fieldLabel}>Operational Description</Text>
+                <TextInput
+                  style={[styles.input, styles.textarea, styles.textareaInternal]}
+                  placeholder={descriptionPlaceholder}
+                  placeholderTextColor="#9BAABA"
+                  value={description}
+                  onChangeText={(value) => {
+                    setDescription(value);
+                    setFieldErrors((prev) => ({ ...prev, description: "" }));
+                  }}
+                  multiline
+                  numberOfLines={6}
+                  textAlignVertical="top"
+                />
+                {fieldErrors.description ? <Text style={styles.fieldErrorText}>{fieldErrors.description}</Text> : null}
+              </SectionCard>
+
+              <SectionCard
+                eyebrow="Evidence Upload"
+                title={copy.evidenceTitle}
+                helper={copy.evidenceHelper}
+                badgeLabel={`${selectedImages.length}/${MAX_IMAGE_ATTACHMENTS}`}
+              >
+                <View style={styles.uploadHeaderRow}>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.uploadTitle}>Photo Documentation</Text>
+                    <Text style={styles.uploadSubtitle}>
+                      Use images for visual proof, damage reference, or site context.
+                    </Text>
+                  </View>
+                  {selectedImages.length < MAX_IMAGE_ATTACHMENTS ? (
+                    <TouchableOpacity
+                      style={[styles.uploadBtn, styles.uploadBtnInternal]}
+                      onPress={handlePickImages}
+                      activeOpacity={0.85}
+                    >
+                      <Text style={[styles.uploadBtnText, styles.uploadBtnTextInternal]}>{pickerLabel}</Text>
+                    </TouchableOpacity>
+                  ) : null}
+                </View>
+
+                {selectedImages.length > 0 ? (
+                  <View style={styles.thumbGrid}>
+                    {selectedImages.map((asset, index) => (
+                      <View key={`${asset.uri}-${index}`} style={styles.thumbWrap}>
+                        <Image source={{ uri: asset.uri }} style={styles.thumb} />
+                        <TouchableOpacity
+                          style={styles.removeThumbBtn}
+                          onPress={() => removeSelectedImage(index)}
+                          activeOpacity={0.9}
+                        >
+                          <Text style={styles.removeThumbText}>X</Text>
+                        </TouchableOpacity>
+                      </View>
+                    ))}
+                  </View>
+                ) : (
+                  <View style={styles.emptyUploadBox}>
+                    <Text style={styles.emptyUploadTitle}>No attachments selected</Text>
+                    <Text style={styles.emptyUploadText}>
+                      Add evidence images if the issue benefits from visual documentation.
+                    </Text>
+                  </View>
+                )}
+                {fieldErrors.images ? <Text style={styles.fieldErrorText}>{fieldErrors.images}</Text> : null}
+              </SectionCard>
+
+              <View style={[styles.workflowCard, styles.workflowCardInternal]}>
+                <View style={styles.workflowTop}>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.workflowEyebrow}>Approval Route</Text>
+                    <Text style={styles.workflowTitle}>{copy.workflowTitle}</Text>
+                  </View>
+                  <View style={styles.workflowBadge}>
+                    <Text style={styles.workflowBadgeText}>INTERNAL FLOW</Text>
+                  </View>
+                </View>
+                <Text style={styles.workflowLead}>{copy.workflowLead}</Text>
+                <View style={styles.workflowList}>
+                  {copy.workflowSteps.map((step, index) => (
+                    <WorkflowStep key={`${step}-${index}`} index={index} label={step} active={index === 0} />
+                  ))}
+                </View>
+              </View>
+
+              <TouchableOpacity
+                style={[styles.submitBtn, styles.submitBtnInternal, loading && { opacity: 0.72 }]}
+                onPress={handleSubmit}
+                disabled={loading}
+                activeOpacity={0.86}
+              >
+                {loading ? <ActivityIndicator color="#fff" /> : <Text style={styles.submitText}>{copy.submitLabel}</Text>}
+              </TouchableOpacity>
+            </>
+          )}
         </View>
       </ScrollView>
     </KeyboardAvoidingView>
@@ -827,6 +973,203 @@ export default function SubmitRequestScreen({ user, onBack, onSuccess }) {
 }
 
 const styles = StyleSheet.create({
+  legacyRoot: { flex: 1, backgroundColor: R.bg },
+  legacyScroll: { paddingBottom: 40 },
+  legacyBody: { padding: 18 },
+  legacyToast: {
+    position: "absolute",
+    top: 16,
+    alignSelf: "center",
+    zIndex: 999,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    backgroundColor: R.navy,
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    borderRadius: 10,
+    borderLeftWidth: 4,
+    borderLeftColor: R.gold,
+    elevation: 10,
+  },
+  legacyErrorBox: {
+    backgroundColor: R.dangerBg,
+    borderLeftWidth: 4,
+    borderLeftColor: R.danger,
+    borderRadius: 10,
+    padding: 12,
+    marginBottom: 14,
+  },
+  legacyLabel: {
+    fontSize: 11,
+    fontWeight: "800",
+    color: R.navy,
+    marginBottom: 8,
+    marginTop: 16,
+    textTransform: "uppercase",
+    letterSpacing: 1,
+  },
+  legacyTypeGrid: { flexDirection: "row", flexWrap: "wrap", gap: 10 },
+  legacyTypeCard: {
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    backgroundColor: R.surface,
+    borderRadius: 10,
+    borderWidth: 1.5,
+    borderColor: R.border,
+    alignItems: "center",
+    elevation: 1,
+  },
+  legacyTypeCardActive: { backgroundColor: R.navy, borderColor: R.navy },
+  legacyTypeLabel: { fontSize: 13, fontWeight: "700", color: R.navy },
+  legacyTypeLabelActive: { color: "#fff" },
+  legacyInput: {
+    backgroundColor: R.surface,
+    borderRadius: 10,
+    paddingHorizontal: 14,
+    paddingVertical: 11,
+    fontSize: 14,
+    color: R.navy,
+    borderWidth: 1.5,
+    borderColor: R.border,
+  },
+  legacyTextarea: { height: 120, paddingTop: 12 },
+  legacyNoteBox: {
+    backgroundColor: R.warnBg,
+    borderLeftWidth: 4,
+    borderLeftColor: R.gold,
+    borderRadius: 8,
+    padding: 12,
+    marginTop: 16,
+  },
+  legacyNoteText: { color: R.warn, fontSize: 12, lineHeight: 18 },
+  legacyImageCount: { color: R.textMute, fontSize: 12, marginBottom: 8 },
+  legacyPickBtn: {
+    alignSelf: "flex-start",
+    backgroundColor: R.surface,
+    borderWidth: 1.5,
+    borderColor: R.steel,
+    borderRadius: 8,
+    paddingHorizontal: 14,
+    paddingVertical: 9,
+  },
+  legacyPickBtnText: { color: R.steel, fontSize: 12, fontWeight: "800", letterSpacing: 0.6 },
+  legacyThumbGrid: { flexDirection: "row", flexWrap: "wrap", gap: 10, marginTop: 8 },
+  legacyThumbWrap: {
+    width: 82,
+    height: 82,
+    borderRadius: 8,
+    overflow: "hidden",
+    position: "relative",
+    borderWidth: 1,
+    borderColor: R.border,
+    backgroundColor: R.surface,
+  },
+  legacyThumb: { width: "100%", height: "100%" },
+  legacyRemoveThumbBtn: {
+    position: "absolute",
+    top: 4,
+    right: 4,
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    backgroundColor: "rgba(11,31,58,0.9)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  legacyRemoveThumbText: { color: "#fff", fontSize: 11, fontWeight: "900" },
+  legacySubmitBtn: {
+    backgroundColor: R.navy,
+    borderRadius: 10,
+    paddingVertical: 15,
+    alignItems: "center",
+    marginTop: 22,
+    elevation: 5,
+  },
+  legacySubmitText: { color: "#fff", fontSize: 14, fontWeight: "800", letterSpacing: 2 },
+  legacyWaitRoot: {
+    flex: 1,
+    backgroundColor: R.bg,
+    alignItems: "center",
+    justifyContent: "center",
+    padding: 24,
+  },
+  legacyWaitBadge: {
+    width: 70,
+    height: 70,
+    borderRadius: 35,
+    backgroundColor: R.navy,
+    borderWidth: 3,
+    borderColor: R.gold,
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 16,
+  },
+  legacyWaitBadgeText: { fontSize: 28, color: R.gold, fontWeight: "900" },
+  legacyWaitOrg: {
+    fontSize: 10,
+    fontWeight: "900",
+    color: R.textMute,
+    letterSpacing: 2,
+    textTransform: "uppercase",
+    marginBottom: 6,
+  },
+  legacyWaitTitle: { fontSize: 22, fontWeight: "900", color: R.navy, marginBottom: 6 },
+  legacyWaitSub: { fontSize: 13, color: R.textMute, textAlign: "center", lineHeight: 20, marginBottom: 20 },
+  legacyWaitSubStrong: { color: R.steel, fontWeight: "800" },
+  legacyWaitCard: {
+    width: "100%",
+    backgroundColor: R.surface,
+    borderRadius: 12,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: R.border,
+    marginBottom: 20,
+  },
+  legacyWaitCardTitle: {
+    fontSize: 11,
+    fontWeight: "800",
+    color: R.textMute,
+    textTransform: "uppercase",
+    letterSpacing: 1,
+    marginBottom: 12,
+  },
+  legacyStepRow: { flexDirection: "row", alignItems: "center", gap: 12, marginBottom: 10 },
+  legacyStepNum: {
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    backgroundColor: R.bg,
+    borderWidth: 1.5,
+    borderColor: R.border,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  legacyStepNumActive: { backgroundColor: R.navy, borderColor: R.navy },
+  legacyStepNumText: { fontSize: 11, fontWeight: "800", color: R.textMute },
+  legacyStepNumTextActive: { color: R.gold },
+  legacyStepLabel: { fontSize: 13, color: R.textMute, flex: 1 },
+  legacyStepLabelActive: { color: R.navy, fontWeight: "700" },
+  legacyNewBtn: {
+    width: "100%",
+    backgroundColor: R.navy,
+    borderRadius: 10,
+    paddingVertical: 14,
+    alignItems: "center",
+    marginBottom: 10,
+    elevation: 4,
+  },
+  legacyNewBtnText: { color: "#fff", fontSize: 13, fontWeight: "800", letterSpacing: 1.5 },
+  legacyHomeBtn: {
+    width: "100%",
+    borderRadius: 10,
+    paddingVertical: 14,
+    alignItems: "center",
+    borderWidth: 1.5,
+    borderColor: R.border,
+    backgroundColor: R.surface,
+  },
+  legacyHomeBtnText: { color: R.navy, fontSize: 13, fontWeight: "800", letterSpacing: 1.5 },
   root: { flex: 1, backgroundColor: C.bg },
   scroll: { paddingBottom: 52 },
   body: { padding: 18, gap: 14 },

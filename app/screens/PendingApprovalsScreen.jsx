@@ -38,25 +38,11 @@ function getStatus(user) {
     return STATUS[s] || STATUS.pending;
 }
 
-const OFFICES = [
-    { id: 1, label: "College of Engineering" },
-    { id: 2, label: "College of Maritime Education" },
-    { id: 3, label: "College of Nursing and Allied Health Sciences" },
-    { id: 4, label: "School of Midwifery" },
-    { id: 5, label: "College of Teacher Education" },
-    { id: 6, label: "College of Business Administration" },
-    { id: 7, label: "College of Computer Studies" },
-    { id: 8, label: "College of Liberal Arts Mathematics and Sciences" },
-    { id: 9, label: "General Service Office" },
-];
-
-const POSITIONS = [
-    { id: 1, label: "Faculty" },
-    { id: 2, label: "Staff" },
-];
 
 export default function PendingApprovalsScreen({ user, onBack }) {
     const [accounts, setAccounts] = useState([]);
+    const [offices, setOffices] = useState([]);
+    const [positions, setPositions] = useState([]);
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
     const [filter, setFilter] = useState("All");
@@ -69,11 +55,20 @@ export default function PendingApprovalsScreen({ user, onBack }) {
     const fetchAccounts = async () => {
         try {
             const token = await AsyncStorage.getItem("authToken") || await AsyncStorage.getItem("token");
-            const res = await fetch(`${API_URL}/users-list`, {
-                headers: { Authorization: `Bearer ${token}`, Accept: "application/json" },
-            });
-            const data = await res.json();
+            const headers = { Authorization: `Bearer ${token}`, Accept: "application/json" };
+            const [usersRes, commonRes] = await Promise.all([
+                fetch(`${API_URL}/users-list`, { headers }),
+                fetch(`${API_URL}/common-datas`, { headers }),
+            ]);
+            const data = await usersRes.json();
             setAccounts(Array.isArray(data) ? data : data.data || []);
+            if (commonRes.ok) {
+                const common = await commonRes.json();
+                const officeList = common?.offices || common?.data?.offices || [];
+                const positionList = common?.positions || common?.data?.positions || [];
+                setOffices(officeList.map(o => ({ id: Number(o.id), label: o.name || o.office_name || "" })));
+                setPositions(positionList.map(p => ({ id: Number(p.id), label: p.name || p.position_name || "" })));
+            }
         } catch (e) {
             console.error("fetchAccounts error:", e.name === "TimeoutError" ? "Request timed out" : e.message);
             setAccounts([]);
@@ -139,9 +134,9 @@ export default function PendingApprovalsScreen({ user, onBack }) {
             ? `${selected.first_name} ${selected.last_name || ""}`.trim()
             : selected?.name || "Unknown User";
 
-        const officeLabel = OFFICES.find(o => o.id === selected?.office_id)?.label
+        const officeLabel = offices.find(o => o.id === Number(selected?.office_id))?.label
             || selected?.office?.name || selected?.office_name || selected?.office;
-        const positionLabel = POSITIONS.find(p => p.id === selected?.position_id)?.label
+        const positionLabel = positions.find(p => p.id === Number(selected?.position_id))?.label
             || selected?.position?.name || selected?.position_name || selected?.position;
         const roleLabel = getRoleLabel(normalizeRoleId(selected?.role_id), "")
             || selected?.role?.name || selected?.role_name || selected?.role || "User";

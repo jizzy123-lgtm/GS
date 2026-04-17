@@ -173,14 +173,24 @@ export default function ReviewRequestsScreen({ user, onBack, onNavigate }) {
 
   const filtered = (() => {
     if (filter === "All") {
+      if (roleId === ROLE_IDS.STAFF) {
+        // Staff sees ALL requests so they can track verified ones waiting for Head/Director
+        return requests;
+      }
       if (roleNeedsSequentialFilter) {
         const nonPending = requests.filter(r => r.status !== MAINTENANCE_STATUS.PENDING);
         return sortRequestsDescending([...getSequentialPendingRequests(requests, roleId), ...nonPending]);
       }
       return requests;
     }
-    if (filter === "Pending" && roleNeedsSequentialFilter) {
-      return getSequentialPendingRequests(requests, roleId);
+    if (filter === "Pending") {
+      if (roleId === ROLE_IDS.STAFF) {
+        // Pending tab for staff shows all pending requests (including verified ones)
+        return requests.filter(r => r.status === MAINTENANCE_STATUS.PENDING);
+      }
+      if (roleNeedsSequentialFilter) {
+        return getSequentialPendingRequests(requests, roleId);
+      }
     }
     return requests.filter(r => {
       const s = normalizeMaintenanceStatus(r.status, r.status_id);
@@ -355,7 +365,7 @@ export default function ReviewRequestsScreen({ user, onBack, onNavigate }) {
     const canApprove = canHeadApprove || canDirectorApprove;
     const canDisapprove = canHeadApprove || canDirectorApprove;
     const canVerify = isStaff && pending && !verified;
-    const canDeny = isStaff && pending;
+    const canDeny = isStaff && pending && !verified;
     const canAssignPriority = isStaff && pending && directorApproved;
     const canAssignSchedule = isStaff && approved;
     const canMarkDone = isStaff && approved && Boolean(selected.scheduled_date);

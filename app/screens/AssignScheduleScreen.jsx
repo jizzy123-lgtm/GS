@@ -73,7 +73,12 @@ export default function AssignScheduleScreen({ user, request, onBack, onSuccess 
 
       setApprovedRequests(
         all
-          .filter((requestItem) => normalizeMaintenanceStatus(requestItem.status, requestItem.status_id) === MAINTENANCE_STATUS.APPROVED && !requestItem.scheduled_date)
+          .filter((requestItem) => {
+            const status = normalizeMaintenanceStatus(requestItem.status, requestItem.status_id);
+            const alreadyScheduled = requestItem.scheduled_date && requestItem.scheduled_date !== "";
+            const isDone = status === MAINTENANCE_STATUS.DONE;
+            return status === MAINTENANCE_STATUS.APPROVED && !alreadyScheduled && !isDone;
+          })
           .map(r => ({ ...r, maintenance_type_name: tMap[r.maintenance_type_id] || r.maintenance_type?.name || r.maintenance_type || r.type }))
       );
     } catch (_e) { setApprovedRequests([]); }
@@ -101,8 +106,17 @@ export default function AssignScheduleScreen({ user, request, onBack, onSuccess 
         }),
       });
       const data = await res.json();
-      if (res.ok) setSuccess(true);
-      else setError(data.message || "Failed to assign schedule.");
+      if (res.ok) {
+        // Automatically mark the request as done once a schedule is assigned
+        await fetch(`${API_URL}/maintenance-requests/${selectedRequest.id}/mark-done`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json", Accept: "application/json", Authorization: `Bearer ${token}` },
+          body: JSON.stringify({}),
+        });
+        setSuccess(true);
+      } else {
+        setError(data.message || "Failed to assign schedule.");
+      }
     } catch (_e) { setError("Cannot connect to server."); }
     finally { setSubmitting(false); }
   };

@@ -6,6 +6,7 @@ import AssignScheduleScreen from '../screens/AssignScheduleScreen';
 import DashboardScreen from '../screens/DashboardScreen';
 import FeedbackScreen from '../screens/FeedbackScreen';
 import FeedbacksScreen from '../screens/FeedbacksScreen';
+import LoginLocationTrackingScreen from '../screens/LoginLocationTrackingScreen';
 import NotificationsScreen from '../screens/NotificationsScreen';
 import PendingApprovalsScreen from '../screens/PendingApprovalsScreen';
 import ProfileScreen from '../screens/ProfileScreen';
@@ -24,6 +25,7 @@ type Screen =
   | 'ViewRequestStatus'
   | 'Feedback'
   | 'Feedbacks'
+  | 'LoginLocationTracking'
   | 'Notifications'
   | 'ReviewRequests'
   | 'PendingApprovals'
@@ -107,6 +109,7 @@ export default function HomeScreen() {
   if (screen === 'SubmitRequest') {
     return (
       <SubmitRequestScreen
+        user={user}
         onBack={() => navigate('Dashboard')}
         onSuccess={() => navigate('Dashboard')}
       />
@@ -149,6 +152,15 @@ export default function HomeScreen() {
   if (screen === 'Feedbacks') {
     return (
       <FeedbacksScreen
+        user={user}
+        onBack={() => navigate('Dashboard')}
+      />
+    );
+  }
+
+  if (screen === 'LoginLocationTracking') {
+    return (
+      <LoginLocationTrackingScreen
         user={user}
         onBack={() => navigate('Dashboard')}
       />

@@ -1,7 +1,7 @@
 const MB = 1024 * 1024;
 
 export const MAX_IMAGE_ATTACHMENTS = 4;
-export const MAX_IMAGE_BYTES = 2 * MB;
+export const MAX_IMAGE_BYTES = 5 * MB;
 export const ALLOWED_IMAGE_MIME_TYPES = [
   "image/jpeg",
   "image/jpg",
@@ -36,7 +36,7 @@ export const validateImageAsset = (asset) => {
   }
   const fileSize = Number(asset?.fileSize || 0);
   if (fileSize > MAX_IMAGE_BYTES) {
-    return { valid: false, message: "Each image must be 2MB or smaller." };
+    return { valid: false, message: "Each image must be 5MB or smaller." };
   }
   return { valid: true, message: "" };
 };

@@ -28,13 +28,25 @@ const getRoleDetailEndpoint = (roleId, requestId) => {
   return null;
 };
 
+const hasAny = (...values) => values.some((value) => Boolean(value));
+
 const hasPriorityAssigned = (request) =>
   Boolean(String(request?.priority_number || request?.priority || "").trim());
+
+const isDirectorApproved = (request) =>
+  hasAny(
+    request?.approved_by_2,
+    request?.approved_by_director,
+    request?.director_approved_by,
+    request?.director_approved_at,
+    request?.approver2,
+    request?.director_approver
+  );
 
 const isReadyForScheduling = (request) => {
   const status = normalizeMaintenanceStatus(request?.status, request?.status_id);
   if (status === MAINTENANCE_STATUS.APPROVED) return true;
-  return status === MAINTENANCE_STATUS.PENDING && hasPriorityAssigned(request);
+  return status === MAINTENANCE_STATUS.PENDING && isDirectorApproved(request) && hasPriorityAssigned(request);
 };
 
 function buildCalendarCells(viewDate) {

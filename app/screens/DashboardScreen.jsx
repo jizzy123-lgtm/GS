@@ -363,17 +363,22 @@ function getQuickActions(roleId, onNavigate) {
   if (roleId === ROLE_IDS.SYSTEM_ADMIN) return [
     { label: "Account Approvals", onPress: () => onNavigate("PendingApprovals") },
     { label: "User Management", onPress: () => onNavigate("UserManagement") },
+    { label: "Login Tracking", onPress: () => onNavigate("LoginLocationTracking") },
     { label: "Feedbacks", onPress: () => onNavigate("Feedbacks") },
     ...common,
   ];
   if (roleId === ROLE_IDS.HEAD || roleId === ROLE_IDS.CAMPUS_DIRECTOR) return [
     { label: "Review Requests", onPress: () => onNavigate("ReviewRequests") },
+    ...(roleId === ROLE_IDS.HEAD ? [{ label: "New Request", onPress: () => onNavigate("SubmitRequest") }] : []),
+    ...(roleId === ROLE_IDS.HEAD ? [{ label: "My Requests", onPress: () => onNavigate("ViewRequestStatus", { requestScope: "my" }) }] : []),
     { label: "All Requests", onPress: () => onNavigate("ViewRequestStatus", { requestScope: "all" }) },
     ...common,
   ];
   if (roleId === ROLE_IDS.STAFF) return [
     { label: "Review Requests", onPress: () => onNavigate("ReviewRequests") },
+    { label: "New Request", onPress: () => onNavigate("SubmitRequest") },
     { label: "Assign Schedule", onPress: () => onNavigate("AssignSchedule") },
+    { label: "My Requests", onPress: () => onNavigate("ViewRequestStatus", { requestScope: "my" }) },
     { label: "All Requests", onPress: () => onNavigate("ViewRequestStatus", { requestScope: "all" }) },
     ...common,
   ];

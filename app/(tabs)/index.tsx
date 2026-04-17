@@ -6,6 +6,7 @@ import AssignScheduleScreen from '../screens/AssignScheduleScreen';
 import DashboardScreen from '../screens/DashboardScreen';
 import FeedbackScreen from '../screens/FeedbackScreen';
 import FeedbacksScreen from '../screens/FeedbacksScreen';
+import LoginLocationTrackingScreen from '../screens/LoginLocationTrackingScreen';
 import NotificationsScreen from '../screens/NotificationsScreen';
 import PendingApprovalsScreen from '../screens/PendingApprovalsScreen';
 import ProfileScreen from '../screens/ProfileScreen';
@@ -19,7 +20,7 @@ import { getNotificationNavigationTarget } from '../../utils/notificationNavigat
 
 type Screen =
   | 'Login' | 'SignUp' | 'Dashboard' | 'SubmitRequest'
-  | 'ViewRequestStatus' | 'Feedback' | 'Feedbacks' | 'Notifications'
+  | 'ViewRequestStatus' | 'Feedback' | 'Feedbacks' | 'LoginLocationTracking' | 'Notifications'
   | 'ReviewRequests' | 'PendingApprovals' | 'Profile' | 'AssignSchedule' | 'UserManagement';
 
 export default function HomeScreen() {
@@ -75,7 +76,7 @@ export default function HomeScreen() {
     return <DashboardScreen user={user} onLogout={handleLogout} onNavigate={navigate} />;
   }
   if (screen === 'SubmitRequest') {
-    return <SubmitRequestScreen onBack={() => navigate('Dashboard')} onSuccess={() => navigate('Dashboard')} />;
+    return <SubmitRequestScreen user={user} onBack={() => navigate('Dashboard')} onSuccess={() => navigate('Dashboard')} />;
   }
   if (screen === 'ViewRequestStatus') {
     return <ViewRequestStatusScreen user={user} initialFilter={screenParams.filter} requestScope={screenParams.requestScope} requestId={screenParams.requestId} onBack={() => navigate('Dashboard')} onNavigate={navigate} />;
@@ -85,6 +86,9 @@ export default function HomeScreen() {
   }
   if (screen === 'Feedbacks') {
     return <FeedbacksScreen user={user} onBack={() => navigate('Dashboard')} />;
+  }
+  if (screen === 'LoginLocationTracking') {
+    return <LoginLocationTrackingScreen user={user} onBack={() => navigate('Dashboard')} />;
   }
   if (screen === 'Notifications') {
     return <NotificationsScreen user={user} onBack={() => navigate('Dashboard')} onNavigate={navigate} />;

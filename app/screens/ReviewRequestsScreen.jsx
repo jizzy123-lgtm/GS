@@ -14,6 +14,16 @@ import { MAINTENANCE_STATUS, normalizeMaintenanceStatus } from "../constants/mai
 import { normalizeRoleId, ROLE_IDS } from "../constants/roles";
 import AttachedImagesSection from "../components/AttachedImagesSection";
 import { normalizeImageUrls } from "../../utils/imageAttachments";
+import {
+  extractApiItem,
+  extractApiList,
+  getApiErrorMessage,
+  getAuthHeaders,
+  getAuthToken,
+  getMaintenanceTypeLabel,
+  mergeRequestData,
+  requesterIsHead,
+} from "../../utils/maintenanceRequests";
 
 import { API_URL } from '../../api';
 const C = { navy: "#0B1F3A", steel: "#1E4D8C", gold: "#C9A84C", bg: "#F0F2F5", surface: "#FFFFFF", surfaceAlt: "#F7F9FC", border: "#DDE3EC", textMute: "#8A9BB0", danger: "#9B1C1C", dangerBg: "#FEE8E8", success: "#1A7A4A", successBg: "#EAF6EF", warn: "#B45C10", warnBg: "#FEF3E2", info: "#155E8A", infoBg: "#E6F2FA" };
@@ -43,36 +53,6 @@ const sortRequestsDescending = (list) => {
 };
 
 const hasAny = (...values) => values.some((v) => Boolean(v));
-
-const isRoleHeadLike = (value) => {
-  const text = String(value || "").toLowerCase();
-  return text.includes("head") && !text.includes("director");
-};
-
-const requesterIsHead = (request) => {
-  const possibleRoleIds = [
-    request?.requester_role_id,
-    request?.requesting_personnel_role_id,
-    request?.requester?.role_id,
-    request?.requesting_personnel?.role_id,
-    request?.requester?.role?.id,
-    request?.requesting_personnel?.role?.id,
-    request?.user?.role_id,
-    request?.user?.role?.id,
-  ];
-  if (possibleRoleIds.some((value) => Number(value) === ROLE_IDS.HEAD)) return true;
-
-  const possibleRoleLabels = [
-    request?.requester_role_name,
-    request?.requesting_personnel_role_name,
-    request?.requester?.role_name,
-    request?.requester?.role?.role_name,
-    request?.requesting_personnel?.role?.role_name,
-    request?.user?.role_name,
-    request?.user?.role?.role_name,
-  ];
-  return possibleRoleLabels.some((value) => isRoleHeadLike(value));
-};
 
 const isVerifiedByStaff = (request) =>
   hasAny(
@@ -141,27 +121,34 @@ export default function ReviewRequestsScreen({ user, onBack, onNavigate }) {
 
   const fetchRequests = useCallback(async () => {
     try {
-      const token = await AsyncStorage.getItem("authToken") || await AsyncStorage.getItem("token");
-      const ep = "/maintenance-requests";
+      const token = await getAuthToken();
+      const headers = getAuthHeaders(token);
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 45000);
       let res;
+      let data;
       try {
-        res = await fetch(`${API_URL}${ep}`, { headers: { Authorization: `Bearer ${token}`, Accept: "application/json" }, signal: controller.signal });
+        res = await fetch(`${API_URL}/maintenance-requests/list-with-details`, { headers, signal: controller.signal });
+        data = await res.json().catch(() => ({}));
+        if (!res.ok) {
+          res = await fetch(`${API_URL}/maintenance-requests`, { headers, signal: controller.signal });
+          data = await res.json().catch(() => ({}));
+        }
       } finally {
         clearTimeout(timeoutId);
       }
-      const data = await res.json();
-      const reqList = Array.isArray(data) ? data : data.data || [];
+      if (!res.ok) throw new Error(getApiErrorMessage(res.status, data, "Failed to load requests."));
+      const reqList = extractApiList(data);
 
       // Fetch maintenance types if not loaded
       let currentTypes = types;
       if (Object.keys(currentTypes).length === 0) {
-        const tRes = await fetch(`${API_URL}/maintenance-types`, { headers: { Authorization: `Bearer ${token}` } });
-        const tData = await tRes.json();
-        const tList = Array.isArray(tData) ? tData : tData.data || [];
+        const tRes = await fetch(`${API_URL}/maintenance-types`, { headers });
+        const tData = await tRes.json().catch(() => ({}));
+        if (!tRes.ok) throw new Error(getApiErrorMessage(tRes.status, tData, "Failed to load maintenance types."));
+        const tList = extractApiList(tData);
         const tMap = {};
-        tList.forEach(t => tMap[t.id] = t.name || t.type_name);
+        tList.forEach(t => tMap[t.id] = getMaintenanceTypeLabel(t));
         setTypes(tMap);
         currentTypes = tMap;
       }
@@ -169,7 +156,7 @@ export default function ReviewRequestsScreen({ user, onBack, onNavigate }) {
       setRequests(sortRequestsDescending(reqList.map(r => ({
         ...r,
         status: normalizeMaintenanceStatus(r.status, r.status_id),
-        maintenance_type_name: currentTypes[r.maintenance_type_id] || r.maintenance_type?.name || r.maintenance_type || r.type
+        maintenance_type_name: currentTypes[r.maintenance_type_id] || getMaintenanceTypeLabel(r.maintenance_type) || r.maintenance_type || r.type
       }))));
     } catch (_e) { setRequests([]); }
     finally { setLoading(false); setRefreshing(false); }
@@ -182,31 +169,39 @@ export default function ReviewRequestsScreen({ user, onBack, onNavigate }) {
   useEffect(() => {
     let mounted = true;
 
-    const fetchRoleDetailImages = async () => {
+    const fetchRoleDetail = async () => {
       if (!selected?.id) return;
-      const initialUrls = normalizeImageUrls(selected?.image_urls);
-      if (initialUrls.length > 0) return;
 
       const endpoint = getRoleDetailEndpoint(roleId, selected.id);
       if (!endpoint) return;
 
       try {
-        const token = await AsyncStorage.getItem("authToken") || await AsyncStorage.getItem("token");
+        const token = await getAuthToken();
         const res = await fetch(endpoint, {
-          headers: { Authorization: `Bearer ${token}`, Accept: "application/json" },
+          headers: getAuthHeaders(token),
         });
-        const data = await res.json();
-        const detail = Array.isArray(data) ? data[0] : data?.data || data;
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) return;
+
+        const detail = extractApiItem(data);
+        if (!mounted || !detail) return;
+
+        setSelected((current) => (
+          current?.id === selected.id
+            ? mergeRequestData(current, detail)
+            : current
+        ));
+
         const urls = normalizeImageUrls(detail?.image_urls);
-        if (mounted && urls.length > 0) setDetailImageUrls(urls);
+        if (urls.length > 0) setDetailImageUrls(urls);
       } catch (_error) {
         // Keep empty attachments when fallback detail fails.
       }
     };
 
-    fetchRoleDetailImages();
+    fetchRoleDetail();
     return () => { mounted = false; };
-  }, [selected?.id, selected?.image_urls, roleId]);
+  }, [selected?.id, roleId]);
 
   const onRefresh = () => { setRefreshing(true); fetchRequests(); };
 
@@ -217,10 +212,10 @@ export default function ReviewRequestsScreen({ user, onBack, onNavigate }) {
       return pendingReqs;
     }
     if (role === ROLE_IDS.HEAD) {
-      return pendingReqs.filter(r => isVerifiedByStaff(r) && !isHeadApproved(r));
+      return pendingReqs.filter(r => isVerifiedByStaff(r) && !requesterIsHead(r) && !isHeadApproved(r));
     }
     if (role === ROLE_IDS.CAMPUS_DIRECTOR) {
-      return pendingReqs.filter(r => isHeadApproved(r) && !isDirectorApproved(r));
+      return pendingReqs.filter(r => isVerifiedByStaff(r) && (requesterIsHead(r) || isHeadApproved(r)) && !isDirectorApproved(r));
     }
     return pendingReqs;
   };
@@ -243,13 +238,14 @@ export default function ReviewRequestsScreen({ user, onBack, onNavigate }) {
   const doAction = async (id, action, reason = "", extra = {}) => {
     setActionLoading(true); setActionMsg("");
     try {
-      const token = await AsyncStorage.getItem("authToken") || await AsyncStorage.getItem("token");
+      const token = await getAuthToken();
       let endpoint = "";
       let payload = {};
       const now = new Date();
       const dateReceived = now.toISOString().slice(0, 10);
       const timeReceived = now.toTimeString().slice(0, 8);
       const userId = Number(user?.id || user?.user_id || 0);
+      const targetRequest = extra.request || selected || requests.find((requestItem) => Number(requestItem.id) === Number(id));
 
       if (action === "verify") {
         if (roleId !== ROLE_IDS.STAFF) {
@@ -269,6 +265,10 @@ export default function ReviewRequestsScreen({ user, onBack, onNavigate }) {
         };
       } else if (action === "approve") {
         if (roleId === ROLE_IDS.HEAD) {
+          if (requesterIsHead(targetRequest)) {
+            setActionMsg("Head-submitted requests skip head approval and go straight to Campus Director approval.");
+            return;
+          }
           endpoint = `/maintenance-requests/${id}/approve-head`;
         } else if (roleId === ROLE_IDS.CAMPUS_DIRECTOR) {
           endpoint = `/maintenance-requests/${id}/approve-director`;
@@ -328,17 +328,15 @@ export default function ReviewRequestsScreen({ user, onBack, onNavigate }) {
 
       const res = await fetch(`${API_URL}${endpoint}`, {
         method: "PUT",
-        headers: {
-          Authorization: `Bearer ${token}`,
-          Accept: "application/json",
+        headers: getAuthHeaders(token, {
           "Content-Type": "application/json"
-        },
+        }),
         body: JSON.stringify(payload)
       });
 
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
-        setActionMsg(data?.message || `Failed to ${action}.`);
+        setActionMsg(getApiErrorMessage(res.status, data, `Failed to ${action}.`));
         return;
       }
 
@@ -410,9 +408,10 @@ export default function ReviewRequestsScreen({ user, onBack, onNavigate }) {
     const directorApproved = isDirectorApproved(selected);
     const readyForScheduling = isReadyForScheduling(selected);
     const priorityAssigned = hasPriorityAssigned(selected);
+    const headApprovalRequired = !requesterHead;
 
-    const canHeadApprove = isHead && pending && verified && !requesterHead && !headApproved;
-    const canDirectorApprove = isDirector && pending && verified && (requesterHead || headApproved) && !directorApproved;
+    const canHeadApprove = isHead && pending && verified && headApprovalRequired && !headApproved;
+    const canDirectorApprove = isDirector && pending && verified && (!headApprovalRequired || headApproved) && !directorApproved;
     const canApprove = canHeadApprove || canDirectorApprove;
     const canDisapprove = canHeadApprove || canDirectorApprove;
     const canVerify = isStaff && pending && !verified;
@@ -425,7 +424,7 @@ export default function ReviewRequestsScreen({ user, onBack, onNavigate }) {
       isStaff &&
       (isScheduledStatus || Boolean(selected.scheduled_date));
     const waitingForVerification = [ROLE_IDS.HEAD, ROLE_IDS.CAMPUS_DIRECTOR].includes(roleId) && pending && !verified;
-    const waitingForHead = isDirector && pending && verified && !requesterHead && !headApproved;
+    const waitingForHead = isDirector && pending && verified && headApprovalRequired && !headApproved;
     const actionError = /failed|cannot|only|unable|required|missing/i.test(String(actionMsg || ""));
 
     const openPriorityModal = () => {
@@ -445,6 +444,11 @@ export default function ReviewRequestsScreen({ user, onBack, onNavigate }) {
           {waitingForHead && (
             <View style={[styles.msgBox, { borderLeftColor: C.warn, backgroundColor: C.warnBg }]}>
               <Text style={[styles.msgText, { color: C.warn }]}>Waiting for head approval before director approval.</Text>
+            </View>
+          )}
+          {requesterHead && (
+            <View style={[styles.msgBox, { borderLeftColor: C.info, backgroundColor: C.infoBg }]}>
+              <Text style={[styles.msgText, { color: C.info }]}>Head-submitted request: after staff verification, this goes directly to Campus Director approval.</Text>
             </View>
           )}
           {actionMsg ? (
@@ -501,9 +505,11 @@ export default function ReviewRequestsScreen({ user, onBack, onNavigate }) {
               <View style={[styles.approvalStepLine, { backgroundColor: headApproved ? C.success : C.border }]} />
               <ApprovalStepDetail
                 done={headApproved}
+                skipped={!headApprovalRequired}
                 label="Head Approved"
                 who={selected.approver1?.last_name || selected.approved_by_head || null}
                 date={selected.head_approved_at || null}
+                pendingText="Skipped for head-submitted requests"
               />
               <View style={[styles.approvalStepLine, { backgroundColor: directorApproved ? C.success : C.border }]} />
               <ApprovalStepDetail
@@ -665,6 +671,8 @@ export default function ReviewRequestsScreen({ user, onBack, onNavigate }) {
                 const s = SM[status] || SM[MAINTENANCE_STATUS.PENDING];
                 const pending = status === MAINTENANCE_STATUS.PENDING;
                 const verified = isVerifiedByStaff(req);
+                const requesterHead = requesterIsHead(req);
+                const headApproved = isHeadApproved(req);
                 const directorApproved = isDirectorApproved(req);
                 const readyForScheduling = isReadyForScheduling(req);
                 const priorityAssigned = hasPriorityAssigned(req);
@@ -680,8 +688,8 @@ export default function ReviewRequestsScreen({ user, onBack, onNavigate }) {
                     {roleId === ROLE_IDS.STAFF && (
                       <View style={styles.approvalTrack}>
                         <ApprovalStep done={verified} label="Verified" />
-                        <View style={[styles.trackLine, { backgroundColor: isHeadApproved(req) ? C.success : C.border }]} />
-                        <ApprovalStep done={isHeadApproved(req)} label="Head" />
+                        <View style={[styles.trackLine, { backgroundColor: headApproved ? C.success : C.border }]} />
+                        <ApprovalStep done={headApproved} label="Head" />
                         <View style={[styles.trackLine, { backgroundColor: directorApproved ? C.success : C.border }]} />
                         <ApprovalStep done={directorApproved} label="Director" />
                       </View>
@@ -689,10 +697,10 @@ export default function ReviewRequestsScreen({ user, onBack, onNavigate }) {
                     {roleId === ROLE_IDS.STAFF && pending && !verified && (
                       <View style={styles.assignTag}><Text style={styles.assignTagText}>Needs Verification</Text></View>
                     )}
-                    {roleId === ROLE_IDS.STAFF && pending && verified && !isHeadApproved(req) && (
+                    {roleId === ROLE_IDS.STAFF && pending && verified && !requesterHead && !headApproved && (
                       <View style={[styles.assignTag, { backgroundColor: C.infoBg }]}><Text style={[styles.assignTagText, { color: C.info }]}>Waiting for Head Approval</Text></View>
                     )}
-                    {roleId === ROLE_IDS.STAFF && pending && isHeadApproved(req) && !directorApproved && (
+                    {roleId === ROLE_IDS.STAFF && pending && verified && (requesterHead || headApproved) && !directorApproved && (
                       <View style={[styles.assignTag, { backgroundColor: C.infoBg }]}><Text style={[styles.assignTagText, { color: C.info }]}>Waiting for Director Approval</Text></View>
                     )}
                     {roleId === ROLE_IDS.STAFF && pending && verified && directorApproved && !priorityAssigned && (
@@ -720,19 +728,27 @@ function ApprovalStep({ done, label }) {
   );
 }
 
-function ApprovalStepDetail({ done, label, who, date }) {
+function ApprovalStepDetail({ done, skipped, label, who, date, pendingText }) {
+  const dotStyle = skipped
+    ? { backgroundColor: C.infoBg, borderColor: C.info }
+    : done
+      ? { backgroundColor: C.success, borderColor: C.success }
+      : { backgroundColor: C.surface, borderColor: C.border };
+
   return (
     <View style={{ flexDirection: "row", alignItems: "flex-start", gap: 12 }}>
       <View style={{ alignItems: "center", paddingTop: 2 }}>
-        <View style={[{ width: 20, height: 20, borderRadius: 10, alignItems: "center", justifyContent: "center", borderWidth: 2 }, done ? { backgroundColor: C.success, borderColor: C.success } : { backgroundColor: C.surface, borderColor: C.border }]}>
+        <View style={[{ width: 20, height: 20, borderRadius: 10, alignItems: "center", justifyContent: "center", borderWidth: 2 }, dotStyle]}>
+          {skipped && <Text style={{ color: C.info, fontSize: 10, fontWeight: "900" }}>-</Text>}
           {done && <Text style={{ color: "#fff", fontSize: 11, fontWeight: "900" }}>✓</Text>}
         </View>
       </View>
       <View style={{ flex: 1 }}>
-        <Text style={{ fontSize: 13, fontWeight: "700", color: done ? C.navy : C.textMute }}>{label}</Text>
+        <Text style={{ fontSize: 13, fontWeight: "700", color: done || skipped ? C.navy : C.textMute }}>{label}</Text>
         {done && who ? <Text style={{ fontSize: 11, color: C.success, fontWeight: "600", marginTop: 1 }}>by {who}</Text> : null}
         {done && date ? <Text style={{ fontSize: 10, color: C.textMute, marginTop: 1 }}>{String(date).slice(0, 10)}</Text> : null}
-        {!done && <Text style={{ fontSize: 11, color: C.textMute, marginTop: 1 }}>Pending</Text>}
+        {skipped && <Text style={{ fontSize: 11, color: C.info, marginTop: 1 }}>{pendingText || "Skipped"}</Text>}
+        {!done && !skipped && <Text style={{ fontSize: 11, color: C.textMute, marginTop: 1 }}>Pending</Text>}
       </View>
     </View>
   );

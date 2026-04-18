@@ -2,7 +2,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useEffect, useState } from "react";
 import {
   ActivityIndicator, KeyboardAvoidingView, Modal, Platform,
-  ScrollView,
+  RefreshControl, ScrollView,
   StyleSheet,
   Text, TextInput, TouchableOpacity,
   View,
@@ -34,9 +34,11 @@ function buildCalendarCells(viewDate) {
   const today = new Date(); today.setHours(0, 0, 0, 0);
   const cells = [];
   for (let i = 0; i < firstDay; i++) cells.push(null);
+  const pad = n => String(n).padStart(2, "0");
   for (let d = 1; d <= daysInMonth; d++) {
     const cellDate = new Date(year, month, d);
-    cells.push({ day: d, dateStr: cellDate.toISOString().split("T")[0], past: cellDate < today });
+    const dateStr = `${year}-${pad(month + 1)}-${pad(d)}`;
+    cells.push({ day: d, dateStr, past: cellDate < today });
   }
   return cells;
 }
@@ -54,32 +56,42 @@ export default function AssignScheduleScreen({ user, request, onBack, onSuccess 
   const [scheduledTime, setScheduledTime] = useState("");
   const [title, setTitle] = useState("Maintenance Schedule");
   const [notes, setNotes] = useState("");
+  const [refreshing, setRefreshing] = useState(false);
 
   useEffect(() => { if (!request) fetchApproved(); }, []);
+
+  const onRefresh = async () => { setRefreshing(true); await fetchApproved(); setRefreshing(false); };
 
   const fetchApproved = async () => {
     setLoading(true);
     try {
       const token = await AsyncStorage.getItem("authToken") || await AsyncStorage.getItem("token");
-      const res = await fetch(`${API_URL}/maintenance-requests`, { headers: { Authorization: `Bearer ${token}`, Accept: "application/json" } });
+      let res = await fetch(`${API_URL}/maintenance-requests/list-with-details`, { headers: { Authorization: `Bearer ${token}`, Accept: "application/json" } });
+      if (!res.ok) res = await fetch(`${API_URL}/maintenance-requests`, { headers: { Authorization: `Bearer ${token}`, Accept: "application/json" } });
       const data = await res.json();
       const all = Array.isArray(data) ? data : data.data || [];
 
-      const tRes = await fetch(`${API_URL}/maintenance-types`, { headers: { Authorization: `Bearer ${token}` } });
-      const tData = await tRes.json();
-      const tList = Array.isArray(tData) ? tData : tData.data || [];
-      const tMap = {};
-      tList.forEach(t => { tMap[t.id] = t.name || t.type_name; });
+      const hasDirectorApproval = (r) => Boolean(
+        r?.approved_by_2 || r?.approved_by_director || r?.director_approved_by ||
+        r?.director_approved_at || r?.approver2 || r?.director_approver
+      );
 
       setApprovedRequests(
         all
-          .filter((requestItem) => {
-            const status = normalizeMaintenanceStatus(requestItem.status, requestItem.status_id);
-            const alreadyScheduled = requestItem.scheduled_date && requestItem.scheduled_date !== "";
-            const isDone = status === MAINTENANCE_STATUS.DONE;
-            return status === MAINTENANCE_STATUS.APPROVED && !alreadyScheduled && !isDone;
+          .filter((r) => {
+            if (r.scheduled_date) return false;
+            const normalized = normalizeMaintenanceStatus(r.status, r.status_id);
+            if (normalized === MAINTENANCE_STATUS.DONE) return false;
+            return normalized === MAINTENANCE_STATUS.APPROVED ||
+              (normalized === MAINTENANCE_STATUS.PENDING && hasDirectorApproval(r));
           })
-          .map(r => ({ ...r, maintenance_type_name: tMap[r.maintenance_type_id] || r.maintenance_type?.name || r.maintenance_type || r.type }))
+          .map(r => ({
+            ...r,
+            id: r.id || r.request_id,
+            maintenance_type_name: r.maintenance_type?.name || r.maintenance_type || r.type,
+            requesting_office: r.requesting_office,
+            needsPriority: normalizeMaintenanceStatus(r.status, r.status_id) !== MAINTENANCE_STATUS.APPROVED,
+          }))
       );
     } catch (_e) { setApprovedRequests([]); }
     finally { setLoading(false); }
@@ -90,33 +102,41 @@ export default function AssignScheduleScreen({ user, request, onBack, onSuccess 
     if (!selectedRequest) { setError("Please select a request."); return; }
     if (!scheduledDate.trim()) { setError("Please enter a scheduled date."); return; }
     if (!scheduledTime) { setError("Please select a time slot."); return; }
-    if (!title.trim()) { setError("Please enter a title."); return; }
     setSubmitting(true);
     try {
       const token = await AsyncStorage.getItem("authToken") || await AsyncStorage.getItem("token");
-      const res = await fetch(`${API_URL}/schedule-events`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", Accept: "application/json", Authorization: `Bearer ${token}` },
+      const headers = { "Content-Type": "application/json", Accept: "application/json", Authorization: `Bearer ${token}` };
+      const reqId = selectedRequest.id;
+
+      if (selectedRequest.needsPriority) {
+        const typeId = selectedRequest.maintenance_type_id || selectedRequest.maintenance_type?.id;
+        let priorityNumber = "";
+        if (typeId) {
+          const pRes = await fetch(`${API_URL}/generate-priority-number/${typeId}`, { headers });
+          if (pRes.ok) {
+            const pData = await pRes.json();
+            priorityNumber = pData?.priority_number || pData?.data?.priority_number || pData?.number || String(pData || "");
+          }
+        }
+        if (!priorityNumber) priorityNumber = `M-${new Date().getFullYear()}-${reqId}`;
+        await fetch(`${API_URL}/maintenance-requests/${reqId}/assign-priority`, {
+          method: "PUT", headers, body: JSON.stringify({ priority_number: priorityNumber }),
+        });
+      }
+
+      const assignedStaffId = user?.id || user?.user_id;
+      const res = await fetch(`${API_URL}/maintenance-requests/${reqId}/assign-schedule`, {
+        method: "POST", headers,
         body: JSON.stringify({
-          maintenance_request_id: selectedRequest.id,
-          title: title.trim(),
-          date: scheduledDate,
-          time: scheduledTime,
-          notes,
+          scheduled_date: scheduledDate,
+          scheduled_time: scheduledTime,
+          assigned_staff: assignedStaffId,
+          scheduled_notes: notes,
         }),
       });
       const data = await res.json();
-      if (res.ok) {
-        // Automatically mark the request as done once a schedule is assigned
-        await fetch(`${API_URL}/maintenance-requests/${selectedRequest.id}/mark-done`, {
-          method: "PUT",
-          headers: { "Content-Type": "application/json", Accept: "application/json", Authorization: `Bearer ${token}` },
-          body: JSON.stringify({}),
-        });
-        setSuccess(true);
-      } else {
-        setError(data.message || "Failed to assign schedule.");
-      }
+      if (res.ok) setSuccess(true);
+      else setError(data.message || "Failed to assign schedule.");
     } catch (_e) { setError("Cannot connect to server."); }
     finally { setSubmitting(false); }
   };
@@ -149,7 +169,7 @@ export default function AssignScheduleScreen({ user, request, onBack, onSuccess 
   return (
     <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === "ios" ? "padding" : "height"}>
       <ScreenHeader title="Assign Schedule" subtitle="Assign schedule for approved requests" onBack={onBack} />
-      <ScrollView style={styles.root} contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
+      <ScrollView style={styles.root} contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled" refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[C.steel]} />}>
         <View style={styles.body}>
           {error ? <View style={styles.errorBox}><Text style={styles.errorText}>{error}</Text></View> : null}
 

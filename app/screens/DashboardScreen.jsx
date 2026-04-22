@@ -13,6 +13,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { API_URL } from '../../api';
 import { MAINTENANCE_STATUS, normalizeMaintenanceStatus } from "../constants/maintenanceStatus";
 import { getRoleLabel, normalizeRoleId, ROLE_IDS } from "../constants/roles";
+import { getMaintenanceTypeLabel, getRequestId } from "../../utils/maintenanceRequests";
 const C = {
   bg: "#F0F2F5", surface: "#FFFFFF", surfaceAlt: "#F7F9FC", navy: "#0B1F3A",
   navyMid: "#162C50", steel: "#1E4D8C", steelLight: "#2E6BC4", gold: "#C9A84C",
@@ -121,16 +122,29 @@ export default function DashboardScreen({ user, onLogout, onNavigate }) {
         const tData = await tRes.json();
         const tList = Array.isArray(tData) ? tData : tData.data || [];
         const tMap = {};
-        tList.forEach(t => tMap[t.id] = t.name || t.type_name);
+        tList.forEach(t => tMap[t.id] = getMaintenanceTypeLabel(t));
         setTypes(tMap);
         currentTypes = tMap;
       }
 
-      const reqs = reqList.map(r => ({
-        ...r,
-        status: normalizeMaintenanceStatus(r.status, r.status_id),
-        maintenance_type_name: currentTypes[r.maintenance_type_id] || r.maintenance_type?.name || r.maintenance_type || r.type
-      }));
+      const reqs = reqList
+        .map((requestItem) => {
+          const normalizedId = getRequestId(requestItem);
+          if (!normalizedId) return null;
+
+          return {
+            ...requestItem,
+            id: normalizedId,
+            request_id: normalizedId,
+            status: normalizeMaintenanceStatus(requestItem.status, requestItem.status_id),
+            maintenance_type_name:
+              currentTypes[requestItem.maintenance_type_id] ||
+              getMaintenanceTypeLabel(requestItem.maintenance_type) ||
+              requestItem.maintenance_type ||
+              requestItem.type,
+          };
+        })
+        .filter(Boolean);
       const requesterScopedReqs = roleId === ROLE_IDS.REQUESTER
         ? reqs.filter(r => isRequestOwnedByUser(r, user))
         : reqs;
@@ -297,7 +311,7 @@ export default function DashboardScreen({ user, onLogout, onNavigate }) {
                         return (
                           <TouchableOpacity key={i}
                             style={[styles.tableRow, i === recentRequests.length - 1 && { borderBottomWidth: 0 }]}
-                            onPress={() => onNavigate("ViewRequestStatus", { requestId: req.id })}
+                            onPress={() => onNavigate("ViewRequestStatus", { requestId: getRequestId(req) })}
                             activeOpacity={0.7}
                           >
                             <Text style={[styles.tdCell, { flex: 2 }]} numberOfLines={1}>{req.maintenance_type_name || req.maintenance_type?.name || "Maintenance Request"}</Text>

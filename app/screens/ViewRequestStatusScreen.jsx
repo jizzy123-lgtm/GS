@@ -13,6 +13,7 @@ import { MAINTENANCE_STATUS, normalizeMaintenanceStatus } from "../constants/mai
 import { normalizeRoleId, ROLE_IDS } from "../constants/roles";
 import AttachedImagesSection from "../components/AttachedImagesSection";
 import { normalizeImageUrls } from "../../utils/imageAttachments";
+import { getRequestId, getMaintenanceTypeLabel } from "../../utils/maintenanceRequests";
 
 import { API_URL } from '../../api';
 
@@ -72,7 +73,7 @@ const sortRequestsDescending = (list) => {
   return [...list].sort((a, b) => {
     const byDate = getTimestamp(b) - getTimestamp(a);
     if (byDate !== 0) return byDate;
-    return Number(b?.id || 0) - Number(a?.id || 0);
+    return Number(getRequestId(b) || 0) - Number(getRequestId(a) || 0);
   });
 };
 const normalizeRequestScope = (value) => {
@@ -144,16 +145,29 @@ export default function ViewRequestStatusScreen({ onBack, onNavigate, user, init
         const tData = await tRes.json();
         const tList = Array.isArray(tData) ? tData : tData.data || [];
         const tMap = {};
-        tList.forEach(t => tMap[t.id] = t.name || t.type_name);
+        tList.forEach(t => tMap[t.id] = getMaintenanceTypeLabel(t));
         setTypes(tMap);
         currentTypes = tMap;
       }
 
-      const normalizedRequests = reqList.map(r => ({
-        ...r,
-        status: normalizeMaintenanceStatus(r.status, r.status_id),
-        maintenance_type_name: currentTypes[r.maintenance_type_id] || r.maintenance_type?.name || r.maintenance_type || r.type
-      }));
+      const normalizedRequests = reqList
+        .map((requestItem) => {
+          const normalizedId = getRequestId(requestItem);
+          if (!normalizedId) return null;
+
+          return {
+            ...requestItem,
+            id: normalizedId,
+            request_id: normalizedId,
+            status: normalizeMaintenanceStatus(requestItem.status, requestItem.status_id),
+            maintenance_type_name:
+              currentTypes[requestItem.maintenance_type_id] ||
+              getMaintenanceTypeLabel(requestItem.maintenance_type) ||
+              requestItem.maintenance_type ||
+              requestItem.type,
+          };
+        })
+        .filter(Boolean);
 
       const scoped = scope === "my"
         ? normalizedRequests.filter((request) => isRequestOwnedByUser(request, user))
@@ -185,19 +199,25 @@ export default function ViewRequestStatusScreen({ onBack, onNavigate, user, init
 
   useEffect(() => {
     if (!requestId || requests.length === 0) return;
-    const target = requests.find((request) => Number(request.id) === Number(requestId));
+    const target = requests.find((request) => Number(getRequestId(request)) === Number(requestId));
     if (target) setSelected(target);
   }, [requestId, requests]);
 
   const onRefresh = () => { setRefreshing(true); fetchRequests(); };
 
   const cancelRequest = async (request) => {
+    const currentRequestId = getRequestId(request);
+    if (!currentRequestId) {
+      setActionMsg("Unable to cancel request: missing request id.");
+      return;
+    }
+
     setActionLoading(true);
     setActionMsg("");
 
     try {
       const token = await AsyncStorage.getItem("authToken") || await AsyncStorage.getItem("token");
-      const res = await fetch(`${API_URL}/maintenance-requests/${request.id}/cancel`, {
+      const res = await fetch(`${API_URL}/maintenance-requests/${currentRequestId}/cancel`, {
         method: "PUT",
         headers: {
           Authorization: `Bearer ${token}`,
@@ -231,7 +251,7 @@ export default function ViewRequestStatusScreen({ onBack, onNavigate, user, init
       actionMsg={actionMsg}
       onCancel={() => cancelRequest(selected)}
       cancelLoading={actionLoading}
-      onFeedback={() => onNavigate("Feedback", { requestId: selected.id })}
+      onFeedback={() => onNavigate("Feedback", { requestId: getRequestId(selected) })}
     />
   );
 
@@ -274,7 +294,7 @@ export default function ViewRequestStatusScreen({ onBack, onNavigate, user, init
                 const s = STATUS[st] || STATUS[MAINTENANCE_STATUS.PENDING];
                 return (
                   <TouchableOpacity
-                    key={i}
+                    key={req.id || i}
                     style={[styles.card, { borderLeftColor: s.color }]}
                     onPress={() => setSelected(req)}
                     activeOpacity={0.8}
@@ -301,6 +321,7 @@ export default function ViewRequestStatusScreen({ onBack, onNavigate, user, init
 
 function RequestDetail({ request, onBack, user, onFeedback, onCancel, cancelLoading, actionMsg }) {
   const [imageUrls, setImageUrls] = useState(() => normalizeImageUrls(request?.image_urls));
+  const requestId = getRequestId(request);
 
   useEffect(() => {
     setImageUrls(normalizeImageUrls(request?.image_urls));
@@ -313,7 +334,7 @@ function RequestDetail({ request, onBack, user, onFeedback, onCancel, cancelLoad
       const initialUrls = normalizeImageUrls(request?.image_urls);
       if (initialUrls.length > 0) return;
 
-      const endpoint = getRoleDetailEndpoint(normalizeRoleId(user?.role_id), request?.id);
+      const endpoint = getRoleDetailEndpoint(normalizeRoleId(user?.role_id), requestId);
       if (!endpoint) return;
 
       try {
@@ -332,7 +353,7 @@ function RequestDetail({ request, onBack, user, onFeedback, onCancel, cancelLoad
 
     fetchRoleDetailImages();
     return () => { mounted = false; };
-  }, [request?.id, request?.image_urls, user?.role_id]);
+  }, [requestId, request?.image_urls, user?.role_id]);
 
   const st = normalizeMaintenanceStatus(request.status, request.status_id);
   const s = STATUS[st] || STATUS[MAINTENANCE_STATUS.PENDING];
@@ -357,7 +378,7 @@ function RequestDetail({ request, onBack, user, onFeedback, onCancel, cancelLoad
             <Text style={[styles.statusBannerText, { color: s.color }]}>{s.icon}  {s.label}</Text>
           </View>
           {[
-            { l: "Request ID", v: `#${request.id}` },
+            { l: "Request ID", v: requestId ? `#${requestId}` : "-" },
             { l: "Maintenance Type", v: request.maintenance_type_name || request.maintenance_type?.name || "Unknown Type" },
             { l: "Priority", v: request.priority_number || request.priority || "Pending priority assignment" },
             { l: "Location", v: request.location },

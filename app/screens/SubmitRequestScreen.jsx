@@ -70,7 +70,7 @@ const R = {
   warnBg: "#FEF3E2",
 };
 
-const INTERNAL_ROLE_IDS = [ROLE_IDS.STAFF, ROLE_IDS.HEAD];
+const INTERNAL_ROLE_IDS = [];
 
 const firstNonEmpty = (...values) => {
   for (const value of values) {
@@ -130,68 +130,6 @@ const getTypeInitials = (label) => {
 };
 
 const getRoleCopy = (roleId) => {
-  if (roleId === ROLE_IDS.HEAD) {
-    return {
-      headerTitle: "Internal Maintenance Request",
-      headerSubtitle: "For Staff and Head Personnel",
-      heroEyebrow: "Internal Service Desk",
-      heroTitle: "Office-Level Request",
-      heroText: "Submit a structured campus work order using your verified office identity and internal routing path.",
-      summaryTitle: "System-Sourced Personnel Record",
-      summaryHelper: "These fields are linked from your account profile and are used directly in the request payload.",
-      typeTitle: "Select Service Category",
-      typeHelper: "Choose the service lane that best matches the issue before routing the work order.",
-      locationTitle: "Where should the team respond?",
-      locationHelper: "Use the exact building, room, office, or facility area for dispatch accuracy.",
-      descriptionTitle: "Work-Order Narrative",
-      descriptionHelper: "Describe the operational impact, what was observed, and any urgency indicators for the maintenance team.",
-      evidenceTitle: "Attach Photo Documentation",
-      evidenceHelper: `Upload up to ${MAX_IMAGE_ATTACHMENTS} images for evidence or visual reference.`,
-      workflowTitle: "Office-to-Director Approval Route",
-      workflowLead: "Because this request is submitted by a Head account, it moves from staff verification directly to Campus Director review before scheduling.",
-      workflowSteps: [
-        "Staff verifies the internal request",
-        "Campus Director reviews the office-submitted request",
-        "Staff assigns priority and schedule",
-        "Maintenance work is completed and closed",
-      ],
-      submitLabel: "SUBMIT OFFICE REQUEST",
-      uploadButtonLabel: "ADD EVIDENCE",
-      roleTone: "Office-Level Request",
-    };
-  }
-
-  if (roleId === ROLE_IDS.STAFF) {
-    return {
-      headerTitle: "Internal Maintenance Request",
-      headerSubtitle: "For Staff and Head Personnel",
-      heroEyebrow: "Internal Service Desk",
-      heroTitle: "Operational Request",
-      heroText: "Create an internal work order with verified personnel and office routing for campus operations support.",
-      summaryTitle: "System-Sourced Personnel Record",
-      summaryHelper: "These fields are linked from your account profile and are used directly in the request payload.",
-      typeTitle: "Select Service Category",
-      typeHelper: "Choose the correct service lane so the issue reaches the right maintenance queue.",
-      locationTitle: "Where should the team respond?",
-      locationHelper: "Use the exact building, room, office, or facility area for dispatch accuracy.",
-      descriptionTitle: "Work-Order Narrative",
-      descriptionHelper: "Describe the operational impact, what was observed, and any urgency indicators for the maintenance team.",
-      evidenceTitle: "Attach Photo Documentation",
-      evidenceHelper: `Upload up to ${MAX_IMAGE_ATTACHMENTS} images for evidence or visual reference.`,
-      workflowTitle: "Standard Internal Approval Route",
-      workflowLead: "Staff-submitted requests still move through verification, Head approval, Campus Director approval, and final scheduling.",
-      workflowSteps: [
-        "Staff verifies the internal request",
-        "Head approves the request",
-        "Campus Director approves the request",
-        "Staff assigns priority and schedule",
-      ],
-      submitLabel: "SUBMIT OPERATIONAL REQUEST",
-      uploadButtonLabel: "ADD EVIDENCE",
-      roleTone: "Operational Request",
-    };
-  }
-
   return {
     headerTitle: "New Request",
     headerSubtitle: "Submit a maintenance service request",

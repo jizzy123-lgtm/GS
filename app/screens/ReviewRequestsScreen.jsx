@@ -21,6 +21,7 @@ import {
   getAuthHeaders,
   getAuthToken,
   getMaintenanceTypeLabel,
+  getRequestId,
   mergeRequestData,
   requesterIsHead,
 } from "../../utils/maintenanceRequests";
@@ -48,7 +49,7 @@ const sortRequestsDescending = (list) => {
   return [...list].sort((a, b) => {
     const byDate = getTimestamp(b) - getTimestamp(a);
     if (byDate !== 0) return byDate;
-    return Number(b?.id || 0) - Number(a?.id || 0);
+    return Number(getRequestId(b) || 0) - Number(getRequestId(a) || 0);
   });
 };
 
@@ -118,6 +119,7 @@ export default function ReviewRequestsScreen({ user, onBack, onNavigate }) {
   const [priorityLoading, setPriorityLoading] = useState(false);
   const [detailImageUrls, setDetailImageUrls] = useState([]);
   const roleId = normalizeRoleId(user?.role_id);
+  const selectedRequestId = getRequestId(selected);
 
   const fetchRequests = useCallback(async () => {
     try {
@@ -153,11 +155,28 @@ export default function ReviewRequestsScreen({ user, onBack, onNavigate }) {
         currentTypes = tMap;
       }
 
-      setRequests(sortRequestsDescending(reqList.map(r => ({
-        ...r,
-        status: normalizeMaintenanceStatus(r.status, r.status_id),
-        maintenance_type_name: currentTypes[r.maintenance_type_id] || getMaintenanceTypeLabel(r.maintenance_type) || r.maintenance_type || r.type
-      }))));
+      setRequests(
+        sortRequestsDescending(
+          reqList
+            .map((requestItem) => {
+              const normalizedId = getRequestId(requestItem);
+              if (!normalizedId) return null;
+
+              return {
+                ...requestItem,
+                id: normalizedId,
+                request_id: normalizedId,
+                status: normalizeMaintenanceStatus(requestItem.status, requestItem.status_id),
+                maintenance_type_name:
+                  currentTypes[requestItem.maintenance_type_id] ||
+                  getMaintenanceTypeLabel(requestItem.maintenance_type) ||
+                  requestItem.maintenance_type ||
+                  requestItem.type,
+              };
+            })
+            .filter(Boolean)
+        )
+      );
     } catch (_e) { setRequests([]); }
     finally { setLoading(false); setRefreshing(false); }
   }, [types]);
@@ -165,14 +184,14 @@ export default function ReviewRequestsScreen({ user, onBack, onNavigate }) {
   useEffect(() => { fetchRequests(); }, [fetchRequests]);
   useEffect(() => {
     setDetailImageUrls(normalizeImageUrls(selected?.image_urls));
-  }, [selected?.id, selected?.image_urls]);
+  }, [selected?.id, selected?.request_id, selected?.image_urls]);
   useEffect(() => {
     let mounted = true;
 
     const fetchRoleDetail = async () => {
-      if (!selected?.id) return;
+      if (!selectedRequestId) return;
 
-      const endpoint = getRoleDetailEndpoint(roleId, selected.id);
+      const endpoint = getRoleDetailEndpoint(roleId, selectedRequestId);
       if (!endpoint) return;
 
       try {
@@ -187,7 +206,7 @@ export default function ReviewRequestsScreen({ user, onBack, onNavigate }) {
         if (!mounted || !detail) return;
 
         setSelected((current) => (
-          current?.id === selected.id
+          getRequestId(current) === selectedRequestId
             ? mergeRequestData(current, detail)
             : current
         ));
@@ -201,7 +220,7 @@ export default function ReviewRequestsScreen({ user, onBack, onNavigate }) {
 
     fetchRoleDetail();
     return () => { mounted = false; };
-  }, [selected?.id, roleId]);
+  }, [selectedRequestId, roleId]);
 
   const onRefresh = () => { setRefreshing(true); fetchRequests(); };
 
@@ -245,7 +264,10 @@ export default function ReviewRequestsScreen({ user, onBack, onNavigate }) {
       const dateReceived = now.toISOString().slice(0, 10);
       const timeReceived = now.toTimeString().slice(0, 8);
       const userId = Number(user?.id || user?.user_id || 0);
-      const targetRequest = extra.request || selected || requests.find((requestItem) => Number(requestItem.id) === Number(id));
+      const targetRequest =
+        extra.request ||
+        selected ||
+        requests.find((requestItem) => Number(getRequestId(requestItem)) === Number(id));
 
       if (action === "verify") {
         if (roleId !== ROLE_IDS.STAFF) {
@@ -461,7 +483,7 @@ export default function ReviewRequestsScreen({ user, onBack, onNavigate }) {
           </View>
           <View style={styles.detailCard}>
             {[
-              ["Request ID", `#${selected.id}`],
+              ["Request ID", selectedRequestId ? `#${selectedRequestId}` : "-"],
               ["Type", selected.maintenance_type_name || selected.maintenance_type?.name || selected.maintenance_type || selected.type],
               ["Priority", selected.priority_number || selected.priority || "Pending priority assignment"],
               ["Location", selected.location],
@@ -536,15 +558,15 @@ export default function ReviewRequestsScreen({ user, onBack, onNavigate }) {
           {isStaff && pending && (
             <View style={styles.actionRow}>
               {canVerify && (
-                <TouchableOpacity style={[styles.approveBtn, actionLoading && { opacity: 0.6 }]} onPress={() => doAction(selected.id, "verify")} disabled={actionLoading}>
+                <TouchableOpacity style={[styles.approveBtn, actionLoading && { opacity: 0.6 }]} onPress={() => doAction(selectedRequestId, "verify")} disabled={actionLoading || !selectedRequestId}>
                   {actionLoading ? <ActivityIndicator color="#fff" /> : <Text style={styles.approveBtnText}>VERIFY</Text>}
                 </TouchableOpacity>
               )}
               {canDeny && (
                 <TouchableOpacity
                   style={[styles.disapproveBtn, actionLoading && { opacity: 0.6 }, !canVerify && { flex: 1 }]}
-                  onPress={() => { setRejectMode("deny"); setRejectId(selected.id); }}
-                  disabled={actionLoading}
+                  onPress={() => { setRejectMode("deny"); setRejectId(selectedRequestId); }}
+                  disabled={actionLoading || !selectedRequestId}
                 >
                   <Text style={styles.disapproveBtnText}>DENY</Text>
                 </TouchableOpacity>
@@ -553,14 +575,14 @@ export default function ReviewRequestsScreen({ user, onBack, onNavigate }) {
           )}
           {canApprove && (
             <View style={styles.actionRow}>
-              <TouchableOpacity style={[styles.approveBtn, actionLoading && { opacity: 0.6 }]} onPress={() => doAction(selected.id, "approve")} disabled={actionLoading}>
+              <TouchableOpacity style={[styles.approveBtn, actionLoading && { opacity: 0.6 }]} onPress={() => doAction(selectedRequestId, "approve")} disabled={actionLoading || !selectedRequestId}>
                 {actionLoading ? <ActivityIndicator color="#fff" /> : <Text style={styles.approveBtnText}>APPROVE</Text>}
               </TouchableOpacity>
               {canDisapprove && (
                 <TouchableOpacity
                   style={[styles.disapproveBtn, actionLoading && { opacity: 0.6 }]}
-                  onPress={() => { setRejectMode("disapprove"); setRejectId(selected.id); }}
-                  disabled={actionLoading}
+                  onPress={() => { setRejectMode("disapprove"); setRejectId(selectedRequestId); }}
+                  disabled={actionLoading || !selectedRequestId}
                 >
                   <Text style={styles.disapproveBtnText}>DISAPPROVE</Text>
                 </TouchableOpacity>
@@ -573,12 +595,12 @@ export default function ReviewRequestsScreen({ user, onBack, onNavigate }) {
             </TouchableOpacity>
           )}
           {canAssignSchedule && (
-            <TouchableOpacity style={styles.assignBtn} onPress={() => onNavigate("AssignSchedule", { requestId: selected.id, request: selected })} activeOpacity={0.85}>
+            <TouchableOpacity style={styles.assignBtn} onPress={() => onNavigate("AssignSchedule", { requestId: selectedRequestId, request: selected })} activeOpacity={0.85}>
               <Text style={styles.assignBtnText}>ASSIGN SCHEDULE</Text>
             </TouchableOpacity>
           )}
           {canMarkDone && (
-            <TouchableOpacity style={styles.assignBtn} onPress={() => doAction(selected.id, "markDone")} activeOpacity={0.85}>
+            <TouchableOpacity style={styles.assignBtn} onPress={() => doAction(selectedRequestId, "markDone")} activeOpacity={0.85} disabled={!selectedRequestId}>
               <Text style={styles.assignBtnText}>MARK AS DONE</Text>
             </TouchableOpacity>
           )}
@@ -634,8 +656,8 @@ export default function ReviewRequestsScreen({ user, onBack, onNavigate }) {
                 </TouchableOpacity>
                 <TouchableOpacity
                   style={[styles.saveBtn, (!priorityNumber.trim() || actionLoading) && { opacity: 0.5 }]}
-                  onPress={() => doAction(selected.id, "assignPriority", "", { priority_number: priorityNumber })}
-                  disabled={!priorityNumber.trim() || actionLoading}
+                  onPress={() => doAction(selectedRequestId, "assignPriority", "", { priority_number: priorityNumber })}
+                  disabled={!priorityNumber.trim() || actionLoading || !selectedRequestId}
                 >
                   {actionLoading ? <ActivityIndicator color="#fff" /> : <Text style={styles.saveBtnText}>Save Priority</Text>}
                 </TouchableOpacity>
@@ -677,7 +699,7 @@ export default function ReviewRequestsScreen({ user, onBack, onNavigate }) {
                 const readyForScheduling = isReadyForScheduling(req);
                 const priorityAssigned = hasPriorityAssigned(req);
                 return (
-                  <TouchableOpacity key={i} style={[styles.reqCard, { borderLeftColor: s.color }]} onPress={() => setSelected(req)} activeOpacity={0.8}>
+                  <TouchableOpacity key={req.id || i} style={[styles.reqCard, { borderLeftColor: s.color }]} onPress={() => setSelected(req)} activeOpacity={0.8}>
                     <View style={styles.reqCardTop}>
                       <Text style={styles.reqType} numberOfLines={1}>{req.maintenance_type_name || req.maintenance_type?.name || "Maintenance Request"}</Text>
                       <View style={[styles.chip, { backgroundColor: s.bg }]}>

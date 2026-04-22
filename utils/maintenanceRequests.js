@@ -38,6 +38,32 @@ export const getApiErrorMessage = (status, data, fallback = "Request failed.") =
 export const getMaintenanceTypeLabel = (type) =>
   type?.name || type?.type_name || type?.maintenance_type || "";
 
+export const getRequestId = (request) => {
+  const possibleIds = [
+    request?.request_id,
+    request?.maintenance_request_id,
+    request?.id,
+    request?.maintenanceRequestId,
+    request?.requestId,
+    request?.maintenance_request?.id,
+    request?.request?.id,
+    request?.data?.id,
+    request?.data?.maintenance_request_id,
+    request?.data?.request_id,
+    request?.data?.maintenanceRequestId,
+    request?.data?.requestId,
+    request?.data?.maintenance_request?.id,
+    request?.data?.request?.id,
+  ];
+
+  for (const value of possibleIds) {
+    const requestId = Number(value);
+    if (Number.isFinite(requestId) && requestId > 0) return requestId;
+  }
+
+  return null;
+};
+
 const isRoleHeadLike = (value) => {
   const text = String(value || "").toLowerCase();
   return text.includes("head") && !text.includes("director");
@@ -80,9 +106,15 @@ export const mergeRequestData = (currentRequest, detailRequest) => {
   if (!currentRequest) return detailRequest || null;
   if (!detailRequest) return currentRequest;
 
+  const resolvedRequestId =
+    getRequestId(detailRequest) ??
+    getRequestId(currentRequest) ??
+    null;
+
   return {
     ...currentRequest,
     ...detailRequest,
+    ...(resolvedRequestId ? { id: resolvedRequestId, request_id: resolvedRequestId } : {}),
     requester: detailRequest?.requester || currentRequest?.requester,
     user: detailRequest?.user || currentRequest?.user,
     requesting_personnel: detailRequest?.requesting_personnel || currentRequest?.requesting_personnel,

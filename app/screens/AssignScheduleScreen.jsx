@@ -8,6 +8,7 @@ import {
   View,
 } from "react-native";
 import { normalizeImageUrls } from "../../utils/imageAttachments";
+import { getMaintenanceTypeLabel, getRequestId } from "../../utils/maintenanceRequests";
 import AttachedImagesSection from "../components/AttachedImagesSection";
 import { MAINTENANCE_STATUS, normalizeMaintenanceStatus } from "../constants/maintenanceStatus";
 import { normalizeRoleId, ROLE_IDS } from "../constants/roles";
@@ -80,6 +81,7 @@ export default function AssignScheduleScreen({ user, request, onBack, onSuccess 
   const [notes, setNotes] = useState("");
   const [summaryImageUrls, setSummaryImageUrls] = useState(() => normalizeImageUrls(request?.image_urls));
   const roleId = normalizeRoleId(user?.role_id);
+  const selectedRequestId = getRequestId(selectedRequest);
 
   const fetchApproved = useCallback(async () => {
     setLoading(true);
@@ -93,12 +95,27 @@ export default function AssignScheduleScreen({ user, request, onBack, onSuccess 
       const tData = await tRes.json();
       const tList = Array.isArray(tData) ? tData : tData.data || [];
       const tMap = {};
-      tList.forEach(t => { tMap[t.id] = t.name || t.type_name; });
+      tList.forEach(t => { tMap[t.id] = getMaintenanceTypeLabel(t); });
 
       setApprovedRequests(
         all
           .filter((requestItem) => isReadyForScheduling(requestItem) && !requestItem.scheduled_date)
-          .map(r => ({ ...r, maintenance_type_name: tMap[r.maintenance_type_id] || r.maintenance_type?.name || r.maintenance_type || r.type }))
+          .map((requestItem) => {
+            const normalizedId = getRequestId(requestItem);
+            if (!normalizedId) return null;
+
+            return {
+              ...requestItem,
+              id: normalizedId,
+              request_id: normalizedId,
+              maintenance_type_name:
+                tMap[requestItem.maintenance_type_id] ||
+                getMaintenanceTypeLabel(requestItem.maintenance_type) ||
+                requestItem.maintenance_type ||
+                requestItem.type,
+            };
+          })
+          .filter(Boolean)
       );
     } catch (_e) { setApprovedRequests([]); }
     finally { setLoading(false); }
@@ -107,17 +124,17 @@ export default function AssignScheduleScreen({ user, request, onBack, onSuccess 
   useEffect(() => { if (!request) fetchApproved(); }, [request, fetchApproved]);
   useEffect(() => {
     setSummaryImageUrls(normalizeImageUrls(selectedRequest?.image_urls));
-  }, [selectedRequest?.id, selectedRequest?.image_urls]);
+  }, [selectedRequest?.id, selectedRequest?.request_id, selectedRequest?.image_urls]);
 
   useEffect(() => {
     let mounted = true;
 
     const fetchRoleDetailImages = async () => {
-      if (!selectedRequest?.id) return;
+      if (!selectedRequestId) return;
       const initialUrls = normalizeImageUrls(selectedRequest?.image_urls);
       if (initialUrls.length > 0) return;
 
-      const endpoint = getRoleDetailEndpoint(roleId, selectedRequest.id);
+      const endpoint = getRoleDetailEndpoint(roleId, selectedRequestId);
       if (!endpoint) return;
 
       try {
@@ -136,11 +153,12 @@ export default function AssignScheduleScreen({ user, request, onBack, onSuccess 
 
     fetchRoleDetailImages();
     return () => { mounted = false; };
-  }, [selectedRequest?.id, selectedRequest?.image_urls, roleId]);
+  }, [selectedRequestId, selectedRequest?.image_urls, roleId]);
 
   const handleAssign = async () => {
     setError("");
     if (!selectedRequest) { setError("Please select a request."); return; }
+    if (!selectedRequestId) { setError("Unable to assign schedule: missing request id."); return; }
     if (!scheduledDate.trim()) { setError("Please enter a scheduled date."); return; }
     if (!scheduledTime) { setError("Please select a time slot."); return; }
     const assignedStaffId = Number(user?.id || user?.user_id || 0);
@@ -148,7 +166,7 @@ export default function AssignScheduleScreen({ user, request, onBack, onSuccess 
     setSubmitting(true);
     try {
       const token = await AsyncStorage.getItem("authToken") || await AsyncStorage.getItem("token");
-      const res = await fetch(`${API_URL}/maintenance-requests/${selectedRequest.id}/assign-schedule`, {
+      const res = await fetch(`${API_URL}/maintenance-requests/${selectedRequestId}/assign-schedule`, {
         method: "POST",
         headers: { "Content-Type": "application/json", Accept: "application/json", Authorization: `Bearer ${token}` },
         body: JSON.stringify({
@@ -204,10 +222,10 @@ export default function AssignScheduleScreen({ user, request, onBack, onSuccess 
               {loading ? <ActivityIndicator color={C.steel} style={{ marginVertical: 20 }} />
                 : approvedRequests.length === 0 ? <View style={styles.emptyCard}><Text style={styles.emptyText}>No requests awaiting schedule.</Text></View>
                   : approvedRequests.map((req, i) => (
-                    <TouchableOpacity key={i} style={[styles.reqCard, selectedRequest?.id === req.id && styles.reqCardActive]} onPress={() => { setSelectedRequest(req); setPriority(req.priority || "medium"); }} activeOpacity={0.8}>
+                    <TouchableOpacity key={req.id || i} style={[styles.reqCard, getRequestId(selectedRequest) === getRequestId(req) && styles.reqCardActive]} onPress={() => { setSelectedRequest(req); setPriority(req.priority || "medium"); }} activeOpacity={0.8}>
                       <View style={styles.reqCardTopRow}>
                         <Text style={styles.reqType} numberOfLines={1}>{req.maintenance_type_name || req.maintenance_type?.name || req.maintenance_type || req.type || "Maintenance Request"}</Text>
-                        {selectedRequest?.id === req.id && <View style={styles.selectedTag}><Text style={styles.selectedTagText}>Selected</Text></View>}
+                        {getRequestId(selectedRequest) === getRequestId(req) && <View style={styles.selectedTag}><Text style={styles.selectedTagText}>Selected</Text></View>}
                       </View>
                       {[
                         ["Location", req.location],

@@ -2,13 +2,13 @@
 
 namespace App\Notifications;
 
-use Illuminate\Bus\Queueable;              
-use Illuminate\Contracts\Queue\ShouldQueue; 
+use Illuminate\Bus\Queueable;
+use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Notifications\Notification;
 use Illuminate\Notifications\Messages\MailMessage;
 use App\Models\MaintenanceRequest;
 
-class AssignPriorityToRequest extends Notification implements ShouldQueue
+class RequestApprovedByHeadNotifyStaff extends Notification implements ShouldQueue
 {
     use Queueable;
 
@@ -27,15 +27,15 @@ class AssignPriorityToRequest extends Notification implements ShouldQueue
     public function toMail(object $notifiable): MailMessage
     {
         return (new MailMessage)
-            ->subject('Priority Assigned to Your Request')
+            ->subject('A Maintenance Request Has Been Approved by the Head')
             ->view('emails.gso-notification', [
-                'subject'    => 'Priority Assigned to Your Request',
-                'badgeType'  => 'yellow',
-                'badgeLabel' => 'Priority Assigned',
+                'subject'    => 'A Maintenance Request Has Been Approved by the Head',
+                'badgeType'  => 'blue',
+                'badgeLabel' => 'Approved by Head',
                 'greeting'   => 'Dear ' . $notifiable->first_name . ',',
                 'lines'      => [
-                    'A priority level has been assigned to your maintenance request in the <strong>General Service Office System</strong>.',
-                    'Please log in to your account to view the details.',
+                    'A maintenance request has been <strong>approved by the Head of GSO</strong> and is now awaiting Campus Director approval.',
+                    'Please log in to monitor the status of this request.',
                 ],
                 'actionUrl'  => 'http://localhost:5173/',
                 'actionText' => 'View Request',

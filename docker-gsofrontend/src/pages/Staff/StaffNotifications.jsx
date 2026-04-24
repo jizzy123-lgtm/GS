@@ -1,11 +1,11 @@
+// [UPDATED 2026-03-28] Staff notifications enhancements (details modal + read/redirect behavior).
 import { useReducer, useEffect, useState, memo } from 'react';
-import { NavLink } from 'react-router-dom';
+import { NavLink, useNavigate } from 'react-router-dom';
 import Icon from '../../components/Icon';
 import { StaffSidebar, MENU_ITEMS as STAFF_MENU_ITEMS } from '../../components/StaffSidebar';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
 
-// Reducer
 const sidebarReducer = (state, action) => {
   switch (action.type) {
     case 'TOGGLE_SIDEBAR':
@@ -19,17 +19,43 @@ const sidebarReducer = (state, action) => {
   }
 };
 
-// Header (copied from StaffDashboard)
+const REQUEST_DETAIL_FIELDS = [
+  ['request_id', 'Request ID'],
+  ['maintenance_type', 'Maintenance Type'],
+  ['status', 'Status'],
+  ['details', 'Details'],
+  ['requesting_personnel', 'Requested By'],
+  ['requesting_office', 'Office'],
+  ['position', 'Position'],
+  ['contact_number', 'Contact Number'],
+  ['priority_number', 'Priority Number'],
+  ['date_requested', 'Date Requested'],
+  ['date_received', 'Date Received'],
+  ['time_received', 'Time Received'],
+  ['verified_by', 'Verified By Staff'],
+  ['approved_by_1', 'Approved By Head'],
+  ['approved_by_2', 'Approved By Campus Director'],
+  ['remarks', 'Remarks'],
+  ['created_at', 'Created At'],
+  ['updated_at', 'Updated At'],
+];
+
+const formatFieldValue = (value) => {
+  if (value === null || value === undefined || value === '') {
+    return 'N/A';
+  }
+
+  if (typeof value === 'object') {
+    return JSON.stringify(value);
+  }
+
+  return String(value);
+};
+
 const Header = memo(({ isMobileMenuOpen, onToggleMobileMenu, onCloseMobileMenu }) => (
   <header className="bg-black text-white p-4 flex justify-between items-center relative">
-    <span className="text-xl md:text-2xl font-extrabold tracking-tight">
-      ManageIT
-    </span>
-
-    <div className="hidden md:block text-xl font-bold text-white">
-      Staff
-    </div>
-
+    <span className="text-xl md:text-2xl font-extrabold tracking-tight">ManageIT</span>
+    <div className="hidden md:block text-xl font-bold text-white">Staff</div>
     <div className="flex items-center gap-4 md:hidden">
       <button
         onClick={onToggleMobileMenu}
@@ -40,10 +66,9 @@ const Header = memo(({ isMobileMenuOpen, onToggleMobileMenu, onCloseMobileMenu }
         <Icon path="M4 6h16M4 12h16M4 18h16" className="w-6 h-6" />
       </button>
     </div>
-
     <div
       className={`absolute md:hidden top-full right-0 mt-2 w-56 bg-gray-800 rounded-lg shadow-xl z-30 transition-all duration-300 ease-out overflow-hidden ${
-        isMobileMenuOpen ? "max-h-96 opacity-100" : "max-h-0 opacity-0"
+        isMobileMenuOpen ? 'max-h-96 opacity-100' : 'max-h-0 opacity-0'
       }`}
     >
       <nav className="py-2">
@@ -59,84 +84,271 @@ const Header = memo(({ isMobileMenuOpen, onToggleMobileMenu, onCloseMobileMenu }
           </NavLink>
         ))}
       </nav>
-      <div className="text-center py-2 text-xs text-gray-400 border-t border-gray-700">
-        Created By Bantilan & Friends
-      </div>
+      <div className="text-center py-2 text-xs text-gray-400 border-t border-gray-700">Created By Bantilan & Friends</div>
     </div>
   </header>
 ));
 
-// DashboardContent now fetches and displays notifications with Authorization header
 const DashboardContent = memo(() => {
   const [notifications, setNotifications] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [selectedNotif, setSelectedNotif] = useState(null);
+  const [relatedData, setRelatedData] = useState(null);
+  const [loadingDetails, setLoadingDetails] = useState(false);
+  const navigate = useNavigate();
 
   useEffect(() => {
-    const token = localStorage.getItem("authToken") || sessionStorage.getItem("authToken");
+    const token = localStorage.getItem('authToken') || sessionStorage.getItem('authToken');
 
-    // Mark all notifications as read when the page is opened
     fetch(`${API_BASE_URL}/notifications/markAllAsRead`, {
-      method: "PUT",
+      method: 'PUT',
       headers: {
-        "Accept": "application/json",
-        "Content-Type": "application/json",
-        ...(token ? { "Authorization": `Bearer ${token}` } : {})
-      }
+        Accept: 'application/json',
+        'Content-Type': 'application/json',
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
     }).catch(() => {});
 
-    // Fetch notifications
     fetch(`${API_BASE_URL}/notifications`, {
       headers: {
-        "Accept": "application/json",
-        ...(token ? { "Authorization": `Bearer ${token}` } : {})
-      }
+        Accept: 'application/json',
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
     })
-      .then(res => res.json())
-      .then(data => {
+      .then((res) => res.json())
+      .then((data) => {
         setNotifications(Array.isArray(data) ? data : [data]);
         setLoading(false);
       })
       .catch(() => setLoading(false));
   }, []);
 
-  return (
-    <main className="flex-1 p-4 md:p-6 lg:p-8 bg-white/95 backdrop-blur-sm overflow-y-auto">
-      <h2 className="text-2xl md:text-3xl lg:text-4xl font-extrabold text-gray-900 border-b mb-4 md:mb-6 pb-3 md:pb-4">
-        Notifications
-      </h2>
+  const handleNotificationClick = async (notif) => {
+    const token = localStorage.getItem('authToken') || sessionStorage.getItem('authToken');
 
-      <div className="bg-white rounded-lg shadow-sm md:shadow-lg border border-gray-200">
-        {loading ? (
-          <div className="p-6 text-center text-gray-500">Loading...</div>
-        ) : notifications.length === 0 ? (
-          <div className="p-6 text-center text-gray-500">No notifications found.</div>
-        ) : (
-          <ul className="divide-y divide-gray-100">
-            {notifications.map((notif) => (
-              <li key={notif.id} className="p-4 flex flex-col md:flex-row md:items-center md:justify-between">
-                <div>
-                  <div className="font-semibold text-gray-800">{notif.message}</div>
-                  <div className="text-xs text-gray-500 mt-1">
-                    {new Date(notif.created_at).toLocaleString()}
+    setNotifications((prev) => prev.map((n) => (n.id === notif.id ? { ...n, is_read: true } : n)));
+
+    fetch(`${API_BASE_URL}/notifications/markAsRead/${notif.id}`, {
+      method: 'PUT',
+      headers: {
+        Accept: 'application/json',
+        'Content-Type': 'application/json',
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
+    }).catch(() => {});
+
+    setSelectedNotif(notif);
+    setLoadingDetails(true);
+    setRelatedData(null);
+
+    if (notif.reference_id) {
+      try {
+        const response = await fetch(`${API_BASE_URL}/staffpov/${notif.reference_id}`, {
+          headers: {
+            Accept: 'application/json',
+            ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          },
+        });
+
+        const data = await response.json();
+        const normalizedData =
+          data && typeof data === 'object' && data.data && typeof data.data === 'object'
+            ? data.data
+            : data;
+
+        setRelatedData(normalizedData);
+      } catch (err) {
+        console.error('Error fetching related data:', err);
+      } finally {
+        setLoadingDetails(false);
+      }
+    } else {
+      setLoadingDetails(false);
+    }
+  };
+
+  return (
+    <div className="flex-1 flex flex-col overflow-hidden">
+      <main className="flex-1 p-4 md:p-6 lg:p-8 bg-white/95 backdrop-blur-sm overflow-y-auto">
+        <h2 className="text-2xl md:text-3xl lg:text-4xl font-extrabold text-gray-900 border-b mb-4 md:mb-6 pb-3 md:pb-4">
+          Notifications
+        </h2>
+        <div className="bg-white rounded-lg shadow-sm md:shadow-lg border border-gray-200">
+          {loading ? (
+            <div className="p-6 text-center text-gray-500">Loading...</div>
+          ) : notifications.length === 0 ? (
+            <div className="p-6 text-center text-gray-500">No notifications found.</div>
+          ) : (
+            <ul className="divide-y divide-gray-100">
+              {notifications.map((notif) => (
+                <li
+                  key={notif.id}
+                  onClick={() => handleNotificationClick(notif)}
+                  className={`p-4 flex flex-col md:flex-row md:items-center md:justify-between
+                    cursor-pointer hover:bg-blue-50 active:bg-blue-100 transition-colors duration-150
+                    ${!notif.is_read ? 'border-l-4 border-l-red-500' : 'border-l-4 border-l-transparent'}
+                  `}
+                >
+                  <div className="flex-1">
+                    <div className="font-semibold text-gray-800 hover:underline">{notif.message}</div>
+                    <div className="text-xs text-gray-500 mt-1">{new Date(notif.created_at).toLocaleString()}</div>
+                  </div>
+                  <div className="mt-2 md:mt-0 flex items-center gap-2">
+                    <span className={`inline-block px-3 py-1 text-xs rounded-full font-medium shadow-sm ${
+                      notif.is_read ? 'bg-green-500 text-white' : 'bg-red-500 text-white'
+                    }`}>
+                      {notif.is_read ? 'Read' : 'Unread'}
+                    </span>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      </main>
+
+      {selectedNotif && (
+        <div
+          className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4"
+          onClick={() => setSelectedNotif(null)}
+        >
+          <div
+            className="bg-white rounded-xl shadow-2xl max-w-2xl w-full p-6 max-h-[90vh] overflow-y-auto"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex justify-between items-start mb-4">
+              <h3 className="text-lg font-bold text-gray-900">Notification Details</h3>
+              <button
+                onClick={() => setSelectedNotif(null)}
+                className="text-gray-400 hover:text-gray-600 text-xl font-bold"
+              >
+                x
+              </button>
+            </div>
+
+            <div className="space-y-4 mb-4">
+              <p className="text-gray-800 font-medium">{selectedNotif.message}</p>
+              <div className="flex items-center justify-between text-sm text-gray-500">
+                <span>{new Date(selectedNotif.created_at).toLocaleString()}</span>
+                <span
+                  className={`px-3 py-1 text-xs rounded-full font-medium ${
+                    selectedNotif.is_read ? 'bg-green-500 text-white' : 'bg-red-500 text-white'
+                  }`}
+                >
+                  {selectedNotif.is_read ? 'Read' : 'Unread'}
+                </span>
+              </div>
+              {selectedNotif.type && (
+                <div className="inline-block px-3 py-1 text-xs font-semibold rounded-full bg-gray-100 text-gray-800">
+                  {selectedNotif.type}
+                </div>
+              )}
+            </div>
+
+            <div className="bg-gray-50 rounded-lg p-4 border border-gray-200 mb-6">
+              <h5 className="font-semibold text-gray-900 mb-3 text-sm">Notification Metadata</h5>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
+                <div className="bg-white p-2 rounded">
+                  <span className="text-gray-600 font-medium block text-xs">Notification ID</span>
+                  <p className="text-gray-900">{formatFieldValue(selectedNotif.id)}</p>
+                </div>
+                <div className="bg-white p-2 rounded">
+                  <span className="text-gray-600 font-medium block text-xs">Type</span>
+                  <p className="text-gray-900 break-all">{formatFieldValue(selectedNotif.type)}</p>
+                </div>
+                <div className="bg-white p-2 rounded">
+                  <span className="text-gray-600 font-medium block text-xs">Reference ID</span>
+                  <p className="text-gray-900">{formatFieldValue(selectedNotif.reference_id)}</p>
+                </div>
+                <div className="bg-white p-2 rounded">
+                  <span className="text-gray-600 font-medium block text-xs">Read Status</span>
+                  <p className="text-gray-900">{selectedNotif.is_read ? 'Read' : 'Unread'}</p>
+                </div>
+                <div className="bg-white p-2 rounded">
+                  <span className="text-gray-600 font-medium block text-xs">Created At</span>
+                  <p className="text-gray-900">{formatFieldValue(selectedNotif.created_at)}</p>
+                </div>
+                <div className="bg-white p-2 rounded">
+                  <span className="text-gray-600 font-medium block text-xs">Updated At</span>
+                  <p className="text-gray-900">{formatFieldValue(selectedNotif.updated_at)}</p>
+                </div>
+              </div>
+            </div>
+
+            {loadingDetails && (
+              <div className="flex items-center justify-center py-8">
+                <div className="w-8 h-8 border-4 border-gray-200 border-t-black rounded-full animate-spin" />
+              </div>
+            )}
+
+            {!loadingDetails && relatedData && (
+              <div className="space-y-4">
+                <div className="bg-blue-50 rounded-lg p-4 border-2 border-blue-300">
+                  <h4 className="font-bold text-blue-900 mb-3 text-lg">Request #{formatFieldValue(relatedData.request_id)}</h4>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
+                    {REQUEST_DETAIL_FIELDS.map(([key, label]) => (
+                      <div key={key} className="bg-white p-2 rounded">
+                        <span className="text-gray-600 font-medium block text-xs">{label}</span>
+                        <p className="text-gray-900 break-words whitespace-pre-wrap">{formatFieldValue(relatedData[key])}</p>
+                      </div>
+                    ))}
                   </div>
                 </div>
-                <div className="mt-2 md:mt-0">
-                  <span className={`inline-block px-3 py-1 text-xs rounded-full font-medium shadow-sm ${
-                    notif.is_read ? 'bg-green-500 text-white' : 'bg-red-500 text-white'
-                  }`}>
-                    {notif.is_read ? 'Read' : 'Unread'}
-                  </span>
+
+                <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
+                  <h5 className="font-semibold text-gray-900 text-sm mb-3">Comments</h5>
+                  {Array.isArray(relatedData.comments) && relatedData.comments.length > 0 ? (
+                    <div className="space-y-3">
+                      {relatedData.comments.map((comment) => (
+                        <div key={comment.id} className="bg-white rounded-lg p-3 border border-gray-200">
+                          <p className="text-sm text-gray-800 whitespace-pre-wrap">{formatFieldValue(comment.comment)}</p>
+                          <p className="text-xs text-gray-500 mt-2">
+                            {formatFieldValue(comment.user)} | {formatFieldValue(comment.role)} | {formatFieldValue(comment.date)} {formatFieldValue(comment.time)}
+                          </p>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-sm text-gray-600">No comments found for this request.</p>
+                  )}
                 </div>
-              </li>
-            ))}
-          </ul>
-        )}
-      </div>
-    </main>
+              </div>
+            )}
+
+            {!loadingDetails && !relatedData && selectedNotif.reference_id && (
+              <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 text-sm text-yellow-800">
+                Request details are not available right now. Please try again.
+              </div>
+            )}
+
+            {!loadingDetails && !selectedNotif.reference_id && (
+              <div className="bg-gray-50 border border-gray-200 rounded-lg p-4 text-sm text-gray-600">
+                This notification has no linked request record.
+              </div>
+            )}
+
+            {selectedNotif.reference_id && (
+              <button
+                onClick={() => navigate(`/staffmaintenancerequestform/${selectedNotif.reference_id}`)}
+                className="mt-6 w-full border border-gray-300 text-gray-800 py-2 rounded-lg hover:bg-gray-100 transition-colors font-medium"
+              >
+                Open Full Request Page
+              </button>
+            )}
+
+            <button
+              onClick={() => setSelectedNotif(null)}
+              className="mt-3 w-full bg-black text-white py-2 rounded-lg hover:bg-gray-800 transition-colors font-medium"
+            >
+              Close
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
   );
 });
 
-// Main Component
 const StaffNotifications = () => {
   const [state, dispatch] = useReducer(sidebarReducer, {
     isSidebarCollapsed: true,
@@ -150,11 +362,10 @@ const StaffNotifications = () => {
         onToggleMobileMenu={() => dispatch({ type: 'TOGGLE_MOBILE_MENU' })}
         onCloseMobileMenu={() => dispatch({ type: 'CLOSE_MOBILE_MENU' })}
       />
-
       <div className="flex flex-1 overflow-hidden">
         <StaffSidebar
           isSidebarCollapsed={state.isSidebarCollapsed}
-          onToggleSidebar={() => dispatch({ type: "TOGGLE_SIDEBAR" })}
+          onToggleSidebar={() => dispatch({ type: 'TOGGLE_SIDEBAR' })}
           menuItems={STAFF_MENU_ITEMS}
         />
         <DashboardContent />

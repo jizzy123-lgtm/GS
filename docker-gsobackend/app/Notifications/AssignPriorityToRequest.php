@@ -2,12 +2,13 @@
 
 namespace App\Notifications;
 
-use Illuminate\Bus\Queueable;
+use Illuminate\Bus\Queueable;              
+use Illuminate\Contracts\Queue\ShouldQueue; 
 use Illuminate\Notifications\Notification;
 use Illuminate\Notifications\Messages\MailMessage;
 use App\Models\MaintenanceRequest;
 
-class AssignPriorityToRequest extends Notification
+class AssignPriorityToRequest extends Notification implements ShouldQueue
 {
     use Queueable;
 
@@ -23,14 +24,24 @@ class AssignPriorityToRequest extends Notification
         return ['mail'];
     }
 
-    public function toMail($notifiable)
+    public function toMail(object $notifiable): MailMessage
     {
         return (new MailMessage)
-            ->subject('Assign Priority to Maintenance Request')
-            ->greeting('Hello ' .optional($this->maintenanceRequest->verified_by)->first_name . ',')
-            ->line('A maintenance request has been approved by the Campus Director and now requires a priority assignment.')
-
-            ->line('Please assign the appropriate priority number at your earliest convenience.')
-            ->salutation('Regards, GSO SYSTEM');
+            ->subject('Priority Assigned to Your Request')
+            ->view('emails.gso-notification', [
+                'subject'    => 'Priority Assigned to Your Request',
+                'badgeType'  => 'yellow',
+                'badgeLabel' => 'Priority Assigned',
+                'greeting'   => 'Dear ' . $notifiable->first_name . ',',
+                'lines'      => [
+                    'A priority level has been assigned to your maintenance request in the <strong>General Service Office System</strong>.',
+                    'Please log in to your account to view the details.',
+                ],
+                'actionUrl'  => 'http://localhost:5173/',
+                'actionText' => 'View Request',
+                'notices'    => [
+                    '⚠️ If you have any concerns, please contact your Campus Admin.',
+                ],
+            ]);
     }
 }

@@ -1,12 +1,14 @@
 <?php
+
 namespace App\Notifications;
 
 use Illuminate\Bus\Queueable;
+use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Notifications\Notification;
 use Illuminate\Notifications\Messages\MailMessage;
 use App\Models\MaintenanceRequest;
 
-class RequestAssignedPriority extends Notification
+class RequestAssignedPriority extends Notification implements ShouldQueue
 {
     use Queueable;
 
@@ -22,17 +24,25 @@ class RequestAssignedPriority extends Notification
         return ['mail'];
     }
 
-    public function toMail($notifiable)
+    public function toMail(object $notifiable): MailMessage
     {
-        $request = $this->maintenanceRequest;
-
         return (new MailMessage)
-            ->subject('Priority Number Assigned to Your Request')
-            ->greeting('Hello ' . optional($this->maintenanceRequest->requesting_personnel)->first_name. ',')
-            ->line('Your maintenance request has been approved and assigned a priority number.')
-            ->line('Priority Number: ' . $request->priority_number)
-            ->line('Thank you for your patience and for using our system.')
-            ->salutation('Regards, GSO SYSTEM');
+        ->subject('Your Request Has Been Assigned a Priority')
+        ->view('emails.gso-notification', [
+            'subject'    => 'Your Request Has Been Assigned a Priority',
+            'badgeType'  => 'yellow',
+            'badgeLabel' => 'Priority Assigned',
+            'greeting'   => 'Dear ' . $notifiable->first_name . ',',
+            'lines'      => [
+                'Your request in the <strong>General Service Office System</strong> has been assigned a priority level.',
+                'Please log in to your account to check the status and details.',
+            ],
+            'actionUrl'  => url('/'),
+            'actionText' => 'View Request',
+            'notices'    => [
+                '⚠️ If you have any concerns, please contact your Campus Admin.',
+            ],
+        ]);
     }
+        
 }
-

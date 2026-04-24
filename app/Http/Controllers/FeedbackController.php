@@ -43,7 +43,7 @@ class FeedbackController extends Controller
 
         // mark maintenance request as done
         $maintenance = MaintenanceRequest::find($validated['maintenance_request_id']);
-        $maintenance->status = 'Done';
+        $maintenance->status = 'done';
         $maintenance->save();
 
         $feedback = Feedback::create($validated);

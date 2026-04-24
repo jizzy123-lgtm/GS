@@ -2,17 +2,20 @@
 
 namespace App\Notifications;
 
-use App\Models\User;
+use Illuminate\Bus\Queueable;
+use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Notifications\Notification;
 use Illuminate\Notifications\Messages\MailMessage;
 
-class NewUserRegistered extends Notification
+class NewUserRegistered extends Notification implements ShouldQueue
 {
-    protected $newUser;
+    use Queueable;
 
-    public function __construct(User $newUser)
+    public $user;
+
+    public function __construct($user)
     {
-        $this->newUser = $newUser;
+        $this->user = $user;
     }
 
     public function via($notifiable)
@@ -20,16 +23,23 @@ class NewUserRegistered extends Notification
         return ['mail'];
     }
 
-    public function toMail($notifiable)
+    public function toMail(object $notifiable): MailMessage
     {
         return (new MailMessage)
-            ->subject('New User Registration')
-            ->greeting('Hello ' . $notifiable->first_name . ',')
-            ->line('A new user has registered and is awaiting approval.')
-            ->line('Name: ' . $this->newUser->first_name)
-            ->line('Position: ' . optional($this->newUser->position)->name)
-            ->line('Office: ' . optional($this->newUser->office)->name)
-            ->line('Please review and approve the account if appropriate.')
-            ->salutation('Regards, GSO SYSTEM');
+            ->subject('New User Registration Request')
+            ->view('emails.gso-notification', [
+                'subject'    => 'New User Registration Request',
+                'badgeType'  => 'purple',
+                'badgeLabel' => 'New Registration',
+                'greeting'   => 'Dear Admin,',
+                'lines'      => [
+                    'A new user has submitted a registration request for the <strong>General Service Office System</strong>.',
+                    '<strong>Name:</strong> ' . $this->user->first_name . ' ' . $this->user->last_name,
+                    'Please review and take the appropriate action.',
+                ],
+                'actionUrl'  => 'http://localhost:5173/admin/users',
+                'actionText' => 'Review Request',
+                'notices'    => [],
+            ]);
     }
 }

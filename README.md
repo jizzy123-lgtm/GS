@@ -34,10 +34,10 @@ A mobile application for the General Services Office (GSO) of Jose Rizal Memoria
 | Campus Director | Final approval authority |
 | Admin | Manages user accounts |
 
-## API Documentation
+## Documentation
 
-View the full API documentation here:
-[https://documenter.getpostman.com/view/54234949/2sBXqFPP2G](https://documenter.getpostman.com/view/54234949/2sBXqFPP2G)
+- [Mobile App Technical Documentation](https://github.com/jizzy123-lgtm/GS/wiki/GSU-Gateway---Mobile-App-Technical-Documentation)
+- [API Documentation](https://documenter.getpostman.com/view/54234949/2sBXqFPP2G)
 
 ## Team
 

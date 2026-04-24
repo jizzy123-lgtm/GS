@@ -31,6 +31,29 @@ const sidebarReducer = (state, action) => {
   }
 };
 
+// ─── Reusable Avatar Component ─────────────────────────────────────────────────
+// Uses React state to handle broken image URLs cleanly
+const UserAvatar = ({ profilePicture, username, size = "md" }) => {
+  const [imgFailed, setImgFailed] = useState(false);
+  const initial = username ? username.charAt(0).toUpperCase() : "U";
+  const sizeClass = size === "md" ? "w-10 h-10 text-base" : "w-8 h-8 text-sm";
+
+  return (
+    <div className={`bg-indigo-100 text-indigo-700 rounded-full ${sizeClass} flex items-center justify-center font-medium overflow-hidden flex-shrink-0`}>
+      {profilePicture && !imgFailed ? (
+        <img
+          src={profilePicture}
+          alt={username}
+          className="w-full h-full object-cover"
+          onError={() => setImgFailed(true)}
+        />
+      ) : (
+        <span>{initial}</span>
+      )}
+    </div>
+  );
+};
+
 const Header = memo(({ 
   isMobileMenuOpen, 
   onToggleMobileMenu,
@@ -43,23 +66,12 @@ const Header = memo(({
   });
 
   return (
-    <header className="bg-gradient-to-r from-blue-900 to-indigo-900 text-white p-4 flex justify-between items-center relative shadow-md">
+    <header className="bg-black text-white p-4 flex justify-between items-center relative">
       <div className="flex items-center">
-        <span className="text-xl md:text-2xl font-extrabold tracking-tight">
-          ManageIT
-        </span>
+        <span className="text-xl md:text-2xl font-extrabold tracking-tight">ManageIT</span>
       </div>
-      
       <div className="flex items-center gap-4">
-        <div className="hidden md:flex items-center gap-3">
-          <div className="bg-blue-800 hover:bg-blue-700 p-2 rounded-full transition-colors cursor-pointer">
-            <Icon path="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" className="w-5 h-5" />
-          </div>
-          <div className="flex items-center text-sm">
-            <div className="bg-blue-500 rounded-full w-8 h-8 flex items-center justify-center font-bold mr-2">S</div>
-            <span className="hidden lg:inline">Staff User</span>
-          </div>
-        </div>
+        <div className="hidden md:block text-xl font-bold text-white">Staff</div>
         
         <button 
           onClick={onToggleMobileMenu}
@@ -100,7 +112,7 @@ const Header = memo(({
           ))}
         </nav>
         <div className="text-center py-3 text-xs text-blue-300 border-t border-blue-700">
-          Created By Bantilan & Friends
+          Created By Exverter
         </div>
       </div>
     </header>
@@ -171,9 +183,8 @@ const UserRequestCard = memo(({ request, onRowClick }) => (
   <div className="bg-white border border-gray-200 rounded-xl shadow-sm hover:shadow-md transition-shadow p-4 space-y-3">
     <div className="flex items-center justify-between">
       <div className="flex items-center space-x-3">
-        <div className="bg-indigo-100 text-indigo-700 rounded-full w-10 h-10 flex items-center justify-center font-medium">
-          {request.username ? request.username.charAt(0).toUpperCase() : "U"}
-        </div>
+        {/* ← Fixed avatar */}
+        <UserAvatar profilePicture={request.profile_picture} username={request.username} size="md" />
         <div>
           <div className="font-medium text-gray-900">{request.username}</div>
           <div className="text-sm text-gray-500">{request.email}</div>
@@ -210,19 +221,20 @@ const UserRequestsTable = memo(({
   setStatusFilter,
   accountStatuses 
 }) => {
-  // Filter requests based on search term and status
   const filteredRequests = useMemo(() => {
-    return requests.filter(request => {
-      const matchesSearch = !searchTerm || 
-        request.username.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        request.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        (request.role && request.role.toLowerCase().includes(searchTerm.toLowerCase()));
+    return requests
+      .filter(request => {
+        const matchesSearch = !searchTerm || 
+          request.username.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          request.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          (request.role && request.role.toLowerCase().includes(searchTerm.toLowerCase()));
 
-      const matchesStatus =
-        statusFilter === "" || String(request.status_id) === String(statusFilter);
+        const matchesStatus =
+          statusFilter === "" || String(request.status_id) === String(statusFilter);
 
-      return matchesSearch && matchesStatus;
-    });
+        return matchesSearch && matchesStatus;
+      })
+      .sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
   }, [requests, searchTerm, statusFilter]);
 
   if (isLoading) {
@@ -311,10 +323,9 @@ const UserRequestsTable = memo(({
                   >
                     <td className="p-4">
                       <div className="flex items-center">
-                        <div className="bg-indigo-100 text-indigo-700 rounded-full w-8 h-8 flex items-center justify-center font-medium mr-3">
-                          {request.username ? request.username.charAt(0).toUpperCase() : "U"}
-                        </div>
-                        <span className="font-medium text-gray-900">{request.username}</span>
+                        {/* ← Fixed avatar */}
+                        <UserAvatar profilePicture={request.profile_picture} username={request.username} size="sm" />
+                        <span className="font-medium text-gray-900 ml-3">{request.username}</span>
                       </div>
                     </td>
                     <td className="p-4 text-gray-600">{request.email}</td>
@@ -372,7 +383,6 @@ const UserRequests = () => {
   const [statusFilter, setStatusFilter] = useState("");
   const [accountStatuses, setAccountStatuses] = useState([]);
 
-  // Retrieve token from storage
   useEffect(() => {
     const authToken = localStorage.getItem("authToken") || sessionStorage.getItem("authToken");
     if (!authToken) {
@@ -382,7 +392,6 @@ const UserRequests = () => {
     }
   }, [navigate]);
 
-  // Fetch account statuses from API
   const fetchAccountStatuses = async () => {
     try {
       const response = await fetch(`${API_BASE_URL}/accountStatuses`, {
@@ -407,15 +416,12 @@ const UserRequests = () => {
     }
   };
 
-  // Fetch user requests
   const fetchUserRequests = async () => {
     setLoading(true);
     try {
-      // Fetch statuses first
       const statusesArray = await fetchAccountStatuses();
       setAccountStatuses(statusesArray);
 
-      // Fetch user requests
       const response = await fetch(`${API_BASE_URL}/users-list`, {
         method: "GET",
         headers: {
@@ -435,7 +441,6 @@ const UserRequests = () => {
         return;
       }
 
-      // Map requests
       const requestsWithRoles = extractedData.map(request => ({
         ...request,
         id: request.user_id,
@@ -466,7 +471,6 @@ const UserRequests = () => {
     sessionStorage.removeItem("authToken");
     navigate("/loginpage");
   };
-
   return (
     <div className="flex flex-col h-screen bg-gray-50">
       <Header

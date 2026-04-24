@@ -3,7 +3,6 @@ namespace App\Http\Controllers;
 
 use App\Models\MaintenanceType;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\Storage;
 
 use Illuminate\Http\Request;
 use App\Models\Role;
@@ -16,7 +15,6 @@ use Illuminate\Support\Facades\Hash;
 use Illuminate\Validation\ValidationException;
 use App\Notifications\NewUserRegistered;
 use App\Notifications\AccountApproved;
-use App\Notifications\AccountRejected;
 use App\Models\Notification as SystemNotification;
 
 
@@ -25,119 +23,85 @@ class UserController extends Controller
     // Register a new user
     public function register(Request $request)
     {
-        try {
-            $request->validate([
-                'last_name'             => ['required', 'string', 'regex:/^[a-zA-Z]+([\' -][a-zA-Z]+)*$/'],
-                'first_name'            => ['required', 'string', 'regex:/^[a-zA-Z]+([\' -][a-zA-Z]+)*$/'],
-                'middle_name'           => ['nullable', 'string', 'regex:/^[a-zA-Z]$/', 'max:1'],
-                'suffix'                => 'nullable|string|max:10',
-                'username'              => 'required|string|unique:users,username',
-                'email'                 => 'nullable|email',
-                'position_id'           => 'required|exists:positions,id',
-                'office_id'             => 'required|exists:offices,id',
-                'contact_number'        => 'required|string|regex:/^09[0-9]{9}$/',
-                'password'              => [
-                    'required', 'string', 'min:8', 'max:30',
-                    'regex:/[a-z]/', 'regex:/[A-Z]/',
-                    'regex:/[0-9]/', 'regex:/[@$~!%*_#?&]/',
-                    'confirmed',
-                ],
-                'password_confirmation' => 'required',
-                'role_id'               => 'required|exists:roles,id',
-            ], [
-                'last_name.required'             => 'Last name is required.',
-                'last_name.regex'                => 'Last name must contain letters only (hyphens or apostrophes allowed).',
-                'first_name.required'            => 'First name is required.',
-                'first_name.regex'               => 'First name must contain letters only (hyphens or apostrophes allowed).',
-                'middle_name.regex'              => 'Middle name must be a single letter.',
-                'username.required'              => 'Username is required.',
-                'username.unique'                => 'That username is already taken. Please choose another.',
-                'email.email'                    => 'Please enter a valid email address.',
-                'position_id.required'           => 'Position is required.',
-                'position_id.exists'             => 'Selected position is invalid.',
-                'office_id.required'             => 'Office is required.',
-                'office_id.exists'               => 'Selected office is invalid.',
-                'contact_number.required'        => 'Contact number is required.',
-                'contact_number.regex'           => 'Contact number must be 11 digits and start with 09.',
-                'role_id.required'               => 'Role is required.',
-                'role_id.exists'                 => 'Selected role is invalid.',
-                'password.required'              => 'Password is required.',
-                'password.min'                   => 'Password must be at least 8 characters.',
-                'password.max'                   => 'Password cannot exceed 30 characters.',
-                'password.confirmed'             => 'Password confirmation does not match.',
-                'password.regex'                 => 'Password must include uppercase, lowercase, number, and special character.',
-                'password_confirmation.required' => 'Please confirm your password.',
-            ]);
+        $request->validate([
+            'last_name'       => 'required|string',
+            'first_name'      => 'required|string',
+            'middle_name'     => 'nullable|string|max:1',
+            'suffix'          => 'nullable|string|max:10',
+            'username'        => 'required|string|unique:users,username',
+            'email'           => 'nullable|email',
+            'position_id'     => 'required|exists:positions,id',
+            'office_id'       => 'required|exists:offices,id',
+            'contact_number'  => 'required|string',
+            'password'        => [
+                'required',
+                'string',
+                'min:8',
+                'max:30',
+                'regex:/[a-z]/',
+                'regex:/[A-Z]/',
+                'regex:/[0-9]/',
+                'regex:/[@$!%*#?&]/',
+                'confirmed',
+            ],
+            'password_confirmation' => 'required',
+            'role_id'         => 'required|exists:roles,id'
+        ], [
+            'password.required' => 'Password is required.',
+            'password.min'      => 'Password must be at least 8 characters.',
+            'password.max'      => 'Password cannot be more than 30 characters.',
+            'password.mixedCase'=> 'Password must include at least one uppercase and one lowercase letter.',
+            'password.letters'  => 'Password must include at least one letter.',
+            'password.numbers'  => 'Password must include at least one number.',
+            'password.symbols'  => 'Password must include at least one special character like !@#$%^&*().',
+        ]);
 
-            $user = User::create([
-                'last_name'      => $request->last_name,
-                'first_name'     => $request->first_name,
-                'middle_name'    => $request->middle_name,
-                'suffix'         => $request->suffix,
-                'username'       => $request->username,
-                'email'          => $request->email,
-                'position_id'    => $request->position_id,
-                'office_id'      => $request->office_id,
-                'contact_number' => '+63' . substr($request->contact_number, 1),
-                'password'       => Hash::make($request->password),
-                'role_id'        => $request->role_id,
-                'account_status_id' => 1,
-            ]);
+        $user = User::create([
+            'last_name'       => $request->last_name,
+            'first_name'      => $request->first_name,
+            'middle_name'  => $request->middle_name,
+            'suffix'          => $request->suffix,
+            'username'        => $request->username,
+            'email'           => $request->email,
+            'position_id'     => $request->position_id,
+            'office_id'       => $request->office_id,
+            'contact_number'  => $request->contact_number,
+            'password'        => Hash::make($request->password),
+            'role_id'         => $request->role_id,
+            'status_id'       => 1, // Assuming 1 = Pending in status table
+        ]);
 
-            dispatch(function () use ($user) {
-                try {
-                    $adminsAndStaffs = User::whereIn('role_id', [1, 3])->get();
-                    foreach ($adminsAndStaffs as $notifiableUser) {
-                        if ($notifiableUser->email) {
-                            $notifiableUser->notify(new NewUserRegistered($user));
-                        }
-                    }
-                } catch (\Throwable $e) {
-                    \Log::error('Notification error: ' . $e->getMessage());
-                }
-            })->afterResponse();
-
-            $adminUsers = User::where('role_id', 1)->get();
-            foreach ($adminUsers as $admin) {
-                SystemNotification::create([
-                    'user_id'  => $admin->id,
-                    'type'     => 'account_request_created',
-                    'message'  => $user->first_name . ' ' . $user->last_name . ' registered an account and is waiting for approval.',
-                    'is_read'  => false,
-                ]);
+        // Notify Admins and Staffs (role_id = 1 for Admin, 3 for Staff)
+        $adminsAndStaffs = User::whereIn('role_id', [1, 3])->get();
+        foreach ($adminsAndStaffs as $notifiableUser) {
+            if ($notifiableUser->email) {
+                $notifiableUser->notify(new NewUserRegistered($user));
             }
-
-            return response()->json(['message' => 'User registered successfully.'], 201);
-
-        } catch (\Illuminate\Validation\ValidationException $e) {
-            return response()->json([
-                'message' => 'Validation failed.',
-                'errors'  => $e->errors(),
-            ], 422);
-        } catch (\Exception $e) {
-            \Log::error('Registration error: ' . $e->getMessage());
-            return response()->json(['message' => 'Registration failed. Please try again.'], 500);
         }
+
+        $adminUsers = User::where('role_id', 1)->get();
+
+        foreach ($adminUsers as $admin) {
+            SystemNotification::create([
+                'user_id' => $admin->id,
+                'type' => 'account_request_created',
+                'message' =>  $user->first_name . ' ' . $user->last_name  . ' registered an account and is waiting for approval.',//notify the admin
+                'is_read' => false,
+            ]);
+        }
+
+        return response()->json(['message' => 'User registered successfully'], 201);
     }
+
 
 
     // Login using username
     public function login(Request $request)
     {
-        try {
-            $request->validate([
-                'username' => 'required|string',
-                'password' => 'required|string',
-            ], [
-                'username.required' => 'Username is required.',
-                'password.required' => 'Password is required.',
-            ]);
-        } catch (\Illuminate\Validation\ValidationException $e) {
-            return response()->json([
-                'message' => 'Validation failed.',
-                'errors'  => $e->errors(),
-            ], 400);
-        }
+        $request->validate([
+            'username' => 'required|string',
+            'password' => 'required|string'
+        ]);
 
         $user = User::where('username', $request->username)->first();
 
@@ -146,10 +110,11 @@ class UserController extends Controller
         }
 
         // Check account status via status_id
-        if ($user->account_status_id == 1) {
+        if ($user->status_id == 1) { // 1 = Pending
             return response()->json(['message' => 'Your account is still pending approval.'], 403);
         }
-        if ($user->account_status_id == 3) {
+
+        if ($user->status_id == 3) { // 3 = Disapproved
             return response()->json(['message' => 'Your account was disapproved. Contact admin.'], 403);
         }
 
@@ -158,6 +123,10 @@ class UserController extends Controller
         return response()->json(['token' => $token, 'user' => $user], 200);
 
     }
+
+
+
+
 
 
     public function logout(Request $request)
@@ -170,9 +139,8 @@ class UserController extends Controller
 
     public function updateAccountStatus(Request $request, $id)
     {
-        // ✅ validate against account_statuses table, not statuses
         $request->validate([
-            'account_status_id' => 'required|exists:account_statuses,id',
+            'status_id' => 'required|exists:statuses,id',
         ]);
 
         $user = User::find($id);
@@ -181,42 +149,27 @@ class UserController extends Controller
             return response()->json(['message' => 'User not found'], 404);
         }
 
+        // Only allow admin to approve (role_id = 1)
         $authUser = Auth::user();
-        if ($authUser->role_id !== 1) {
+        if ($request->status_id == 2 && $authUser->role_id !== 1) {
             return response()->json(['message' => 'Only admins can approve accounts.'], 403);
         }
 
-        try {
-            // ✅ save account_status_id, not status_id
-            $user->account_status_id = $request->account_status_id;
-            $user->save();
-        } catch (\Exception $e) {
-            \Log::error('Status update error: ' . $e->getMessage());
-            return response()->json(['message' => 'Failed to update account status.'], 500);
+        $user->status_id = $request->status_id;
+        $user->save();
+
+        // Send email notification only if approved
+        if ($user->status_id == 2 && $user->email) {
+            $user->notify(new AccountApproved());
         }
 
-        // ✅ check account_status_id == 2, not status_id
-        if ($user->account_status_id == 2) {
-            if ($user->email) {
-                $user->notify(new AccountApproved());
-            }
-            SystemNotification::create([
-                'user_id' => $user->id,
-                'type'    => 'account_approved',
-                'message' => 'Your account has been approved. You can now log in.',
-                'is_read' => false,
-            ]);
-            return response()->json(['message' => 'User status approved successfully.']);
-        }
-
-        return response()->json(['message' => 'User status updated.']);
+        return response()->json(['message' => 'User status approved successfully.']);
     }
 
     public function rejectAccountStatus(Request $request, $id)
     {
-        // ✅ validate against account_statuses table
         $request->validate([
-            'account_status_id' => 'required|exists:account_statuses,id',
+            'status_id' => 'required|exists:statuses,id',
         ]);
 
         $user = User::find($id);
@@ -225,36 +178,24 @@ class UserController extends Controller
             return response()->json(['message' => 'User not found'], 404);
         }
 
+        // Only allow admin to approve (role_id = 1)
         $authUser = Auth::user();
-        if ($authUser->role_id !== 1) {
-            return response()->json(['message' => 'Only admins can disapprove accounts.'], 403);
+        if ($request->status_id == 2 && $authUser->role_id !== 1) {
+            return response()->json(['message' => 'Only admins can approve accounts.'], 403);
         }
 
-        try {
-            // ✅ save account_status_id, not status_id
-            $user->account_status_id = $request->account_status_id;
-            $user->save();
-        } catch (\Exception $e) {
-            \Log::error('Status update error: ' . $e->getMessage());
-            return response()->json(['message' => 'Failed to update account status.'], 500);
-        }
+        $user->status_id = $request->status_id;
+        $user->save();
 
-        // ✅ use == (comparison) not = (assignment)
-        if ($user->account_status_id == 3) {
-            if ($user->email) {
-                $user->notify(new AccountRejected());
-            }
-            SystemNotification::create([
-                'user_id' => $user->id,
-                'type'    => 'account_rejected',
-                'message' => 'Your account registration has been disapproved. Contact admin for more info.',
-                'is_read' => false,
-            ]);
-            return response()->json(['message' => 'User registration disapproved successfully.']);
-        }
+        // Send email notification only if approved
+        // if ($user->status_id == 2 && $user->email) {
+        //     $user->notify(new AccountApproved());
+        // }
 
-        return response()->json(['message' => 'User status updated.']);
+        return response()->json(['message' => 'User register dissapved successfully.']);
     }
+
+
 
     public function getPendingApprovals()
     {
@@ -266,18 +207,22 @@ class UserController extends Controller
         }
 
         // Retrieve users who are pending approval (status_id = 1 assumed for 'Pending')
-        $pendingUsers = User::where('account_status_id', 1)
+        $pendingUsers = User::where('status_id', 1)
                             ->select('id', 'last_name','first_name', 'middle_name', 'suffix', 'username', 'office_id', 'position_id', 'contact_number', 'email', 'role_id', 'status_id', 'created_at')
                             ->orderBy('created_at', 'desc')
                             ->get();
 
+        if ($pendingUsers->isEmpty()) {
+            return response()->json(['message' => 'No pending approvals found.'], 200);
+        }
+
         return response()->json($pendingUsers, 200);
     }
 
-    //for display of data only 
+    //for display of data only
     public function getUsPass(){
-        
-        $Users = User::select('id', 'last_name','first_name', 'middle_name', 'suffix', 'username', 'password')
+        $Users = Auth::user()
+                            ->select('id', 'last_name','first_name', 'middle_name', 'suffix', 'username', 'password')
                             ->orderBy('created_at', 'desc')
                             ->get();
 
@@ -347,11 +292,7 @@ class UserController extends Controller
             'suffix'=> $user->suffix,
             'position_id' => $user->position,
             'office_id' => $user->office, // Adjust based on your DB column name
-            'contact_number' => $user->contact_number,
-            'profile_picture' => $user->profile_picture 
-                ? asset('storage/' . $user->profile_picture) 
-                : null,
-
+            'contact_number' => $user->contact_number
         ], 200);
     }
 
@@ -374,10 +315,7 @@ class UserController extends Controller
             'position_id' => $user->position_id,
             'office_id' => $user->office_id, // Adjust based on your DB column name
             'contact_number' => $user->contact_number,
-            'role_id' => $user->role_id,
-            'profile_picture' => $user->profile_picture 
-                ? asset('storage/' . $user->profile_picture) 
-                : null,
+            'role_id' => $user->role_id
         ], 200);
     }
 
@@ -401,138 +339,47 @@ class UserController extends Controller
             'office_id' => $user->office_id, // Adjust based on your DB column name
             'contact_number' => $user->contact_number,
             'email' => $user->email,
-            'username' => $user->username,
-            'profile_picture' => $user->profile_picture 
-                ? asset('storage/' . $user->profile_picture) 
-                : null,
+            'username' => $user->username
         ], 200);
     }
 
-    
+    //allows editing of account
     public function updateProfile(Request $request)
     {
-        $user = User::find(Auth::id());
+        $user = Auth::user();
 
-        try {
-            // ✅ Normalize contact_number BEFORE validation
-            if ($request->contact_number) {
-                $raw = $request->contact_number;
-                $raw = preg_replace('/^\+63/', '', $raw); // remove +63
-                $raw = preg_replace('/^63/', '',  $raw);  // remove 63
-                $raw = ltrim($raw, '+');                  // remove stray +
-                if (!str_starts_with($raw, '0')) {
-                    $raw = '0' . $raw;                   // add leading 0 → 09XXXXXXXXX
-                }
-                $request->merge(['contact_number' => $raw]);
-            }
+        $request->validate([
+            'last_name' => 'sometimes|string|max:255',
+            'first_name' => 'sometimes|string|max:255',
+            'middle_name' => 'sometimes|string|max:255',
+            'suffix' => 'sometimes|string|max:50|nullable',
+            'contact_number' => 'sometimes|string|max:20',
+            'email' => 'sometimes|email|max:255',
+            'username' => 'sometimes|string|max:255|unique:users,username,' . $user->id,
+            'password' => 'sometimes|string|min:6|confirmed',
+        ]);
 
-            $request->validate([
-                'last_name'             => ['sometimes', 'string', 'min:1', 'max:255', 'regex:/^[a-zA-Z]+([\' -][a-zA-Z]+)*$/'],
-                'first_name'            => ['sometimes', 'string', 'min:1', 'max:255', 'regex:/^[a-zA-Z]+([\' -][a-zA-Z]+)*$/'],
-                'middle_name'           => ['nullable', 'string', 'regex:/^[a-zA-Z]$/', 'max:1'],
-                'suffix'                => 'nullable|string|max:50',
-                'contact_number'        => ['sometimes', 'nullable', 'regex:/^09[0-9]{9}$/'],
-                'email'                 => 'sometimes|nullable|email|max:255',
-                'username'              => 'sometimes|string|min:1|max:255|unique:users,username,' . $user->id,
-                'password'              => [
-                    'nullable',
-                    'sometimes',
-                    'string',
-                    'min:8',
-                    'max:30',
-                    'regex:/[a-z]/',
-                    'regex:/[A-Z]/',
-                    'regex:/[0-9]/',
-                    'regex:/[@$~!%*_#?&]/',
-                    'confirmed',
-                ],
-                'password_confirmation' => 'nullable|sometimes|string',
-                'full_name'             => 'sometimes|nullable|string|min:1|max:255',
-                'profile_picture'       => 'nullable|sometimes|image|mimes:jpg,jpeg,png,webp,gif|max:5120',
-            ], [
-                'last_name.regex'       => 'Last name must contain letters only (hyphens and apostrophes allowed).',
-                'last_name.min'         => 'Last name cannot be empty.',
-                'first_name.regex'      => 'First name must contain letters only (hyphens and apostrophes allowed).',
-                'first_name.min'        => 'First name cannot be empty.',
-                'middle_name.regex'     => 'Middle name must be a single letter only.',
-                'middle_name.max'       => 'Middle name must be 1 character only.',
-                'username.min'          => 'Username cannot be empty.',
-                'full_name.min'         => 'Full name cannot be empty.',
-                'contact_number.regex'  => 'Contact number must be 11 digits and start with 09.',
-                'password.confirmed'    => 'Password confirmation does not match.',
-                'password.min'          => 'Password must be at least 8 characters.',
-                'password.max'          => 'Password cannot exceed 30 characters.',
-                'password.regex'        => 'Password must include uppercase, lowercase, number, and special character.',
-                'profile_picture.image' => 'Profile picture must be a valid image.',
-                'profile_picture.mimes' => 'Profile picture must be jpg, jpeg, png, webp, or gif.',
-                'profile_picture.max'   => 'Profile picture must not exceed 5MB.',
+        $user->update($request->only([
+            'last_name',
+            'first_name',
+            'middle_name',
+            'suffix',
+            'contact_number',
+            'email',
+            'username',
+        ]));
+
+        if ($request->filled('password')) {
+            $user->update([
+                'password' => Hash::make($request->password),
             ]);
-
-            // Handle profile picture upload
-            if ($request->hasFile('profile_picture')) {
-                if ($user->profile_picture && Storage::disk('public')->exists($user->profile_picture)) {
-                    Storage::disk('public')->delete($user->profile_picture);
-                }
-                $path = $request->file('profile_picture')->store('profile_pictures', 'public');
-                $user->profile_picture = $path;
-                $user->save();
-            }
-
-            // Handle full_name split
-            if ($request->filled('full_name')) {
-                $parts = explode(' ', trim($request->full_name));
-                if (count($parts) >= 3) {
-                    $user->first_name  = $parts[0];
-                    $user->middle_name = $parts[1];
-                    $user->last_name   = implode(' ', array_slice($parts, 2));
-                } elseif (count($parts) == 2) {
-                    $user->first_name  = $parts[0];
-                    $user->middle_name = null;
-                    $user->last_name   = $parts[1];
-                } else {
-                    $user->first_name  = $parts[0];
-                    $user->middle_name = null;
-                }
-            }
-
-            if ($request->filled('first_name'))     $user->first_name  = $request->first_name;
-            if ($request->filled('middle_name'))    $user->middle_name = $request->middle_name;
-            if ($request->filled('last_name'))      $user->last_name   = $request->last_name;
-            if ($request->filled('suffix'))         $user->suffix      = $request->suffix;
-
-            // ✅ contact_number is already normalized above, just save it
-            if ($request->filled('contact_number')) {
-                $user->contact_number = '+63' . substr($request->contact_number, 1);
-            }
-
-            if ($request->filled('email'))    $user->email    = $request->email;
-            if ($request->filled('username')) $user->username = $request->username;
-
-            if ($request->filled('password')) {
-                $user->password = Hash::make($request->password);
-            }
-
-            $user->save();
-
-            return response()->json([
-                'message'         => 'Profile updated successfully.',
-                'user'            => $user,
-                'profile_picture' => $user->profile_picture
-                    ? asset('storage/' . $user->profile_picture)
-                    : null,
-            ], 200);
-
-        } catch (\Illuminate\Validation\ValidationException $e) {
-            return response()->json([
-                'message' => 'Validation failed.',
-                'errors'  => $e->errors(),
-            ], 400);
-        } catch (\Exception $e) {
-            \Log::error('updateProfile error: ' . $e->getMessage());
-            return response()->json(['message' => 'Failed to update profile. Please try again.'], 500);
         }
-    }
 
+        return response()->json([
+            'message' => 'Profile updated successfully.',
+            'user' => $user,
+        ], 200);
+    }
 
 
     public function commonDatas(): JsonResponse
@@ -570,14 +417,11 @@ class UserController extends Controller
                 'role'=>optional($request->role)->role_name,
                 'office_id'=>$request->office_id,
                 'office' => optional($request->office)->name,
-                'account_status_id' => $request->account_status_id,
-                'account_status'    => optional($request->accountStatus)->name,
+                'status_id'=>$request->status_id,
+                'status' => optional($request->status)->name,
                 'contact_number' => $request->contact_number,
                 'email' => $request->email,
                 'username' => $request->username,
-                'profile_picture' => $request->profile_picture
-                    ? asset('storage/' . $request->profile_picture)
-                    : null,
                 'created_at' => $request->created_at,
                 'updated_at'=> $request->updated_at,
             ];
@@ -616,95 +460,17 @@ class UserController extends Controller
             'role' => optional($user->role)->role_name,
             'office_id' => $user->office_id,
             'office' => optional($user->office)->name,
-            'account_status_id' => $user->account_status_id,
-            'account_status' => optional($user->accountStatus)->name,
+            'status_id' => $user->status_id,
+            'status' => optional($user->status)->name,
             'contact_number' => $user->contact_number,
             'email' => $user->email,
             'username' => $user->username,
-            'profile_picture' => $user->profile_picture  // ✅ ADD THIS
-                ? asset('storage/' . $user->profile_picture)
-                : null,
             'created_at' => $user->created_at,
             'updated_at' => $user->updated_at,
         ];
 
         return response()->json($data, 200);
     }
-    
-    public function uploadProfilePicture(Request $request)
-    {
-        $user = User::find(Auth::id());
-
-        try {
-            $request->validate([
-                'profile_picture' => 'required|image|mimes:jpg,jpeg,png,webp,gif|max:5120',
-            ], [
-                'profile_picture.required' => 'Please select an image to upload.',
-                'profile_picture.image'    => 'The file must be a valid image.',
-                'profile_picture.mimes'    => 'Image must be jpg, jpeg, png, webp, or gif.',
-                'profile_picture.max'      => 'Image must not exceed 5MB.',
-            ]);
-        } catch (\Illuminate\Validation\ValidationException $e) {
-            return response()->json([
-                'message' => 'Validation failed.',
-                'errors'  => $e->errors(),
-            ], 422);
-        }
-
-        if ($request->hasFile('profile_picture')) {
-            // Delete old picture if exists
-            if ($user->profile_picture && Storage::disk('public')->exists($user->profile_picture)) {
-                Storage::disk('public')->delete($user->profile_picture);
-            }
-
-            $path = $request->file('profile_picture')->store('profile_pictures', 'public');
-            $user->profile_picture = $path;
-            $user->save();
-
-            return response()->json([
-                'message'         => 'Profile picture updated successfully.',
-                'profile_picture' => asset('storage/' . $path),
-            ], 200);
-        }
-
-        return response()->json(['message' => 'No file uploaded.'], 400);
-    }
-
-    public function removeProfilePicture()
-    {
-        // AFTER — fresh instance from DB, not cached
-        $user = User::find(Auth::id());
-
-        if ($user->profile_picture) {
-            \Storage::disk('public')->delete($user->profile_picture);
-            $user->profile_picture = null;
-            $user->save();
-        }
-
-        return response()->json(['message' => 'Profile picture removed.']);
-    }
-
-    public function destroy($id) {
-        $user = User::find($id);
-        
-        if (!$user) {
-            return response()->json(['message' => 'User not found.'], 404);
-        }
-        
-        try {
-            $user->delete();
-            return response()->json(['message' => 'User deleted successfully.'], 200);
-        } catch (\Exception $e) {
-            \Log::error('Delete user error: ' . $e->getMessage());
-            return response()->json(['message' => 'Failed to delete user.'], 500);
-        }
-    }
-
-
-
-    
 
 }
-
-
 

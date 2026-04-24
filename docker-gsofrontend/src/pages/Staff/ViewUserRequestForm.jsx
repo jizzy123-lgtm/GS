@@ -174,22 +174,12 @@ function ViewUserRequestForm() {
 
   return (
     <div className="flex flex-col h-screen bg-gray-50">
-      <header className="bg-gradient-to-r from-blue-900 to-indigo-900 text-white p-4 flex justify-between items-center relative shadow-md">
+      <header className="bg-black text-white p-4 flex justify-between items-center relative">
         <div className="flex items-center">
-          <span className="text-xl md:text-2xl font-extrabold tracking-tight">
-            ManageIT
-          </span>
+          <span className="text-xl md:text-2xl font-extrabold tracking-tight">ManageIT</span>
         </div>
         <div className="flex items-center gap-4">
-          <div className="hidden md:flex items-center gap-3">
-            <div className="bg-blue-800 hover:bg-blue-700 p-2 rounded-full transition-colors cursor-pointer">
-              <Icon path="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" className="w-5 h-5" />
-            </div>
-            <div className="flex items-center text-sm">
-              <div className="bg-blue-500 rounded-full w-8 h-8 flex items-center justify-center font-bold mr-2">S</div>
-              <span className="hidden lg:inline">Staff User</span>
-            </div>
-          </div>
+          <div className="hidden md:block text-xl font-bold text-white">Staff</div>
           <button 
             onClick={() => dispatch({ type: "TOGGLE_MOBILE_MENU" })}
             className="md:hidden p-2 hover:bg-blue-800 rounded-lg border border-blue-400 transition-colors"

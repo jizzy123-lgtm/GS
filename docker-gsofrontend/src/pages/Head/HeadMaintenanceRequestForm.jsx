@@ -81,7 +81,6 @@ const HeadMaintenanceRequestForm = () => {
     if (currentUser.suffix) name += ` ${currentUser.suffix}`;
     return name.trim();
   };
-
   useEffect(() => {
     const authToken = localStorage.getItem("authToken") || sessionStorage.getItem("authToken");
     if (!authToken) {
@@ -118,8 +117,9 @@ const HeadMaintenanceRequestForm = () => {
 
   useEffect(() => {
     const fetchRequestDetails = async () => {
-      if (!id) {
-        setError("Invalid request ID");
+      if (!id || id === "undefined") {
+        setError("Invalid request ID.");
+        setIsLoading(false);
         return;
       }
 
@@ -426,7 +426,7 @@ const HeadMaintenanceRequestForm = () => {
                   <div>
                     <div>
                       <label className="block text-sm font-semibold text-gray-700 mb-1">
-                        Staff Comments:
+                        Staff Comments:s
                       </label>
                       {Array.isArray(requestDetails.comments) && requestDetails.comments.length > 0 ? (
                         <div className="space-y-2">

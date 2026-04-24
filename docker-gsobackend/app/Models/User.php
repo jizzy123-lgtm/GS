@@ -24,7 +24,6 @@ class User extends Authenticatable
         'email',
         'username',
         'password',
-        'profile_picture',
     ];
 
     // Relationships
@@ -32,10 +31,6 @@ class User extends Authenticatable
     public function office() { return $this->belongsTo(Office::class); }
     public function status() { return $this->belongsTo(Status::class); }
     public function role() { return $this->belongsTo(Role::class); }
-    public function accountStatus()
-    {
-        return $this->belongsTo(AccountStatus::class, 'account_status_id');
-    }
 }
 
 

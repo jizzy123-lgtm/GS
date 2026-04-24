@@ -2,12 +2,12 @@
 
 namespace App\Notifications;
 
-use Illuminate\Bus\Queueable;              
-use Illuminate\Contracts\Queue\ShouldQueue; 
+use Illuminate\Bus\Queueable;
 use Illuminate\Notifications\Notification;
+use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Notifications\Messages\MailMessage;
 
-class RequestNotification extends Notification implements ShouldQueue
+class RequestNotification extends Notification
 {
     use Queueable;
 
@@ -34,26 +34,5 @@ class RequestNotification extends Notification implements ShouldQueue
             'status' => $this->request->status,
             'date_requested' => $this->request->date_requested,
         ];
-    }
-    public function toMail(object $notifiable): MailMessage
-    {
-        return (new MailMessage)
-            ->subject('Request Status Update')
-            ->view('emails.gso-notification', [
-                'subject'    => 'Request Status Update',
-                'badgeType'  => 'blue',
-                'badgeLabel' => 'Status Update',
-                'greeting'   => 'Dear ' . $notifiable->first_name . ',',
-                'lines'      => [
-                    'There is an update regarding your request in the <strong>General Service Office System</strong>.',
-                    $this->message,
-                    'Please log in to your account to view the latest status.',
-                ],
-                'actionUrl'  => 'http://localhost:5173/',
-                'actionText' => 'View Update',
-                'notices'    => [
-                    '⚠️ If you have any concerns, please contact your Campus Admin.',
-                ],
-            ]);
     }
 }

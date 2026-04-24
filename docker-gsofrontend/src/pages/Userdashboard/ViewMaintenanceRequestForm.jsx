@@ -1,5 +1,5 @@
 import { useState, useEffect, useReducer, useRef, memo } from "react";
-import { useNavigate, useParams, NavLink } from "react-router-dom";
+import { useNavigate, useParams, NavLink, useLocation } from "react-router-dom";
 import Sidebar, { MENU_ITEMS as SIDEBAR_MENU_ITEMS } from "../../components/Sidebar";
 import Icon from "../../components/Icon";
 
@@ -90,7 +90,7 @@ const Header = memo(({
           ))}
         </nav>
         <div className="text-center py-2 text-xs text-gray-400 border-t border-gray-700">
-          Created By Bantilan & Friends
+          Created By Exverter
         </div>
       </div>
     </header>
@@ -100,6 +100,7 @@ const Header = memo(({
 const ViewMaintenanceRequestForm = () => {
   const navigate = useNavigate();
   const { id } = useParams();
+  const location = useLocation();
   const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
 
   const [requestDetails, setRequestDetails] = useState(null);
@@ -110,6 +111,25 @@ const ViewMaintenanceRequestForm = () => {
     isSidebarCollapsed: true,
     isMobileMenuOpen: false,
   });
+
+const handleLogout = async () => {
+  try {
+    const authToken = localStorage.getItem("authToken") || sessionStorage.getItem("authToken");
+    if (!authToken) throw new Error("No token found");
+    await fetch(`${API_BASE_URL}/logout`, {
+      method: "POST",
+      headers: { "Accept": "application/json", "Authorization": `Bearer ${authToken}` },
+      mode: "cors",
+    });
+    localStorage.removeItem("authToken");
+    localStorage.removeItem("user");
+    sessionStorage.removeItem("authToken");
+    sessionStorage.removeItem("user");
+    navigate("/loginpage", { replace: true });
+  } catch (err) {
+    console.error(err.message || "An error occurred during logout");
+  }
+};
 
   useEffect(() => {
     const authToken = localStorage.getItem("authToken") || sessionStorage.getItem("authToken");
@@ -230,6 +250,7 @@ const ViewMaintenanceRequestForm = () => {
           isSidebarCollapsed={sidebarState.isSidebarCollapsed}
           onToggleSidebar={() => dispatch({ type: "TOGGLE_SIDEBAR" })}
           menuItems={SIDEBAR_MENU_ITEMS}
+          onLogout={handleLogout}   // ← add this
           title="User"
         />
 
@@ -248,13 +269,13 @@ const ViewMaintenanceRequestForm = () => {
                     </p>
                   </div>
                   <button
-                    onClick={() => navigate("/requeststatus")}
+                    onClick={() => navigate(location.state?.from || "/requeststatus")}
                     className="inline-flex items-center px-4 py-2 text-sm font-medium text-slate-700 bg-white border border-slate-300 rounded-lg hover:bg-slate-50 hover:border-slate-400 transition-all duration-200 shadow-sm"
                   >
                     <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
                     </svg>
-                    Back to List
+                    {location.state?.from === '/notifications' ? 'Back to Notifications' : 'Back to List'}
                   </button>
                 </div>
               </div>

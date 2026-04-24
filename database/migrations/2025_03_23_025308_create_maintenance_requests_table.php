@@ -24,12 +24,6 @@ return new class extends Migration {
             $table->foreignId('approved_by_1')->nullable()->constrained('users');
             $table->foreignId('approved_by_2')->nullable()->constrained('users');
             $table->foreignId('maintenance_type_id')->constrained('maintenance_types')->onDelete('cascade');
-            $table->timestamp('user_marked_done_at')->nullable();
-            $table->timestamp('staff_marked_done_at')->nullable();
-            $table->date('scheduled_date')->nullable();
-            $table->time('scheduled_time')->nullable();
-            $table->unsignedBigInteger('assigned_staff_id')->nullable();
-            $table->foreign('assigned_staff_id')->references('id')->on('users');
             $table->timestamps();
         });
     }

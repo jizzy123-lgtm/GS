@@ -25,16 +25,6 @@ return new class extends Migration
             $table->integer('age');
             $table->string('office_visited');
             $table->string('service_availed');
-            $table->id();
-            $table->unsignedBigInteger('request_id');
-            $table->foreign('request_id')->references('id')->on('maintenance_requests');
-            $table->unsignedBigInteger('user_id');
-            $table->foreign('user_id')->references('id')->on('users');
-            $table->text('feedback');
-            $table->tinyInteger('rating')->nullable();
-            $table->date('date')->nullable();
-            $table->time('time')->nullable();
-            $table->timestamps();
 
             $table->integer('cc1');
             $table->integer('cc2')->nullable();

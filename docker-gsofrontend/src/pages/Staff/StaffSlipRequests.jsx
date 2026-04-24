@@ -18,7 +18,6 @@ const sidebarReducer = (state, action) => {
       return state;
   }
 };
-
 const RequestsTable = ({ onRowClick, requests, showActions }) => (
   <main className="flex-1 p-4 md:p-6 lg:p-8 bg-white/95 backdrop-blur-sm overflow-y-auto">
     <div className="bg-white rounded-lg shadow-sm md:shadow-lg border border-gray-200">
@@ -108,14 +107,12 @@ const StaffSlipRequests = () => {
 
   const token = localStorage.getItem("authToken") || sessionStorage.getItem("authToken");
 
-
   // Fetch reference data (statuses, offices, maintenance types, positions) from /common-datas
   useEffect(() => {
     const fetchReferenceData = async () => {
       if (!token) return;
 
       try {
-        // Fetch all reference data in one request
         const res = await fetch(`${API_BASE_URL}/common-datas`, {
           headers: { Authorization: `Bearer ${token}` },
         });
@@ -141,7 +138,6 @@ const StaffSlipRequests = () => {
     const fetchRequests = async () => {
       setLoading(true);
       try {
-        // Use the new API endpoint
         const res = await fetch(`${API_BASE_URL}/maintenance-requests/list-with-details`, {
           method: 'GET',
           headers: {
@@ -150,8 +146,8 @@ const StaffSlipRequests = () => {
         });
         const data = await res.json();
         const list = Array.isArray(data) ? data : (Array.isArray(data.data) ? data.data : []);
+        console.log("All statuses:", list.map(r => ({ id: r.request_id, status: r.status })));
 
-        // Enhance requests if needed (here, the API already provides names)
         const enhancedRequests = list.map((request) => ({
           ...request,
           date_requested: request.date_requested,
@@ -163,7 +159,6 @@ const StaffSlipRequests = () => {
           contact_number: request.contact_number,
           verified_by: request.verified_by,
           approved_by_2: request.approved_by_2, 
-          approved_by_1: request.approved_by_1,
         }));
 
         setRequests(enhancedRequests);
@@ -180,20 +175,16 @@ const StaffSlipRequests = () => {
 
   const handleRowClick = useCallback(
     (id, status, approved_by_2, priority_number) => {
-      // If the selected tab is "Pending Approvals", always navigate to the view page
       if (selectedTab === "Pending Approvals") {
         navigate(`/staffviewmaintenancerequestform/${id}`);
         return;
       }
 
-      const isPending = status?.toLowerCase() === "pending";
+      const isPending = status === "Pending" || status === 1;
       const isApprovedBy2 = approved_by_2 !== null && approved_by_2 !== undefined;
       const hasPriority = priority_number !== null && priority_number !== undefined;
-      const isOnhold = status?.toLowerCase() === "onhold" || status?.toLowerCase() === "on hold";
 
-      if (isOnhold) {
-        navigate(`/staffviewmaintenancerequestform/${id}`);
-      } else if (hasPriority) {
+      if (hasPriority) {
         navigate(`/staffviewmaintenancerequestform/${id}`);
       } else if (isPending || isApprovedBy2) {
         navigate(`/staffmaintenancerequestform/${id}`);
@@ -204,97 +195,69 @@ const StaffSlipRequests = () => {
     [navigate, selectedTab]
   );
 
-  // Sort requests so that "Urgent" status requests appear first
-  const sortUrgentFirst = (arr) => {
-    return [...arr].sort((a, b) => {
-      const aUrgent = a.status_name?.toLowerCase() === "urgent";
-      const bUrgent = b.status_name?.toLowerCase() === "urgent";
-      if (aUrgent && !bUrgent) return -1;
-      if (!aUrgent && bUrgent) return 1;
-      return 0;
-    });
+  const getTabs = (statuses) => {
+    const approvedIdx = statuses.findIndex(s => s.name?.toLowerCase() === "approved");
+
+    let reordered = statuses.filter((s, idx) =>
+      idx !== approvedIdx &&
+      s.name?.toLowerCase() !== "urgent" &&
+      s.name?.toLowerCase() !== "onhold" &&
+      s.name?.toLowerCase() !== "on hold" &&
+      s.name?.toLowerCase() !== "verified" &&
+      s.name?.toLowerCase() !== "pending approval"
+
+    );
+
+    const newPendingIdx = reordered.findIndex(s => s.name?.toLowerCase() === "pending");
+    if (newPendingIdx !== -1) {
+      reordered.splice(newPendingIdx + 1, 0, { id: "pending-approvals", name: "Pending Approvals" });
+      reordered.splice(newPendingIdx + 2, 0, { id: "verified", name: "Verified" });
+    } else {
+      reordered.unshift({ id: "pending-approvals", name: "Pending Approvals" });
+      reordered.unshift({ id: "verified", name: "Verified" });
+    }
+
+    return reordered;
   };
 
-  // Modify getTabs to insert "Pending Approvals" after "Pending"
-const getTabs = (statuses) => {
-  const pendingIdx = statuses.findIndex(s => s.name?.toLowerCase() === "pending");
-  const approvedIdx = statuses.findIndex(s => s.name?.toLowerCase() === "approved");
-
-  // Remove Approved from the list
-  let reordered = statuses.filter((s, idx) => 
-  idx !== approvedIdx &&
-  s.name?.toLowerCase() !== "urgent" &&
-  s.name?.toLowerCase() !== "onhold" &&
-  s.name?.toLowerCase() !== "on hold"
-);
-  // Insert Verified and Pending Approvals after Pending
-  if (pendingIdx !== -1) {
-    reordered.splice(pendingIdx + 1, 0, { id: "pending-approvals", name: "Pending Approvals" });
-    reordered.splice(pendingIdx + 2, 0, { id: "verified", name: "Verified" });
-  } else {
-    reordered.unshift({ id: "pending-approvals", name: "Pending Approvals" });
-    reordered.unshift({ id: "verified", name: "Verified" });
-  }
-
-  // Add Approved at the end
-  if (approvedIdx !== -1) {
-    reordered.push(statuses[approvedIdx]);
-  }
-
-  return reordered;
-};
-
-  const filtered = sortUrgentFirst(requests.filter((r) => {
+  const filtered = requests.filter((r) => {
   if (selectedTab === "Pending Approvals") {
-    // Only show requests where verified_by is NOT null
-    return (
-      (r.status_name?.toLowerCase() === "pending" || r.status_id === 1) &&
-      (r.approved_by_1 === null || r.approved_by_1 === undefined ||
-       r.approved_by_2 === null || r.approved_by_2 === undefined) &&
-      r.verified_by !== null && r.verified_by !== undefined
-    );
+    return r.status_name?.toLowerCase() === "pending" &&
+      r.verified_by !== null && r.verified_by !== undefined;
   }
 
   if (selectedTab === "Verified") {
-    return (
-      (r.priority_number === null || r.priority_number === undefined) &&
-      r.approved_by_2 !== null && r.approved_by_2 !== undefined
-    );
+    return r.status_name?.toLowerCase() === "verified";
+  }
+
+  // BAG-O NI:
+  if (selectedTab === "Approved by Head") {
+    return r.status_name?.toLowerCase() === "approved by head";
+  }
+
+  // BAG-O NI:
+  if (selectedTab === "Approved by Director") {
+    return r.status_name?.toLowerCase() === "approved by director";
   }
 
   if (selectedTab === "Approved") {
-    return r.priority_number !== null;
+    return r.status_name?.toLowerCase() === "approved";
   }
-
-  if (selectedTab.toLowerCase() === "completed") {
-    return r.status_name && r.status_name.toLowerCase() === "completed";
-  }
-
-  if (selectedTab.toLowerCase() === "done") {
-    return r.status_name && r.status_name.toLowerCase() === "done";
-  }
-
-  
 
   if (selectedTab === "Pending") {
-    return (r.status_id === 1 || r.status_name?.toLowerCase() === "pending") && (r.approved_by_2 === null || r.approved_by_2 === undefined);
+    return r.status_name?.toLowerCase() === "pending";
+      
   }
 
-  return r.status_name === selectedTab && (r.approved_by_2 === null || r.approved_by_2 === undefined);
-}));
-
-  // Helper to check if there are any "Urgent" or "Onhold" requests being displayed in the current tab
-  const hasStatus = (statusName) =>
-    filtered.some(
-      (r) => r.status_name?.toLowerCase() === statusName.toLowerCase()
-    );
+  return r.status_name?.toLowerCase() === selectedTab.toLowerCase();
+});
 
   const showActions = true;
 
   const handleLogout = () => {
     localStorage.removeItem("authToken");
     sessionStorage.removeItem("authToken");
-    window.location.href = "/loginpage"; // or use navigate("/loginpage");
+    window.location.href = "/loginpage";
   };
 
   if (loading) return <div className="p-4">Loading requests...</div>;
@@ -331,7 +294,7 @@ const getTabs = (statuses) => {
             ))}
           </nav>
           <div className="text-center py-2 text-xs text-gray-400 border-t border-gray-700">
-            Created By Bantilan & Friends
+            Created By Exverter
           </div>
         </div>
       </header>
@@ -351,49 +314,35 @@ const getTabs = (statuses) => {
 
           {/* Tabs */}
           <div className="flex space-x-4 mb-6">
-            {tabs.map((status) => {
-              const isUrgent = status.name?.toLowerCase() === "urgent";
-              const isOnhold = status.name?.toLowerCase() === "onhold" || status.name?.toLowerCase() === "on hold";
-              const showDot =
-                (isUrgent && hasStatus("Urgent")) ||
-                (isOnhold && hasStatus("Onhold"));
-
-              return (
-                <button
-                  key={status.id}
-                  onClick={() => { setSelectedTab(status.name); setShowAllTab(false); }}
-                  className={`relative px-4 py-2 font-semibold rounded-md ${
-                    (selectedTab === status.name && !showAllTab) ||
-                    (selectedTab === "Pending" && !showAllTab && (status.id === 1 || status.name?.toLowerCase() === "pending"))
-                      ? status.name === "Pending" || status.id === 1
-                        ? "bg-yellow-500 text-white"
-                        : status.name === "Approved"
-                        ? "bg-green-500 text-white"
-                        : status.name === "Verified"
-                        ? "bg-yellow-500 text-white"
-                        : "bg-red-500 text-white"
-                      : "bg-transparent text-gray-700"
-                  }`}
-                >
-                  {status.name}
-                  {showDot && (
-                    <span
-                      className="absolute top-1 right-1 block h-2 w-2 rounded-full bg-red-500"
-                      title="There are urgent/onhold requests"
-                    />
-                  )}
-                </button>
-              );
-            })}
+            {tabs.map((status) => (
+              <button
+                key={status.id}
+                onClick={() => { setSelectedTab(status.name); setShowAllTab(false); }}
+                className={`px-4 py-2 font-semibold rounded-md ${
+                  (selectedTab === status.name && !showAllTab) ||
+                  (selectedTab === "Pending" && !showAllTab && (status.id === 1 || status.name?.toLowerCase() === "pending"))
+                    ? status.name === "Pending" || status.id === 1
+                      ? "bg-yellow-500 text-white"
+                      : status.name === "Approved"
+                      ? "bg-green-500 text-white"
+                      : status.name === "Verified"
+                      ? "bg-yellow-500 text-white"
+                      : "bg-red-500 text-white"
+                    : "bg-transparent text-gray-700"
+                }`}
+              >
+                {status.name}
+              </button>
+            ))}
           </div>
 
           <RequestsTable
-  onRowClick={(id, status, approved_by_2, priority_number) =>
-    handleRowClick(id, status, approved_by_2, priority_number)
-  }
-  requests={filtered}
-  showActions={showActions}
-/>
+            onRowClick={(id, status, approved_by_2, priority_number) =>
+              handleRowClick(id, status, approved_by_2, priority_number)
+            }
+            requests={filtered}
+            showActions={showActions}
+          />
         </main>
       </div>
     </div>

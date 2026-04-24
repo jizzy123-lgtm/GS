@@ -90,8 +90,7 @@ const StaffViewMaintenanceRequestForm = () => {
       );
       const data = await response.json();
       if (!response.ok) throw new Error(data.message || "Failed to mark as done");
-      // Optionally, refresh the request details or navigate away
-      setRequestDetails({ ...requestDetails, status: "Completed" });
+      navigate("/staffsliprequests"); // ← IDUGANG NI
     } catch (err) {
       setError(err.message);
     } finally {
@@ -181,6 +180,13 @@ const StaffViewMaintenanceRequestForm = () => {
         <StaffSidebar
           isSidebarCollapsed={sidebarState.isSidebarCollapsed}
           onToggleSidebar={() => dispatch({ type: "TOGGLE_SIDEBAR" })}
+          onLogout={() => {                          // ADD THIS
+            localStorage.removeItem("authToken");
+            localStorage.removeItem("user");
+            sessionStorage.removeItem("authToken");
+            sessionStorage.removeItem("user");
+            navigate("/loginpage", { replace: true });
+          }}
         />
 
         <main className="flex-1 overflow-auto">
@@ -278,7 +284,7 @@ const StaffViewMaintenanceRequestForm = () => {
                       </div>
                       <div className="flex gap-3">
                         {/* Mark as Done Button */}
-                        {requestDetails.priority_number && requestDetails.status?.toLowerCase() === "approved" && (
+                        {requestDetails.priority_number && requestDetails.status?.toLowerCase() === "priority assigned" && (
                           <button
                             className="bg-green-600 hover:bg-green-700 text-white font-semibold px-5 py-2 rounded-lg transition"
                             onClick={handleMarkAsDone}

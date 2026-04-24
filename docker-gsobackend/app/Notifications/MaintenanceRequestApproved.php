@@ -3,13 +3,13 @@
 namespace App\Notifications;
 
 use App\Models\MaintenanceRequest;
-use Illuminate\Bus\Queueable;              
-use Illuminate\Contracts\Queue\ShouldQueue; 
+use Illuminate\Bus\Queueable;
 use Illuminate\Notifications\Notification;
 use Illuminate\Notifications\Messages\MailMessage;
 
+//THIS NOTIFICATION IS FOR THE USER
 
-class MaintenanceRequestApproved extends Notification implements ShouldQueue
+class MaintenanceRequestApproved extends Notification
 {
     use Queueable;
 
@@ -25,24 +25,15 @@ class MaintenanceRequestApproved extends Notification implements ShouldQueue
         return ['mail'];
     }
 
-    public function toMail(object $notifiable): MailMessage
+    public function toMail($notifiable)
     {
         return (new MailMessage)
-            ->subject('Maintenance Request Approved')
-            ->view('emails.gso-notification', [
-                'subject'    => 'Maintenance Request Approved',
-                'badgeType'  => 'green',
-                'badgeLabel' => 'Request Approved',
-                'greeting'   => 'Dear ' . $notifiable->first_name . ',',
-                'lines'      => [
-                    'Your maintenance request has been <strong>approved</strong> by the <strong>General Service Office</strong>.',
-                    'Our team will be in touch shortly regarding the schedule and next steps.',
-                ],
-                'actionUrl'  => 'http://localhost:5173/',
-                'actionText' => 'View Request',
-                'notices'    => [
-                    '⚠️ If you have any concerns, please contact your Campus Admin.',
-                ],
-            ]);
+            ->subject('Your Maintenance Request is Approved')
+            ->greeting('Hello ' . $notifiable->full_name . ',')
+            ->line('Your maintenance request has been approved by the head.')
+            ->line('Details: ' . $this->request->details)
+            ->line('Priority No.: ' . $this->request->priority_number)
+            ->line('Thank you for using the GSO Maintenance System!')
+            ->salutation('Regards, GSO SYSTEM');
     }
 }

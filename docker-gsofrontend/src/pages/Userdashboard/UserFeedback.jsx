@@ -172,18 +172,6 @@ const UserFeedback = () => {
     }
   };
 
-  const sqdLabels = [
-    "I am satisfied with the service that I availed.",
-    "I spent a reasonable amount of time for my transaction.",
-    "The office followed the transaction's requirements and steps based on the information provided.",
-    "The steps (including payment) I needed to do for my transaction were easy and simple.",
-    "I easily found information about my transaction from the office or its website.",
-    "I paid a reasonable amount of fees for my transaction.",
-    "I felt the office was fair to everyone, or 'walang palakasan', during my transaction.",
-    "I was treated courteously by the staff, and (if asked for help) the staff was helpful.",
-    "I got what I needed from the government office, or (if denied) denial of request was sufficiently explained to me.",
-  ];
-
   const handleSubmit = async (e) => {
     e.preventDefault();
     setFormError(""); // Clear previous errors
@@ -314,7 +302,7 @@ const UserFeedback = () => {
     console.log("Submitting feedback payload:", payload);
 
     try {
-      const response = await fetch(`${API_BASE_URL}/feedback`, {
+      const response = await fetch(`${API_BASE_URL}/maintenance-requests/${id}/feedback`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -358,7 +346,17 @@ const UserFeedback = () => {
     "4. I do not know what a CC is and I did not see one in this office.",
   ];
 
-  
+  const sqdLabels = [
+    "I am satisfied with the service that I availed.",
+    "I spent a reasonable amount of time for my transaction.",
+    "The office followed the transaction's requirements and steps based on the information provided.",
+    "The steps (including payment) I needed to do for my transaction were easy and simple.",
+    "I easily found information about my transaction from the office or its website.",
+    "I paid a reasonable amount of fees for my transaction.",
+    "I felt the office was fair to everyone, or 'walang palakasan', during my transaction.",
+    "I was treated courteously by the staff, and (if asked for help) the staff was helpful.",
+    "I got what I needed from the government office, or (if denied) denial of request was sufficiently explained to me.",
+  ];
 
   const ratings = ["5", "4", "3", "2", "1", "N/A"];
 

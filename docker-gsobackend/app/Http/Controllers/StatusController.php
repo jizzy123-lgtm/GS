@@ -3,7 +3,6 @@
 namespace App\Http\Controllers;
 
 use App\Models\Status;
-use App\Models\AccountStatus;
 use Illuminate\Http\Request;
 
 class StatusController extends Controller
@@ -36,7 +35,12 @@ class StatusController extends Controller
 
     public function accountStatuses()
     {
-        return response()->json(AccountStatus::all());
+
+        $statuses = Status::whereIn('id', [1, 2, 3])->get();
+
+        return response()->json([
+            'statuses' => $statuses
+        ]);
     }
 
     public function statusesPovDirector()
@@ -56,5 +60,4 @@ class StatusController extends Controller
 
         return response()->json($statuses);
     }
-    
 }

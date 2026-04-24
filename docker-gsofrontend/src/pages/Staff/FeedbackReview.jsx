@@ -19,8 +19,8 @@ const sidebarReducer = (state, action) => {
 };
 
 const FeedbackReview = () => {
-  const navigate = useNavigate();
   const { id } = useParams(); // id here is the feedback id
+  const navigate = useNavigate();
   const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
 
   const [feedbackDetails, setFeedbackDetails] = useState(null);
@@ -177,6 +177,13 @@ const FeedbackReview = () => {
         <StaffSidebar
           isSidebarCollapsed={sidebarState.isSidebarCollapsed}
           onToggleSidebar={() => dispatch({ type: "TOGGLE_SIDEBAR" })}
+          onLogout={() => {                          // ADD THIS
+            localStorage.removeItem("authToken");
+            localStorage.removeItem("user");
+            sessionStorage.removeItem("authToken");
+            sessionStorage.removeItem("user");
+            navigate("/loginpage", { replace: true });
+          }}
         />
 
         <main className="flex-1 overflow-auto">

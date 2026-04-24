@@ -63,11 +63,8 @@ class FeedbackController extends Controller
     $maintenance->save();
 
     $validated['user_id'] = Auth::id();
-    $validated['request_id'] = $validated['maintenance_request_id']; // add this line
 
     $feedback = Feedback::create($validated);
-
-    
 
     // ✅ Notify staff & head
     $staffUsers = User::whereIn('role_id', [2, 3])

@@ -188,53 +188,48 @@ const CampusDirectorRequests = () => {
   }, [token, navigate]);
 
   const handleRowClick = useCallback(
-    (id, status) => {
-      // Consider both status name and status ID
-      const isPending =
-        status === "Pending" ||
-        status === 1 ||
-        status?.toLowerCase() === "urgent" ||
-        status?.toLowerCase() === "onhold" ||
-        status?.toLowerCase() === "on hold";
-      if (isPending) {
-        navigate(`/campusdirectormaintenancerequestform/${id}`);
-      } else {
-        navigate(`/campusdirectorviewmaintenancerequestform/${id}`);
-      }
-    },
-    [navigate]
-  );
+  (id, status) => {
+    const isPending =
+      status === "Pending" ||
+      status === 1 ||
+      status?.toLowerCase() === "urgent" ||
+      status?.toLowerCase() === "onhold" ||
+      status?.toLowerCase() === "on hold" ||
+      status?.toLowerCase() === "verified";
+    if (isPending) {
+      navigate(`/campusdirectormaintenancerequestform/${id}`);
+    } else {
+      navigate(`/campusdirectormaintenancerequestform/${id}`); // or separate view route
+    }
+  },
+  [navigate]
+);
 
   // Only show requests where verified_by is NOT null (already verified)
   const filtered = requests.filter((r) => {
     if (selectedTab === "Pending") {
-      return (
-        (r.status === "Pending") &&
-        r.verified_by !== null && r.verified_by !== undefined &&
-        r.approved_by_1 !== null && r.approved_by_1 !== undefined &&
-        (r.approved_by_2 === null || r.approved_by_2 === undefined) // Only show if approved_by_2 is null
-      );
+      return r.status === "Pending";
     }
-    if (selectedTab.toLowerCase() === "urgent") {
-      return (
-        (r.status?.toLowerCase() === "urgent") &&
-        r.verified_by !== null && r.verified_by !== undefined &&
-        r.approved_by_1 !== null && r.approved_by_1 !== undefined
-      );
-    }
-    if (selectedTab.toLowerCase() === "onhold" || selectedTab.toLowerCase() === "on hold") {
-      return (
-        (r.status?.toLowerCase() === "onhold" || r.status?.toLowerCase() === "on hold") &&
-        r.verified_by !== null && r.verified_by !== undefined &&
-        r.approved_by_1 !== null && r.approved_by_1 !== undefined
-      );
-    }
+  if (selectedTab.toLowerCase() === "urgent") {
     return (
-      r.verified_by !== null &&
-      r.verified_by !== undefined &&
-      r.status === selectedTab
+      r.status?.toLowerCase() === "urgent" &&
+      r.verified_by !== null && r.verified_by !== undefined &&
+      r.approved_by_1 !== null && r.approved_by_1 !== undefined
     );
-  });
+  }
+  if (selectedTab.toLowerCase() === "onhold" || selectedTab.toLowerCase() === "on hold") {
+    return (
+      (r.status?.toLowerCase() === "onhold" || r.status?.toLowerCase() === "on hold") &&
+      r.verified_by !== null && r.verified_by !== undefined &&
+      r.approved_by_1 !== null && r.approved_by_1 !== undefined
+    );
+  }
+  return (
+    r.verified_by !== null &&
+    r.verified_by !== undefined &&
+    r.status === selectedTab
+  );
+});
 
   const showActions = true;
 
@@ -281,7 +276,7 @@ const CampusDirectorRequests = () => {
             ))}
           </nav>
           <div className="text-center py-2 text-xs text-gray-400 border-t border-gray-700">
-            Created By Bantilan & Friends
+            Created By Exverter
           </div>
         </div>
       </header>

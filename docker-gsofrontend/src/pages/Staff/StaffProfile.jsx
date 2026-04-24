@@ -1,8 +1,13 @@
 import React, { useState, useEffect, useRef, useReducer, useCallback } from 'react';
 import { useNavigate, NavLink } from 'react-router-dom';
-import Icon from '../../components/Icon';
-import { Sidebar, MENU_ITEMS as SIDEBAR_MENU_ITEMS } from '../../components/Sidebar';
+import {
+  StaffSidebar,
+  MENU_ITEMS as STAFF_MENU_ITEMS,
+  StaffNotificationProvider,
+  useNotifications,
+} from '../../components/StaffSidebar'; // adjust path as needed
 
+// ─── Sidebar reducer (same pattern as Profile) ────────────────────────────────
 const sidebarReducer = (state, action) => {
   switch (action.type) {
     case 'TOGGLE_SIDEBAR':
@@ -16,98 +21,131 @@ const sidebarReducer = (state, action) => {
   }
 };
 
-const MENU_ITEMS = SIDEBAR_MENU_ITEMS;
+// ─── Inline Icon helper (avoids importing a separate Icon component) ──────────
+const Icon = ({ path, className = '' }) => (
+  <svg
+    xmlns="http://www.w3.org/2000/svg"
+    className={className}
+    fill="none"
+    viewBox="0 0 24 24"
+    stroke="currentColor"
+    strokeWidth={1.5}
+  >
+    <path strokeLinecap="round" strokeLinejoin="round" d={path} />
+  </svg>
+);
 
-const Profile = () => {
+// ─── Inner component (needs NotificationProvider in tree) ─────────────────────
+const StaffProfileInner = () => {
   const navigate = useNavigate();
   const [state, dispatch] = useReducer(sidebarReducer, {
     isSidebarCollapsed: true,
-    isMobileMenuOpen: false
+    isMobileMenuOpen: false,
   });
-  const mobileMenuRef  = useRef(null);
-  const fileInputRef   = useRef(null);
-  const cameraInputRef = useRef(null);
-  const videoRef       = useRef(null);
 
-  const [profilePicture,     setProfilePicture]     = useState(() => localStorage.getItem('profilePicture') || null);
-  const [previewImage,       setPreviewImage]       = useState(null);
-  const [selectedFile,       setSelectedFile]       = useState(null);
+  const mobileMenuRef   = useRef(null);
+  const fileInputRef    = useRef(null);
+  const cameraInputRef  = useRef(null);
+  const videoRef        = useRef(null);
+
+  const [profilePicture, setProfilePicture] = useState(
+    () => localStorage.getItem('profilePicture') || null
+  );
+  const [previewImage, setPreviewImage]   = useState(null);
+  const [selectedFile, setSelectedFile]   = useState(null);
   const [isUploadingPicture, setIsUploadingPicture] = useState(false);
-  const [imgError,           setImgError]           = useState(false);
-  const [showCameraModal,    setShowCameraModal]    = useState(false);
-  const [stream,             setStream]             = useState(null);
-  const [showUploadOptions,  setShowUploadOptions]  = useState(false);
+  const [imgError, setImgError]           = useState(false);
+  const [showCameraModal, setShowCameraModal] = useState(false);
+  const [stream, setStream]               = useState(null);
+  const [showUploadOptions, setShowUploadOptions] = useState(false);
 
   const [formData, setFormData] = useState({
     requesting_personnel: '',
-    position:             '',
-    requesting_office:    '',
-    contact_number:       '',
-    username:             '',
-    email:                '',
-    role_id:              ''
+    position: '',
+    requesting_office: '',
+    contact_number: '',
+    username: '',
+    email: '',
+    role_id: '',
   });
 
   const [editFormData, setEditFormData] = useState({
-    full_name:             '',
-    position:              '',
-    office:                '',
-    contact_number:        '',
-    username:              '',
-    email:                 '',
-    password:              '',
-    password_confirmation: ''
+    full_name: '',
+    position: '',
+    office: '',
+    contact_number: '',
+    username: '',
+    email: '',
+    password: '',
+    password_confirmation: '',
   });
 
-  const [isEditing,          setIsEditing]          = useState(false);
+  const [isEditing, setIsEditing]               = useState(false);
   const [showPasswordFields, setShowPasswordFields] = useState(false);
 
   const [status, setStatus] = useState({
     isFetchingUserDetails: false,
-    isUpdatingProfile:     false,
-    error:                 null,
-    success:               null
+    isUpdatingProfile: false,
+    error: null,
+    success: null,
   });
 
   const [token, setToken] = useState('');
 
   const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
 
-  // ── outside-click closes mobile menu ──────────────────────────────────────
+  const roles = [
+    { label: 'Select Role',  value: '',  disabled: true },
+    { label: 'Admin',        value: 1 },
+    { label: 'Head',         value: 2 },
+    { label: 'Staff',        value: 3 },
+    { label: 'Requester',    value: 4 },
+  ];
+
+  // ── Close mobile menu on outside click ──────────────────────────────────────
   useEffect(() => {
     const handleClickOutside = (e) => {
-      if (mobileMenuRef.current && !mobileMenuRef.current.contains(e.target))
+      if (mobileMenuRef.current && !mobileMenuRef.current.contains(e.target)) {
         dispatch({ type: 'CLOSE_MOBILE_MENU' });
+      }
     };
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  // ── auth guard ─────────────────────────────────────────────────────────────
+  // ── Auth token guard ─────────────────────────────────────────────────────────
   useEffect(() => {
-    const authToken = localStorage.getItem('authToken') || sessionStorage.getItem('authToken');
+    const authToken =
+      localStorage.getItem('authToken') || sessionStorage.getItem('authToken');
     if (!authToken) {
-      setStatus(prev => ({ ...prev, error: 'Unauthorized: Please log in to continue', isFetchingUserDetails: false }));
+      setStatus((prev) => ({
+        ...prev,
+        error: 'Unauthorized: Please log in to continue',
+        isFetchingUserDetails: false,
+      }));
       const timer = setTimeout(() => navigate('/loginpage'), 2000);
       return () => clearTimeout(timer);
     }
     setToken(authToken);
   }, [navigate]);
 
-  // ── fetch profile ──────────────────────────────────────────────────────────
+  // ── Fetch user details ───────────────────────────────────────────────────────
   useEffect(() => {
     if (!token) return;
     const fetchUserDetails = async () => {
       try {
-        setStatus(prev => ({ ...prev, isFetchingUserDetails: true }));
+        setStatus((prev) => ({ ...prev, isFetchingUserDetails: true }));
         const response = await fetch(`${API_BASE_URL}/profile/userInfos`, {
           method: 'GET',
-          headers: { Authorization: `Bearer ${token}`, Accept: 'application/json' },
+          headers: {
+            Authorization: `Bearer ${token}`,
+            Accept: 'application/json',
+          },
         });
         const data = await response.json();
         if (!response.ok) throw new Error(data.message || 'Failed to fetch user details');
 
-        setFormData(prev => ({
+        setFormData((prev) => ({
           ...prev,
           requesting_personnel: data.full_name      || '',
           position:             data.position       || '',
@@ -115,43 +153,48 @@ const Profile = () => {
           contact_number:       data.contact_number || '',
           username:             data.username       || '',
           email:                data.email          || '',
-          role_id:              data.role_id        || ''
+          role_id:              data.role_id        || '',
         }));
 
-        setEditFormData(prev => ({
+        setEditFormData((prev) => ({
           ...prev,
           full_name:      data.full_name      || '',
           position:       data.position       || '',
           office:         data.office         || '',
           contact_number: data.contact_number || '',
           username:       data.username       || '',
-          email:          data.email          || ''
+          email:          data.email          || '',
         }));
 
-        // Only update picture if backend returns one — never reset to null
         if (data.profile_picture) {
           setImgError(false);
-          const picUrl = data.profile_picture + '?t=' + Date.now();
+          const picUrl = data.profile_picture + '?t=' + new Date().getTime();
           setProfilePicture(picUrl);
           localStorage.setItem('profilePicture', data.profile_picture);
         }
       } catch (err) {
         console.error('Error fetching user details:', err);
-        setStatus(prev => ({ ...prev, error: err.message || 'Failed to fetch user details' }));
+        setStatus((prev) => ({ ...prev, error: err.message || 'Failed to fetch user details' }));
       } finally {
-        setStatus(prev => ({ ...prev, isFetchingUserDetails: false, success: null }));
+        setStatus((prev) => ({ ...prev, isFetchingUserDetails: false, success: null }));
       }
     };
     fetchUserDetails();
   }, [token, API_BASE_URL]);
 
-  // ── attach stream to video element ────────────────────────────────────────
+  // ── Sync video stream to video element ──────────────────────────────────────
   useEffect(() => {
-    if (showCameraModal && videoRef.current && stream)
+    if (showCameraModal && videoRef.current && stream) {
       videoRef.current.srcObject = stream;
+    }
   }, [showCameraModal, stream]);
 
-  // ── logout ─────────────────────────────────────────────────────────────────
+  // ── Helpers ──────────────────────────────────────────────────────────────────
+  const getRoleLabel = (role_id) => {
+    const role = roles.find((r) => r.value === Number(role_id));
+    return role ? role.label : 'Unknown Role';
+  };
+
   const handleLogout = useCallback(async () => {
     try {
       const t = localStorage.getItem('authToken') || sessionStorage.getItem('authToken');
@@ -161,40 +204,26 @@ const Profile = () => {
         headers: { Accept: 'application/json', Authorization: `Bearer ${t}` },
         mode: 'cors',
       });
-      ['authToken', 'user'].forEach(k => {
-        localStorage.removeItem(k);
-        sessionStorage.removeItem(k);
-      });
+      localStorage.removeItem('authToken');
+      localStorage.removeItem('user');
+      sessionStorage.removeItem('authToken');
+      sessionStorage.removeItem('user');
       navigate('/loginpage', { replace: true });
     } catch (err) {
       console.error(err.message || 'An error occurred during logout');
     }
   }, [navigate, API_BASE_URL]);
 
-  const roles = [
-    { label: 'Select Role', value: '',  disabled: true },
-    { label: 'Admin',       value: 1 },
-    { label: 'Head',        value: 2 },
-    { label: 'Staff',       value: 3 },
-    { label: 'Requester',   value: 4 },
-  ];
-
-  const getRoleLabel = (role_id) => {
-    const role = roles.find(r => r.value === Number(role_id));
-    return role ? role.label : 'Unknown Role';
-  };
-
-  // ── picture handlers ───────────────────────────────────────────────────────
-  const handleAvatarClick  = () => setShowUploadOptions(true);
-
-  const handleGalleryClick = () => {
+  // ── Profile picture flow ─────────────────────────────────────────────────────
+  const handleAvatarClick    = () => setShowUploadOptions(true);
+  const handleGalleryClick   = () => {
     setShowUploadOptions(false);
     setTimeout(() => fileInputRef.current?.click(), 100);
   };
-
-  const handleCameraClick = async () => {
+  const handleCameraClick    = async () => {
     setShowUploadOptions(false);
-    if (/Mobi|Android/i.test(navigator.userAgent)) {
+    const isMobile = /Mobi|Android/i.test(navigator.userAgent);
+    if (isMobile) {
       setTimeout(() => cameraInputRef.current?.click(), 100);
     } else {
       try {
@@ -202,7 +231,7 @@ const Profile = () => {
         setStream(mediaStream);
         setShowCameraModal(true);
       } catch {
-        setStatus(prev => ({ ...prev, error: 'Camera access denied or not available.' }));
+        setStatus((prev) => ({ ...prev, error: 'Camera access denied or not available.' }));
       }
     }
   };
@@ -211,51 +240,44 @@ const Profile = () => {
     const file = e.target.files[0];
     if (!file) return;
     if (!file.type.startsWith('image/')) {
-      setStatus(prev => ({ ...prev, error: 'Please select a valid image file.' }));
+      setStatus((prev) => ({ ...prev, error: 'Please select a valid image file.' }));
       return;
     }
     if (file.size > 2 * 1024 * 1024) {
-      setStatus(prev => ({ ...prev, error: 'Image must be smaller than 2 MB.' }));
+      setStatus((prev) => ({ ...prev, error: 'Image must be smaller than 2 MB.' }));
       return;
     }
     setSelectedFile(file);
     setPreviewImage(URL.createObjectURL(file));
     setImgError(false);
-    setStatus(prev => ({ ...prev, error: null }));
+    setStatus((prev) => ({ ...prev, error: null }));
   };
 
   const uploadProfilePicture = async () => {
     if (!selectedFile) return;
     try {
       setIsUploadingPicture(true);
-      setStatus(prev => ({ ...prev, error: null, success: null }));
-
+      setStatus((prev) => ({ ...prev, error: null, success: null }));
       const formDataObj = new FormData();
       formDataObj.append('profile_picture', selectedFile);
-
       const response = await fetch(`${API_BASE_URL}/profile/upload-picture`, {
         method: 'POST',
         headers: { Authorization: `Bearer ${token}`, Accept: 'application/json' },
         body: formDataObj,
       });
-
       const data = await response.json();
       if (!response.ok) throw new Error(data.message || 'Failed to upload picture');
-
       const newUrl = data.profile_picture
-        ? data.profile_picture + '?t=' + Date.now()
+        ? data.profile_picture + '?t=' + new Date().getTime()
         : previewImage;
-
       setProfilePicture(newUrl);
       setImgError(false);
       if (data.profile_picture) localStorage.setItem('profilePicture', data.profile_picture);
-
       setPreviewImage(null);
       setSelectedFile(null);
-      setStatus(prev => ({ ...prev, success: 'Profile picture updated successfully.' }));
+      setStatus((prev) => ({ ...prev, success: 'Profile picture updated successfully.' }));
     } catch (err) {
-      console.error('Error uploading picture:', err);
-      setStatus(prev => ({ ...prev, error: err.message || 'Failed to upload picture' }));
+      setStatus((prev) => ({ ...prev, error: err.message || 'Failed to upload picture' }));
     } finally {
       setIsUploadingPicture(false);
       if (fileInputRef.current) fileInputRef.current.value = '';
@@ -279,27 +301,27 @@ const Profile = () => {
       setPreviewImage(URL.createObjectURL(blob));
       setImgError(false);
     }, 'image/jpeg');
-    stream.getTracks().forEach(track => track.stop());
+    stream.getTracks().forEach((t) => t.stop());
     setStream(null);
     setShowCameraModal(false);
   };
 
   const closeCameraModal = () => {
-    if (stream) stream.getTracks().forEach(track => track.stop());
+    if (stream) stream.getTracks().forEach((t) => t.stop());
     setStream(null);
     setShowCameraModal(false);
   };
 
-  // ── edit form handlers ─────────────────────────────────────────────────────
+  // ── Edit form ────────────────────────────────────────────────────────────────
   const handleEditInputChange = (e) => {
     const { name, value } = e.target;
-    setEditFormData(prev => ({ ...prev, [name]: value }));
+    setEditFormData((prev) => ({ ...prev, [name]: value }));
   };
 
   const toggleEditMode = () => {
     setIsEditing(!isEditing);
     if (!isEditing) {
-      setEditFormData(prev => ({ ...prev, password: '', password_confirmation: '' }));
+      setEditFormData((prev) => ({ ...prev, password: '', password_confirmation: '' }));
       setShowPasswordFields(false);
     }
   };
@@ -307,7 +329,7 @@ const Profile = () => {
   const togglePasswordFields = () => {
     setShowPasswordFields(!showPasswordFields);
     if (!showPasswordFields)
-      setEditFormData(prev => ({ ...prev, password: '', password_confirmation: '' }));
+      setEditFormData((prev) => ({ ...prev, password: '', password_confirmation: '' }));
   };
 
   const refreshUserDetails = () => {
@@ -319,22 +341,19 @@ const Profile = () => {
   const updateProfile = async (e) => {
     e.preventDefault();
     try {
-      setStatus(prev => ({ ...prev, isUpdatingProfile: true, error: null, success: null }));
-
+      setStatus((prev) => ({ ...prev, isUpdatingProfile: true, error: null, success: null }));
       const requestBody = {
         full_name:      editFormData.full_name,
         contact_number: editFormData.contact_number,
         office:         editFormData.office,
         position:       editFormData.position,
         email:          editFormData.email,
-        username:       editFormData.username
+        username:       editFormData.username,
       };
-
       if (showPasswordFields && editFormData.password) {
         requestBody.password              = editFormData.password;
         requestBody.password_confirmation = editFormData.password_confirmation;
       }
-
       const response = await fetch(`${API_BASE_URL}/profile/update`, {
         method: 'POST',
         headers: {
@@ -342,14 +361,11 @@ const Profile = () => {
           'Content-Type': 'application/json',
           Accept: 'application/json',
         },
-        body: JSON.stringify(requestBody)
+        body: JSON.stringify(requestBody),
       });
-
       const data = await response.json();
       if (!response.ok) throw new Error(data.message || 'Failed to update profile');
-
-      // Update display data directly — no refetch, picture state untouched
-      setFormData(prev => ({
+      setFormData((prev) => ({
         ...prev,
         requesting_personnel: editFormData.full_name,
         position:             editFormData.position,
@@ -358,14 +374,12 @@ const Profile = () => {
         username:             editFormData.username,
         email:                editFormData.email,
       }));
-
-      setStatus(prev => ({ ...prev, success: 'Profile updated successfully' }));
+      setStatus((prev) => ({ ...prev, success: 'Profile updated successfully' }));
       setIsEditing(false);
     } catch (err) {
-      console.error('Error updating profile:', err);
-      setStatus(prev => ({ ...prev, error: err.message || 'Failed to update profile' }));
+      setStatus((prev) => ({ ...prev, error: err.message || 'Failed to update profile' }));
     } finally {
-      setStatus(prev => ({ ...prev, isUpdatingProfile: false }));
+      setStatus((prev) => ({ ...prev, isUpdatingProfile: false }));
     }
   };
 
@@ -373,12 +387,16 @@ const Profile = () => {
   const viewInitial = formData.requesting_personnel?.charAt(0)?.toUpperCase() || 'U';
   const editInitial = editFormData.full_name?.charAt(0)?.toUpperCase()        || 'U';
 
+  // ── Render ───────────────────────────────────────────────────────────────────
   return (
     <div className="flex flex-col h-screen bg-gray-50">
+
       {/* Header */}
       <header className="bg-black text-white p-4 flex justify-between items-center relative">
         <span className="text-xl md:text-2xl font-extrabold tracking-tight">ManageIT</span>
-        <div className="hidden md:block text-xl font-bold text-white">User</div>
+        <div className="hidden md:block text-xl font-bold text-white">Staff</div>
+
+        {/* Mobile hamburger */}
         <div className="flex items-center gap-4 md:hidden">
           <button
             onClick={() => dispatch({ type: 'TOGGLE_MOBILE_MENU' })}
@@ -389,6 +407,8 @@ const Profile = () => {
             <Icon path="M4 6h16M4 12h16M4 18h16" className="w-6 h-6" />
           </button>
         </div>
+
+        {/* Mobile dropdown */}
         <div
           ref={mobileMenuRef}
           className={`absolute md:hidden top-full right-0 mt-2 w-56 bg-gray-800 rounded-lg shadow-xl z-30 transition-all duration-300 ease-out overflow-hidden ${
@@ -396,32 +416,43 @@ const Profile = () => {
           }`}
         >
           <nav className="py-2">
-            {MENU_ITEMS.map((item) => (
+            {STAFF_MENU_ITEMS.map((item) => (
               <NavLink
                 key={item.text}
                 to={item.to}
-                className="flex items-center px-4 py-3 text-sm hover:bg-gray-700 transition-colors"
+                className="flex items-center px-4 py-3 text-sm text-white hover:bg-gray-700 transition-colors"
                 onClick={() => dispatch({ type: 'CLOSE_MOBILE_MENU' })}
               >
-                <Icon path={item.icon} className="w-5 h-5 mr-3" />
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  className="w-5 h-5 mr-3"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                  strokeWidth={1.5}
+                >
+                  <path strokeLinecap="round" strokeLinejoin="round" d={item.icon} />
+                </svg>
                 {item.text}
               </NavLink>
             ))}
           </nav>
           <div className="text-center py-2 text-xs text-gray-400 border-t border-gray-700">
-            Created By Exverter
+            Staff Portal - Bantilan &amp; Friends
           </div>
         </div>
       </header>
 
       <div className="flex flex-1 overflow-hidden">
-        <Sidebar
+        {/* Staff Sidebar (has notification badge built-in) */}
+        <StaffSidebar
           isSidebarCollapsed={state.isSidebarCollapsed}
           onToggleSidebar={() => dispatch({ type: 'TOGGLE_SIDEBAR' })}
-          menuItems={MENU_ITEMS}
+          menuItems={STAFF_MENU_ITEMS}
           onLogout={handleLogout}
         />
 
+        {/* Main content */}
         <main className="flex-1 p-6 overflow-auto bg-white/95 backdrop-blur-sm">
           <div className="min-h-screen bg-gray-100 py-12 px-4 sm:px-6 lg:px-8">
             <div className="max-w-md mx-auto bg-white rounded-xl shadow-md overflow-hidden md:max-w-2xl">
@@ -430,10 +461,11 @@ const Profile = () => {
 
                   <div className="flex justify-between items-center mb-6">
                     <div className="uppercase tracking-wide text-sm text-indigo-500 font-semibold">
-                      User Profile
+                      Staff Profile
                     </div>
                   </div>
 
+                  {/* Status messages */}
                   {status.error && (
                     <div className="bg-red-50 border-l-4 border-red-400 p-4 mb-6">
                       <p className="text-sm text-red-700">{status.error}</p>
@@ -457,12 +489,7 @@ const Profile = () => {
                         <div className="flex flex-col items-center mb-6">
                           <div className="w-24 h-24 rounded-full overflow-hidden bg-indigo-100 flex items-center justify-center">
                             {displaySrc ? (
-                              <img
-                                src={displaySrc}
-                                alt="Profile"
-                                className="w-full h-full object-cover"
-                                onError={() => setImgError(true)}
-                              />
+                              <img src={displaySrc} alt="Profile" className="w-full h-full object-cover" onError={() => setImgError(true)} />
                             ) : (
                               <span className="text-3xl text-indigo-500 font-medium">{viewInitial}</span>
                             )}
@@ -472,7 +499,7 @@ const Profile = () => {
                         {/* Name / position / role */}
                         <div className="mb-6">
                           <h1 className="text-2xl font-bold text-center text-gray-900">
-                            {formData.requesting_personnel || 'User Name'}
+                            {formData.requesting_personnel || 'Staff Name'}
                           </h1>
                           <p className="text-gray-500 text-center">{formData.position || 'Position'}</p>
                           <p className="text-indigo-500 text-center font-medium mt-1">
@@ -500,7 +527,7 @@ const Profile = () => {
                           ))}
                         </div>
 
-                        {/* ✅ Picture preview bar — same as StaffProfile */}
+                        {/* Preview upload bar (shows when a picture is chosen but not yet saved) */}
                         {previewImage && (
                           <div className="mt-4 p-3 bg-indigo-50 rounded-lg flex items-center justify-between">
                             <div className="flex items-center gap-3">
@@ -539,7 +566,7 @@ const Profile = () => {
                             className="w-full flex justify-center py-2 px-4 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
                             disabled={status.isFetchingUserDetails}
                           >
-                            {status.isFetchingUserDetails ? 'Refreshing...' : 'Refresh Profile'}
+                            {status.isFetchingUserDetails ? 'Refreshing…' : 'Refresh Profile'}
                           </button>
                         </div>
                       </>
@@ -551,20 +578,14 @@ const Profile = () => {
                           <div className="relative w-24 h-24 cursor-pointer" onClick={handleAvatarClick}>
                             <div className="w-24 h-24 rounded-full overflow-hidden bg-indigo-100 flex items-center justify-center">
                               {displaySrc ? (
-                                <img
-                                  src={displaySrc}
-                                  alt="Profile"
-                                  className="w-full h-full object-cover"
-                                  onError={() => setImgError(true)}
-                                />
+                                <img src={displaySrc} alt="Profile" className="w-full h-full object-cover" onError={() => setImgError(true)} />
                               ) : (
                                 <span className="text-3xl text-indigo-500 font-medium">{editInitial}</span>
                               )}
                             </div>
                             <div className="absolute bottom-0 right-0 w-7 h-7 bg-indigo-600 rounded-full flex items-center justify-center shadow-md">
                               <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-                                  d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
                               </svg>
                             </div>
@@ -596,9 +617,7 @@ const Profile = () => {
 
                           {/* Toggle password */}
                           <div className="mb-4">
-                            <button
-                              type="button"
-                              onClick={togglePasswordFields}
+                            <button type="button" onClick={togglePasswordFields}
                               className="text-indigo-600 hover:text-indigo-800 text-sm font-medium flex items-center"
                             >
                               {showPasswordFields ? 'Hide Password Fields' : 'Update Password'}
@@ -615,14 +634,12 @@ const Profile = () => {
                             <>
                               <div className="mb-4">
                                 <label htmlFor="password" className="block text-sm font-medium text-gray-700">New Password</label>
-                                <input type="password" name="password" id="password"
-                                  value={editFormData.password} onChange={handleEditInputChange}
+                                <input type="password" name="password" id="password" value={editFormData.password} onChange={handleEditInputChange}
                                   className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm" />
                               </div>
                               <div className="mb-4">
                                 <label htmlFor="password_confirmation" className="block text-sm font-medium text-gray-700">Confirm New Password</label>
-                                <input type="password" name="password_confirmation" id="password_confirmation"
-                                  value={editFormData.password_confirmation} onChange={handleEditInputChange}
+                                <input type="password" name="password_confirmation" id="password_confirmation" value={editFormData.password_confirmation} onChange={handleEditInputChange}
                                   className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm" />
                               </div>
                               {editFormData.password && editFormData.password !== editFormData.password_confirmation && (
@@ -634,19 +651,16 @@ const Profile = () => {
 
                         {/* Submit / Cancel */}
                         <div className="mt-8 space-y-4">
-                          <button
-                            type="submit"
+                          <button type="submit"
                             className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
                             disabled={
                               status.isUpdatingProfile ||
                               (showPasswordFields && editFormData.password && editFormData.password !== editFormData.password_confirmation)
                             }
                           >
-                            {status.isUpdatingProfile ? 'Saving...' : 'Save Changes'}
+                            {status.isUpdatingProfile ? 'Saving…' : 'Save Changes'}
                           </button>
-                          <button
-                            type="button"
-                            onClick={toggleEditMode}
+                          <button type="button" onClick={toggleEditMode}
                             className="w-full flex justify-center py-2 px-4 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
                           >
                             Cancel
@@ -664,14 +678,13 @@ const Profile = () => {
 
       {/* ── Upload Options Modal ── */}
       {showUploadOptions && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40"
-          onClick={() => setShowUploadOptions(false)}>
-          <div className="bg-white rounded-2xl shadow-2xl p-6 mx-4 w-full max-w-sm"
-            onClick={(e) => e.stopPropagation()}>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={() => setShowUploadOptions(false)}>
+          <div className="bg-white rounded-2xl shadow-2xl p-6 mx-4 w-full max-w-sm" onClick={(e) => e.stopPropagation()}>
             <h3 className="text-base font-semibold text-gray-800 mb-4 text-center">Update Profile Photo</h3>
             <div className="flex gap-4 justify-center">
               <button type="button" onClick={handleGalleryClick}
-                className="flex flex-col items-center gap-2 px-6 py-4 rounded-xl border-2 border-indigo-100 hover:border-indigo-400 hover:bg-indigo-50 transition-all duration-200 flex-1">
+                className="flex flex-col items-center gap-2 px-6 py-4 rounded-xl border-2 border-indigo-100 hover:border-indigo-400 hover:bg-indigo-50 transition-all duration-200 flex-1"
+              >
                 <div className="w-12 h-12 rounded-full bg-indigo-100 flex items-center justify-center">
                   <svg xmlns="http://www.w3.org/2000/svg" className="w-6 h-6 text-indigo-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
@@ -680,7 +693,8 @@ const Profile = () => {
                 <span className="text-sm font-medium text-gray-700">Gallery</span>
               </button>
               <button type="button" onClick={handleCameraClick}
-                className="flex flex-col items-center gap-2 px-6 py-4 rounded-xl border-2 border-indigo-100 hover:border-indigo-400 hover:bg-indigo-50 transition-all duration-200 flex-1">
+                className="flex flex-col items-center gap-2 px-6 py-4 rounded-xl border-2 border-indigo-100 hover:border-indigo-400 hover:bg-indigo-50 transition-all duration-200 flex-1"
+              >
                 <div className="w-12 h-12 rounded-full bg-indigo-100 flex items-center justify-center">
                   <svg xmlns="http://www.w3.org/2000/svg" className="w-6 h-6 text-indigo-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
@@ -691,7 +705,8 @@ const Profile = () => {
               </button>
             </div>
             <button type="button" onClick={() => setShowUploadOptions(false)}
-              className="mt-4 w-full py-2 text-sm text-gray-500 hover:text-gray-700 transition-colors">
+              className="mt-4 w-full py-2 text-sm text-gray-500 hover:text-gray-700 transition-colors"
+            >
               Cancel
             </button>
           </div>
@@ -706,11 +721,13 @@ const Profile = () => {
             <video ref={videoRef} autoPlay playsInline className="w-full rounded-xl bg-black" />
             <div className="flex gap-3 mt-4">
               <button type="button" onClick={capturePhoto}
-                className="flex-1 py-2 px-4 bg-indigo-600 text-white rounded-md text-sm font-medium hover:bg-indigo-700">
+                className="flex-1 py-2 px-4 bg-indigo-600 text-white rounded-md text-sm font-medium hover:bg-indigo-700"
+              >
                 📸 Capture
               </button>
               <button type="button" onClick={closeCameraModal}
-                className="flex-1 py-2 px-4 border border-gray-300 text-gray-700 rounded-md text-sm font-medium hover:bg-gray-50">
+                className="flex-1 py-2 px-4 border border-gray-300 text-gray-700 rounded-md text-sm font-medium hover:bg-gray-50"
+              >
                 Cancel
               </button>
             </div>
@@ -721,4 +738,11 @@ const Profile = () => {
   );
 };
 
-export default Profile;
+// ─── Exported page — wraps inner component with NotificationProvider ──────────
+const StaffProfile = () => (
+  <StaffNotificationProvider>
+    <StaffProfileInner />
+  </StaffNotificationProvider>
+);
+
+export default StaffProfile;

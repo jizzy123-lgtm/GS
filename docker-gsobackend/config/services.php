@@ -35,8 +35,4 @@ return [
         ],
     ],
 
-    'philsms' => [
-        'token'     => env('PHILSMS_TOKEN'),
-        'sender_id' => env('PHILSMS_SENDER_ID', 'ManageIT'),
-    ],
 ];

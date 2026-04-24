@@ -130,18 +130,12 @@ function SignupPage() {
         mode: 'cors'
       });
 
-      // ✅ Safe JSON parse — won't crash if response body is empty/malformed
-      let data = {};
-      try {
-        data = await response.json();
-      } catch (_) {
-        // response body is empty or not valid JSON, ignore
-      }
+      const data = await response.json();
 
       if (!response.ok) {
+        // Handle validation errors from the backend
         if (data.errors) {
           const errorMessages = Object.values(data.errors).flat();
-          console.log('Validation errors:', data.errors);
           throw new Error(errorMessages.join('\n'));
         }
         throw new Error(data.message || "Signup failed");
@@ -155,7 +149,7 @@ function SignupPage() {
       setIsLoading(false);
     }
   }, [lastName, firstName, username, positionId, officeId, contactNumber, password, passwordConfirmation, roleId, middleName, suffix, email, API_BASE_URL, navigate]);
-  
+
   const togglePasswordVisibility = useCallback(() => {
     setShowPassword(!showPassword);
   }, [showPassword]);
@@ -532,7 +526,6 @@ function SignupPage() {
                   </div>
                 </div>
               </div>
-
               {/* Submit Button */}
               <div className="pt-4">
                 <button

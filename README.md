@@ -36,7 +36,7 @@ A mobile application for the General Services Office (GSO) of Jose Rizal Memoria
 
 ## Documentation
 
-- [Mobile App Technical Documentation](https://github.com/jizzy123-lgtm/GS/wiki/GSU-Gateway---Mobile-App-Technical-Documentation)
+- [Mobile App Technical Documentation](https://github.com/jizzy123-lgtm/GS/wiki/GSU-Gateway-Mobile-App-Technical-Documentation)
 - [API Documentation](https://documenter.getpostman.com/view/54234949/2sBXqFPP2G)
 
 ## Team

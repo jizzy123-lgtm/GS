@@ -1,5 +1,5 @@
 import { useState, useEffect, useReducer, useCallback } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useNavigate, useParams, useLocation } from "react-router-dom";
 import Icon from '../../components/Icon';
 import { AdminSidebar, MENU_ITEMS as ADMIN_MENU_ITEMS } from '../../components/AdminSidebar';
 
@@ -20,6 +20,7 @@ function AdminUserRequestsForm() {
   const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
   const navigate = useNavigate();
   const { user_id } = useParams();
+  const location = useLocation(); //Gi-declare para ma-access ang current location/route info.
   
   const [state, dispatch] = useReducer(sidebarReducer, {
     isSidebarCollapsed: true,
@@ -220,24 +221,21 @@ function AdminUserRequestsForm() {
     }
   };
 
-  const handleGoBack = () => navigate('/adminuserrequests');
+  const handleGoBack = () => { 
+    const from = location.state?.from; //check if naay info kung asa gikan, either notifications or requests
+    if (from) {
+      navigate(from); //mag navigate kung asa gikan, either notifications or requests
+    } else {
+      navigate('/adminuserrequests'); //default nga adto sa requests kung walay info kung asa gikan
+    }
+  };
 
   return (
     <div className="flex flex-col h-screen bg-gray-50">
-      <header className="bg-gradient-to-r from-blue-900 to-indigo-900 text-white p-4 flex justify-between items-center relative shadow-md">
-        <div className="flex items-center">
-          <span className="text-xl md:text-2xl font-extrabold tracking-tight">ManageIT</span>
-        </div>
+      <header className="bg-black text-white p-4 flex justify-between items-center relative">
+        <span className="text-xl md:text-2xl font-extrabold tracking-tight">ManageIT</span>
         <div className="flex items-center gap-4">
-          <div className="hidden md:flex items-center gap-3">
-            <div className="bg-blue-800 hover:bg-blue-700 p-2 rounded-full transition-colors cursor-pointer">
-              <Icon path="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" className="w-5 h-5" />
-            </div>
-            <div className="flex items-center text-sm">
-              <div className="bg-blue-500 rounded-full w-8 h-8 flex items-center justify-center font-bold mr-2">A</div>
-              <span className="hidden lg:inline">Admin User</span>
-            </div>
-          </div>
+            <div className="text-xl font-bold text-white">Admin</div>
           <button
             onClick={() => dispatch({ type: "TOGGLE_MOBILE_MENU" })}
             className="md:hidden p-2 hover:bg-blue-800 rounded-lg border border-blue-400 transition-colors"
@@ -261,7 +259,7 @@ function AdminUserRequestsForm() {
           <div className="flex items-center mb-6">
             <button onClick={handleGoBack} className="flex items-center text-indigo-600 hover:text-indigo-800 mr-4">
               <Icon path="M10 19l-7-7m0 0l7-7m-7 7h18" className="w-5 h-5 mr-1" />
-              Back to Requests
+              {location.state?.from === '/adminnotifications' ? 'Back to Notifications' : 'Back to Requests'}  {/*dynamic nga text depende kung asa gikan, either notifications or requests*/}
             </button>
             <h1 className="text-2xl md:text-3xl font-bold text-gray-900">User Request Details</h1>
           </div>

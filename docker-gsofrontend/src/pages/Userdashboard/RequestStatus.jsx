@@ -1,5 +1,5 @@
 import { useState, useReducer, useEffect, memo, useCallback, useRef } from "react";
-import { useNavigate, NavLink } from "react-router-dom";
+import { useNavigate, NavLink, useLocation } from "react-router-dom";
 import { Sidebar, MENU_ITEMS as SIDEBAR_MENU_ITEMS } from "../../components/Sidebar";
 import Icon from "../../components/Icon";
 
@@ -15,7 +15,7 @@ const useClickOutside = (ref, handler) => {
   }, [ref, handler]);
 };
 
-// --- Reducer
+// --- Reducer ---
 const sidebarReducer = (state, action) => {
   switch (action.type) {
     case "TOGGLE_SIDEBAR":
@@ -32,7 +32,6 @@ const sidebarReducer = (state, action) => {
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
 const MENU_ITEMS = SIDEBAR_MENU_ITEMS;
 
-
 const Header = ({ isMobileMenuOpen, onToggleMobileMenu, onCloseMobileMenu, userTitle = "User" }) => {
   const mobileMenuRef = useRef(null);
 
@@ -42,12 +41,8 @@ const Header = ({ isMobileMenuOpen, onToggleMobileMenu, onCloseMobileMenu, userT
 
   return (
     <header className="bg-black text-white p-4 flex justify-between items-center relative">
-      <span className="text-xl md:text-2xl font-extrabold tracking-tight">
-        ManageIT
-      </span>
-      <div className="hidden md:block text-xl font-bold text-white">
-        {userTitle}
-      </div>
+      <span className="text-xl md:text-2xl font-extrabold tracking-tight">ManageIT</span>
+      <div className="hidden md:block text-xl font-bold text-white">{userTitle}</div>
       <div className="flex items-center gap-4 md:hidden">
         <button
           onClick={onToggleMobileMenu}
@@ -85,82 +80,73 @@ const Header = ({ isMobileMenuOpen, onToggleMobileMenu, onCloseMobileMenu, userT
   );
 };
 
-
-const StatusTable = ({ requests, selectedTab, userNameParts }) => {
-  const navigate = useNavigate();
-
-  const getLinkPath = (id) => `/viewmaintenancerequestform/${id}`;
-  const getFeedbackPath = (id) => `/userfeedback/${id}`;
-
-  // Format the user's name
-  const formatUserName = () => {
-  const { last_name, first_name, middle_name } = userNameParts;
-  const middleInitial = middle_name ? middle_name.charAt(0) + '.' : '';
-  const fullFirst = [first_name, middleInitial].filter(Boolean).join(' ');
-  return [last_name, fullFirst].filter(Boolean).join(', ');
-};
-
-  return (
-    <div className="bg-white rounded-lg shadow-sm md:shadow-lg border border-gray-200">
-      <table className="w-full border-collapse">
-        <thead>
-          <tr className="bg-gray-50 border-b-2 border-gray-200">
-            <th className="p-3 text-left font-semibold">Requesting Personnel</th>
-            <th className="p-3 text-left font-semibold">Position</th>
-            <th className="p-3 text-left font-semibold">Date Requested</th>
-            <th className="p-3 text-left font-semibold">Maintenance Type</th>
-            <th className="p-3 text-left font-semibold">Status</th>
-            <th className="p-3 text-left font-semibold">Actions</th>
-            {selectedTab === "Done" && (
-              <th className="p-3 text-left font-semibold">Give Feedback</th>
-            )}
-          </tr>
-        </thead>
-        <tbody>
-          {requests.length > 0 ? (
-            requests.map((request) => (
-              <tr key={request.request_id} className="hover:bg-gray-50 even:bg-gray-50 border-b border-gray-400">
-                <td className="p-3">{formatUserName()}</td>
-                <td className="p-3">{request.position}</td>
-                <td className="p-3">{request.date_requested || "N/A"}</td>
-                <td className="p-3">{request.maintenance_type}</td>
+const StatusTable = ({ requests, selectedTab, onViewClick, onFeedbackClick }) => (
+  <div className="bg-white rounded-lg shadow-sm md:shadow-lg border border-gray-200">
+    <table className="w-full border-collapse">
+      <thead>
+        <tr className="bg-gray-50 border-b-2 border-gray-200">
+          <th className="p-3 text-left font-semibold">Date Requested</th>
+          <th className="p-3 text-left font-semibold">Requesting Personnel</th>
+          <th className="p-3 text-left font-semibold">Position</th>
+          <th className="p-3 text-left font-semibold">Office</th>
+          <th className="p-3 text-left font-semibold">Maintenance Type</th>
+          <th className="p-3 text-left font-semibold">Status</th>
+          <th className="p-3 text-left font-semibold">Actions</th>
+          {selectedTab === "Done" && (
+            <th className="p-3 text-left font-semibold">Give Feedback</th>
+          )}
+        </tr>
+      </thead>
+      <tbody>
+        {requests.length > 0 ? (
+          requests.map((request) => (
+            <tr key={request.request_id} className="hover:bg-gray-50 even:bg-gray-50 border-b border-gray-400">
+              <td className="p-3">{new Date(request.date_requested).toLocaleDateString()}</td>
+              <td className="p-3 font-medium">{request.requesting_personnel || "N/A"}</td>
+              <td className="p-3">{request.position || "N/A"}</td>
+              <td className="p-3">{request.requesting_office || "N/A"}</td>
+              <td className="p-3">{request.maintenance_type || "N/A"}</td>
+              <td className="p-3">
+                <span className={`px-3 py-1 rounded-full text-sm ${
+                  request.status === "Pending" ? "bg-yellow-100 text-yellow-800"
+                  : request.status === "Approved" ? "bg-green-100 text-green-800"
+                  : request.status === "Done" ? "bg-blue-100 text-blue-800"
+                  : "bg-red-100 text-red-800"
+                }`}>
+                  {request.status}
+                </span>
+              </td>
+              <td className="p-3">
+                <button
+                  onClick={() => onViewClick(request.request_id)}
+                  className="bg-blue-500 text-white px-4 py-1 rounded-md hover:bg-blue-600"
+                >
+                  View
+                </button>
+              </td>
+              {selectedTab === "Done" && (
                 <td className="p-3">
-                  <span className="px-3 py-1 rounded-full text-sm">
-                    {request.status}
-                  </span>
-                </td>
-                <td className="p-3 space-x-2">
                   <button
-                    onClick={() => navigate(`/viewmaintenancerequestform/${request.request_id}`)}
-                    className="bg-blue-500 text-white px-4 py-1 rounded-md hover:bg-blue-600 transition duration-200"
+                    onClick={() => onFeedbackClick(request.request_id)}
+                    className="bg-indigo-500 text-white px-4 py-1 rounded-md hover:bg-indigo-600"
                   >
-                    View
+                    Give Feedback
                   </button>
                 </td>
-                {selectedTab === "Done" && (
-                  <td className="p-3">
-                    <button
-                      onClick={() => navigate(`/userfeedback/${request.request_id}`)}
-                      className="bg-indigo-500 text-white px-4 py-1 rounded-md hover:bg-indigo-600 transition duration-200"
-                    >
-                      Give Feedback
-                    </button>
-                  </td>
-                )}
-              </tr>
-            ))
-          ) : (
-            <tr>
-              <td colSpan={selectedTab === "Done" ? 7 : 6} className="p-3 text-center">
-                No requests found
-              </td>
+              )}
             </tr>
-          )}
-        </tbody>
-      </table>
-    </div>
-  );
-};
+          ))
+        ) : (
+          <tr>
+            <td colSpan={selectedTab === "Done" ? 8 : 7} className="p-3 text-center">
+              No requests found
+            </td>
+          </tr>
+        )}
+      </tbody>
+    </table>
+  </div>
+);
 
 const RequestStatus = () => {
   const navigate = useNavigate();
@@ -170,17 +156,18 @@ const RequestStatus = () => {
   });
   const [requests, setRequests] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(""); 
-  const [selectedTab, setSelectedTab] = useState("Pending");
+  const [error, setError] = useState("");
+  const [statuses, setStatuses] = useState([]);
+  const [selectedTab, setSelectedTab] = useState(location.state?.tab || "Pending");
   const [userNameParts, setUserNameParts] = useState({
     last_name: "",
     first_name: "",
     middle_name: "",
     suffix: "",
   });
+
   const token = localStorage.getItem("authToken") || sessionStorage.getItem("authToken");
 
-  // Logout logic (same as Dashboard)
   const handleLogout = useCallback(async () => {
     try {
       if (!token) throw new Error("No token found");
@@ -203,6 +190,23 @@ const RequestStatus = () => {
     }
   }, [token, navigate]);
 
+  // Fetch statuses from /common-datas (same as CampusDirectorRequests)
+  useEffect(() => {
+    const fetchReferenceData = async () => {
+      if (!token) return;
+      try {
+        const res = await fetch(`${API_BASE_URL}/common-datas`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        const data = await res.json();
+        setStatuses(Array.isArray(data.statuses) ? data.statuses : []);
+      } catch (err) {
+        console.error("Error fetching reference data:", err);
+      }
+    };
+    fetchReferenceData();
+  }, [token]);
+
   useEffect(() => {
     const initialize = async () => {
       if (!token) {
@@ -210,7 +214,7 @@ const RequestStatus = () => {
         return;
       }
       setLoading(true);
-      setError(""); // <-- Reset error on load
+      setError("");
       try {
         const [userRes, reqRes] = await Promise.all([
           fetch(`${API_BASE_URL}/users/idfullname`, {
@@ -242,7 +246,7 @@ const RequestStatus = () => {
           list.filter((r) => String(r.requester_id) === String(userId))
         );
       } catch (err) {
-        setError(err.message || "An error occurred while loading data."); // <-- Set error
+        setError(err.message || "An error occurred while loading data.");
         setRequests([]);
       } finally {
         setLoading(false);
@@ -251,28 +255,31 @@ const RequestStatus = () => {
     initialize();
   }, [token, navigate]);
 
+  // Filtering logic — same as CampusDirectorRequests
   const filtered = requests.filter((r) => {
-    const status = r.status?.trim().toLowerCase();
+    const status = r.status?.trim();
+    const statusLower = status?.toLowerCase();
 
     if (selectedTab === "Pending") {
-      return status === "pending";
+      return statusLower === "pending";
     }
-
-    if (selectedTab === "Pending Approvals") {
-      return (
-        status === "pending" &&
-        (r.approved_by_1 == null || r.approved_by_2 == null)
-      );
+    if (selectedTab.toLowerCase() === "urgent") {
+      return statusLower === "urgent";
     }
-
-    if (selectedTab === "Completed") {
-      return status === "completed";
+    if (selectedTab.toLowerCase() === "onhold" || selectedTab.toLowerCase() === "on hold") {
+      return statusLower === "onhold" || statusLower === "on hold";
     }
-
-    return status === selectedTab.toLowerCase();
+    return status === selectedTab;
   });
 
-  // --- Loading and Error UI (copied/adapted from ViewMaintenanceRequestForm) ---
+  const handleViewClick = useCallback((id) => {
+    navigate(`/viewmaintenancerequestform/${id}`);
+  }, [navigate]);
+
+  const handleFeedbackClick = useCallback((id) => {
+    navigate(`/userfeedback/${id}`);
+  }, [navigate]);
+
   if (loading) {
     return (
       <div className="flex flex-col items-center justify-center py-16 min-h-screen bg-gray-50">
@@ -299,7 +306,6 @@ const RequestStatus = () => {
       </div>
     );
   }
-  // --- End Loading and Error UI ---
 
   return (
     <div className="flex flex-col h-screen bg-gray-50">
@@ -322,36 +328,36 @@ const RequestStatus = () => {
             Request Status
           </h2>
 
-          {/* Tabs */}
-          <div className="flex space-x-4 mb-6">
-            {["Pending", "Pending Approvals", "Approved", "Disapproved", "Done", "Completed"].map((tab) => (
+          {/* Tabs — from /common-datas same as CampusDirectorRequests */}
+          <div className="flex space-x-4 mb-6 flex-wrap gap-y-2">
+            {statuses.map((status) => (
               <button
-                key={tab}
-                onClick={() => setSelectedTab(tab)}
+                key={status.id}
+                onClick={() => setSelectedTab(status.name)}
                 className={`px-4 py-2 font-semibold rounded-md ${
-                  selectedTab === tab
-                    ? tab === "Pending"
+                  selectedTab === status.name
+                    ? status.name === "Pending" || status.id === 1
                       ? "bg-yellow-500 text-white"
-                      : tab === "Approved"
+                      : status.name === "Approved"
                       ? "bg-green-500 text-white"
-                      : tab === "Disapproved"
-                      ? "bg-red-500 text-white"
-                      : tab === "Completed"
+                      : status.name === "Done"
                       ? "bg-blue-700 text-white"
-                      : tab === "Pending Approvals"
-                      ? "bg-orange-500 text-white"
+                      : status.name === "Disapproved"
+                      ? "bg-red-500 text-white"
                       : "bg-gray-700 text-white"
                     : "bg-transparent text-gray-700"
                 }`}
               >
-                {tab}
+                {status.name}
               </button>
             ))}
           </div>
+
           <StatusTable
             requests={filtered}
             selectedTab={selectedTab}
-            userNameParts={userNameParts}
+            onViewClick={handleViewClick}
+            onFeedbackClick={handleFeedbackClick}
           />
         </main>
       </div>

@@ -20,6 +20,7 @@ import AdminCarpentry from "./pages/Admin/adminMaintenance/AdminCarpentry";
 import AdminAirconditioning from "./pages/Admin/adminMaintenance/AdminAirconditioning";
 import AdminCarpentryform from "./pages/Admin/AdminCarpentryform";
 import StaffDashboard from "./pages/Staff/StaffDashboard.jsx";
+import StaffProfile from './pages/Staff/StaffProfile.jsx'; 
 import StaffSlipRequests from "./pages/Staff/StaffSlipRequests.jsx";
 import UserRequests from "./pages/Staff/UserRequests.jsx";
 import StaffViewMaintenanceRequestForm from "./pages/Staff/StaffViewMaintenanceRequestForm.jsx";
@@ -27,6 +28,7 @@ import AdminUserRequests from "./pages/Admin/AdminUserRequests.jsx";
 import AdminUserRequestsForm from "./pages/Admin/AdminUserRequestsForm.jsx";
 import StaffMaintenanceRequestForm from "./pages/Staff/StaffMaintenanceRequestForm.jsx";
 import HeadDashboard from "./pages/Head/HeadDashboard.jsx";
+import HeadProfile from './pages/Head/HeadProfile.jsx';
 import HeadMaintenance from "./pages/Head/headmaintenance/HeadMaintenance.jsx";
 import HeadJanitorial from "./pages/Head/headmaintenance/HeadJanitorial.jsx";
 import HeadCarpentry from "./pages/Head/headmaintenance/HeadCarpentry.jsx";
@@ -46,6 +48,7 @@ import Profile from "./pages/Userdashboard/Profile.jsx";
 import UserChangePass from "./pages/Userdashboard/UserChangePass.jsx";
 import Report from "./pages/Staff/Report.jsx";
 import CampusDirectorDashboard from "./pages/CampusDirector/CampusDirectorDashboard.jsx";
+import CampusDirectorProfile from './pages/CampusDirector/CampusDirectorProfile.jsx'; 
 import CampusDirectorRequests from "./pages/CampusDirector/CampusDirectorRequests.jsx";
 import CampusDirectorMaintenanceRequestForm from "./pages/CampusDirector/CampusDirectorMaintenanceRequestForm.jsx";
 import ViewUserRequestForm from "./pages/Staff/ViewUserRequestForm.jsx";
@@ -290,6 +293,10 @@ function App() {
             </StaffNotificationProvider>
           }
         />
+        <Route path="/staffprofile" 
+          element={
+            <StaffProfile />} 
+        />
         <Route
           path="/staffrequeststatus"
           element={
@@ -432,6 +439,12 @@ function App() {
             </HeadNotificationProvider>
           }
         />
+        <Route 
+          path="/headprofile" 
+          element={
+            <HeadProfile />
+          }
+        />
         <Route
           path="/headmaintenance"
           element={
@@ -516,6 +529,12 @@ function App() {
               <CampusDirectorDashboard token={token} />
             </CampusDirectorNotificationProvider>
           }
+        />
+        <Route 
+          path="/campusdirectorprofile" 
+          element={
+            <CampusDirectorProfile />
+          } 
         />
         <Route
           path="/campusdirectorrequests"

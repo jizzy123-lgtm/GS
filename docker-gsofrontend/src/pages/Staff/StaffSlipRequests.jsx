@@ -146,6 +146,7 @@ const StaffSlipRequests = () => {
         });
         const data = await res.json();
         const list = Array.isArray(data) ? data : (Array.isArray(data.data) ? data.data : []);
+        console.log("All statuses:", list.map(r => ({ id: r.request_id, status: r.status })));
 
         const enhancedRequests = list.map((request) => ({
           ...request,
@@ -195,18 +196,18 @@ const StaffSlipRequests = () => {
   );
 
   const getTabs = (statuses) => {
-    const pendingIdx = statuses.findIndex(s => s.name?.toLowerCase() === "pending");
     const approvedIdx = statuses.findIndex(s => s.name?.toLowerCase() === "approved");
 
-    // Exclude Urgent, Onhold, and Approved from the base list
     let reordered = statuses.filter((s, idx) =>
       idx !== approvedIdx &&
       s.name?.toLowerCase() !== "urgent" &&
       s.name?.toLowerCase() !== "onhold" &&
-      s.name?.toLowerCase() !== "on hold"
+      s.name?.toLowerCase() !== "on hold" &&
+      s.name?.toLowerCase() !== "verified" &&
+      s.name?.toLowerCase() !== "pending approval"
+
     );
 
-    // Insert Pending Approvals and Verified after Pending
     const newPendingIdx = reordered.findIndex(s => s.name?.toLowerCase() === "pending");
     if (newPendingIdx !== -1) {
       reordered.splice(newPendingIdx + 1, 0, { id: "pending-approvals", name: "Pending Approvals" });
@@ -216,56 +217,40 @@ const StaffSlipRequests = () => {
       reordered.unshift({ id: "verified", name: "Verified" });
     }
 
-    // Add Approved at the end
-    if (approvedIdx !== -1) {
-      reordered.push(statuses[approvedIdx]);
-    }
-
     return reordered;
   };
 
   const filtered = requests.filter((r) => {
-    if (selectedTab === "Pending Approvals") {
-      return (
-        (r.status_name?.toLowerCase() === "pending" || r.status_id === 1) &&
-        (r.approved_by_1 === null || r.approved_by_1 === undefined ||
-         r.approved_by_2 === null || r.approved_by_2 === undefined) &&
-        r.verified_by !== null && r.verified_by !== undefined
-      );
-    }
+  if (selectedTab === "Pending Approvals") {
+    return r.status_name?.toLowerCase() === "pending" &&
+      r.verified_by !== null && r.verified_by !== undefined;
+  }
 
-    if (selectedTab === "Verified") {
-      return (
-        (r.priority_number === null || r.priority_number === undefined) &&
-        r.approved_by_2 !== null && r.approved_by_2 !== undefined
-      );
-    }
+  if (selectedTab === "Verified") {
+    return r.status_name?.toLowerCase() === "verified";
+  }
 
-    if (selectedTab === "Approved") {
-      return (
-        r.status_name?.toLowerCase() === "approved" &&
-        r.priority_number !== null &&
-        r.priority_number !== undefined
-      );
-    }
+  // BAG-O NI:
+  if (selectedTab === "Approved by Head") {
+    return r.status_name?.toLowerCase() === "approved by head";
+  }
 
-    if (selectedTab.toLowerCase() === "completed") {
-      return r.status_name && r.status_name.toLowerCase() === "completed";
-    }
+  // BAG-O NI:
+  if (selectedTab === "Approved by Director") {
+    return r.status_name?.toLowerCase() === "approved by director";
+  }
 
-    if (selectedTab.toLowerCase() === "done") {
-      return r.status_name && r.status_name.toLowerCase() === "done";
-    }
+  if (selectedTab === "Approved") {
+    return r.status_name?.toLowerCase() === "approved";
+  }
 
-    if (r.verified_by !== null && r.verified_by !== undefined) return false;
+  if (selectedTab === "Pending") {
+    return r.status_name?.toLowerCase() === "pending";
+      
+  }
 
-    if (selectedTab === "Pending") {
-      return (r.status_id === 1 || r.status_name?.toLowerCase() === "pending") &&
-        (r.approved_by_2 === null || r.approved_by_2 === undefined);
-    }
-
-    return r.status_name === selectedTab && (r.approved_by_2 === null || r.approved_by_2 === undefined);
-  });
+  return r.status_name?.toLowerCase() === selectedTab.toLowerCase();
+});
 
   const showActions = true;
 

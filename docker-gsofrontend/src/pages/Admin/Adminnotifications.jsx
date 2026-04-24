@@ -22,8 +22,6 @@ const Header = memo(({ isMobileMenuOpen, onToggleMobileMenu, onCloseMobileMenu, 
   <header className="bg-black text-white p-4 flex justify-between items-center relative">
     <span className="text-xl md:text-2xl font-extrabold tracking-tight">ManageIT</span>
     <div className="hidden md:flex items-center gap-4">
-      <div className="relative">
-      </div>
       <div className="text-xl font-bold text-white">Admin</div>
     </div>
     <div className="flex items-center gap-4 md:hidden">
@@ -33,6 +31,28 @@ const Header = memo(({ isMobileMenuOpen, onToggleMobileMenu, onCloseMobileMenu, 
     </div>
   </header>
 ));
+
+// ─── Filter Toggle ────────────────────────────────────────────────────────────
+// ─── Filter Toggle ────────────────────────────────────────────────────────────
+const FILTERS = ['All', 'Unread', 'Read'];
+
+const FilterToggle = ({ active, onChange }) => (
+  <div className="flex items-center bg-gray-100 rounded-lg p-1 gap-1 flex-shrink-0">
+    {FILTERS.map((opt) => (
+      <button
+        key={opt}
+        onClick={() => onChange(opt)}
+        className={`px-3 py-1.5 text-xs font-semibold rounded-md transition-all duration-150 ${
+          active === opt
+            ? 'bg-white text-gray-900 shadow-sm'
+            : 'text-gray-500 hover:text-gray-700'
+        }`}
+      >
+        {opt}
+      </button>
+    ))}
+  </div>
+);
 
 const AdminNotifications = () => {
   const [state, dispatch] = useReducer(sidebarReducer, {
@@ -44,6 +64,8 @@ const AdminNotifications = () => {
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [processingId, setProcessingId] = useState(null);
+  const [search, setSearch] = useState('');
+  const [filter, setFilter] = useState('All');
   const navigate = useNavigate();
 
   const getToken = () => localStorage.getItem("authToken") || sessionStorage.getItem("authToken");
@@ -98,19 +120,15 @@ const AdminNotifications = () => {
     }
   };
 
-  // Extract name from message: "John Doe registered an account..."
   const resolveUserFromMessage = (message) => {
     if (!message || !users.length) return null;
 
-    // Extract everything before "registered"
     const match = message.match(/^(.+?)\s+registered\b/i);
     const extractedName = match?.[1]?.trim().toLowerCase() ?? null;
     if (!extractedName) return null;
 
-    // Match against first_name + last_name combinations
     const normalize = (str) => str?.toLowerCase().trim() ?? '';
 
-    // Try: "firstname lastname" exact
     let user = users.find(u => {
       const fullName1 = `${normalize(u.first_name)} ${normalize(u.last_name)}`;
       const fullName2 = `${normalize(u.last_name)} ${normalize(u.first_name)}`;
@@ -118,7 +136,6 @@ const AdminNotifications = () => {
       return fullName1 === extractedName || fullName2 === extractedName || username === extractedName;
     });
 
-    // Try partial match
     if (!user) {
       user = users.find(u => {
         const fullName1 = `${normalize(u.first_name)} ${normalize(u.last_name)}`;
@@ -138,11 +155,10 @@ const AdminNotifications = () => {
       await markAsRead(notif.id);
     }
 
-    // user_id on notification = admin (recipient), so match by message name instead
     const userId = resolveUserFromMessage(notif.message);
 
     if (userId) {
-      navigate(`/adminuserrequestsform/${userId}`);
+      navigate(`/adminuserrequestsform/${userId}`, { state: { from: '/adminnotifications' } });
     } else {
       alert('Could not find the user linked to this notification.');
       setProcessingId(null);
@@ -150,6 +166,15 @@ const AdminNotifications = () => {
   };
 
   const unreadCount = notifications.filter(n => !n.is_read).length;
+
+  const filteredNotifications = notifications.filter(n => {
+  const matchesSearch = n.message?.toLowerCase().includes(search.toLowerCase());
+  const matchesFilter =
+    filter === 'All' ? true :
+    filter === 'Unread' ? !n.is_read :
+    n.is_read;
+  return matchesSearch && matchesFilter;
+});
 
   return (
     <div className="flex flex-col h-screen bg-gray-50">
@@ -164,19 +189,66 @@ const AdminNotifications = () => {
           isSidebarCollapsed={state.isSidebarCollapsed}
           onToggleSidebar={() => dispatch({ type: "TOGGLE_SIDEBAR" })}
           menuItems={ADMIN_MENU_ITEMS}
+          onLogout={() => {                          // ADD THIS
+            localStorage.removeItem("authToken");
+            localStorage.removeItem("user");
+            sessionStorage.removeItem("authToken");
+            sessionStorage.removeItem("user");
+            navigate("/loginpage", { replace: true });
+          }}
         />
         <main className="flex-1 p-4 md:p-6 lg:p-8 bg-white/95 overflow-y-auto">
           <h2 className="text-2xl md:text-3xl font-extrabold text-gray-900 border-b mb-4 pb-3">
             Notifications
           </h2>
+
+          {/* ── Search + Filter ────────────────────────────────────────────── */}
+          <div className="flex items-center gap-2 mb-4">
+            <div className="relative flex-1">
+              <svg
+                className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none"
+                fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}
+              >
+                <path strokeLinecap="round" strokeLinejoin="round"
+                  d="M21 21l-4.35-4.35M17 11A6 6 0 1 1 5 11a6 6 0 0 1 12 0z" />
+              </svg>
+              <input
+                type="text"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="Search notifications…"
+                className="w-full pl-9 pr-9 py-2.5 text-sm rounded-lg border border-gray-200 bg-white shadow-sm
+                  focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent
+                  placeholder:text-gray-400 transition"
+              />
+              {search && (
+                <button
+                  onClick={() => setSearch('')}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition"
+                  aria-label="Clear search"
+                >
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              )}
+            </div>
+            <FilterToggle active={filter} onChange={setFilter} />
+          </div>
+          {/* ──────────────────────────────────────────────────────────────── */}
+
           <div className="bg-white rounded-lg shadow border border-gray-200">
             {loading ? (
               <div className="p-6 text-center text-gray-500">Loading...</div>
-            ) : notifications.length === 0 ? (
-              <div className="p-6 text-center text-gray-500">No notifications found.</div>
+            ) : filteredNotifications.length === 0 ? (
+              <div className="p-6 text-center text-gray-500">
+                {search || filter !== 'all'
+                  ? 'No notifications match your filter.'
+                  : 'No notifications found.'}
+              </div>
             ) : (
               <ul className="divide-y divide-gray-100">
-                {notifications.map((notif) => (
+                {filteredNotifications.map((notif) => (
                   <li
                     key={notif.id}
                     onClick={() => handleClick(notif)}
@@ -212,4 +284,5 @@ const AdminNotifications = () => {
     </div>
   );
 };
+
 export default AdminNotifications;

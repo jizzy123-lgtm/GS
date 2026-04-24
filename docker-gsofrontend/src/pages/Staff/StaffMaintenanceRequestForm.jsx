@@ -1,5 +1,5 @@
 import { useState, useEffect, useReducer, useRef } from "react";
-import { useNavigate, useParams, NavLink } from "react-router-dom";
+import { useNavigate, useParams, NavLink, useLocation } from "react-router-dom";
 import Icon from "../../components/Icon";
 import { StaffSidebar, MENU_ITEMS } from "../../components/StaffSidebar"; 
 
@@ -18,6 +18,7 @@ const sidebarReducer = (state, action) => {
 const StaffMaintenanceRequestForm = () => {
   const navigate = useNavigate();
   const { id } = useParams();
+  const location = useLocation();
   const [state, dispatch] = useReducer(sidebarReducer, {
     isMobileMenuOpen: false,
   });
@@ -232,7 +233,17 @@ const StaffMaintenanceRequestForm = () => {
         requestDetails &&
         (requestDetails.approved_by_2 !== null && requestDetails.approved_by_2 !== undefined)
       ) {
-        // Use  -priority endpoint
+        if (!priority_number) {
+          setError("Priority number is required.");
+          setIsLoading(false);
+          return;
+        }
+        if (!verifiedById) {
+          setError("Verified by is required.");
+          setIsLoading(false);
+          return;
+        }
+
         const endpoint = `${API_BASE_URL}/maintenance-requests/${id}/assign-priority`;
         const payload = {
           priority_number,
@@ -251,6 +262,7 @@ const StaffMaintenanceRequestForm = () => {
           body: JSON.stringify(payload),
         });
         const data = await response.json();
+        console.log("assign-priority response:", data); // para makita ang backend error
         if (!response.ok) throw new Error(data.message || "Assign priority failed");
 
         // After assigning priority, process "Mark as" if selected
@@ -416,7 +428,7 @@ const handleMarkOnhold = async () => {
             ))}
           </nav>
           <div className="text-center py-2 text-xs text-gray-400 border-t border-gray-700">
-            Created By Bantilan & Friends
+            Created By Exverter
           </div>
         </div>
       </header>
@@ -709,10 +721,10 @@ const handleMarkOnhold = async () => {
                   <div className="text-center pt-4">
                     <button
                       type="button"
-                      onClick={() => navigate("/staffsliprequests")}
+                      onClick={() => navigate(location.state?.from || "/staffsliprequests")}
                       className="text-gray-600 hover:text-gray-800 font-semibold underline"
                     >
-                      Back to Requests
+                      {location.state?.from === '/staffnotifications' ? 'Back to Notifications' : 'Back to Requests'}
                     </button>
                   </div>
                 </form>

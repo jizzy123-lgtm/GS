@@ -143,7 +143,11 @@ const HeadRequests = () => {
       setLoading(true);
       try {
         const res = await fetch(`${API_BASE_URL}/maintenance-requests/list-with-details`, {
-          headers: { Authorization: `Bearer ${token}` },
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          }
+
         });
         const data = await res.json();
         setRequests(Array.isArray(data) ? data : (Array.isArray(data.data) ? data.data : []));
@@ -180,11 +184,7 @@ const HeadRequests = () => {
   // Dynamic tab logic based on backend statuses
   const filtered = requests.filter((r) => {
     if (selectedTab === "Pending") {
-      return (
-        (r.status === "Pending") &&
-        r.verified_by !== null && r.verified_by !== undefined &&
-        (r.approved_by_1 === null || r.approved_by_1 === undefined)
-      );
+      return r.status === "Pending";
     }
     if (selectedTab.toLowerCase() === "urgent") {
       return (
@@ -241,7 +241,7 @@ const HeadRequests = () => {
             ))}
           </nav>
           <div className="text-center py-2 text-xs text-gray-400 border-t border-gray-700">
-            Created By Bantilan & Friends
+            Created By Exverter
           </div>
         </div>
       </header>

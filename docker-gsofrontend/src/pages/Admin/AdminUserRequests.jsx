@@ -43,17 +43,15 @@ const Header = memo(({
   });
 
   return (
-    <header className="bg-gradient-to-r from-blue-900 to-indigo-900 text-white p-4 flex justify-between items-center relative shadow-md">
+    <header className="bg-black text-white p-4 flex justify-between items-center relative">
       <div className="flex items-center">
-        <span className="text-xl md:text-2xl font-extrabold tracking-tight">
-          ManageIT
-        </span>
+        <span className="text-xl md:text-2xl font-extrabold tracking-tight">ManageIT</span>
       </div>
       
       <div className="flex items-center gap-4">
         <div className="hidden md:flex items-center gap-3">
           <div className="flex items-center text-sm">
-            <span className="hidden lg:inline">Admin </span>
+            <div className="text-xl font-bold text-white">Admin</div>
           </div>
         </div>
         

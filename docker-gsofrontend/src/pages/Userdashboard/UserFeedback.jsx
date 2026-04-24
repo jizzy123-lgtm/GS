@@ -302,7 +302,7 @@ const UserFeedback = () => {
     console.log("Submitting feedback payload:", payload);
 
     try {
-      const response = await fetch(`${API_BASE_URL}/feedback`, {
+      const response = await fetch(`${API_BASE_URL}/maintenance-requests/${id}/feedback`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

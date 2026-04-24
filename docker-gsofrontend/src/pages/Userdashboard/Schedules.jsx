@@ -88,7 +88,7 @@ const Header = memo(({
           ))}
         </nav>
         <div className="text-center py-2 text-xs text-gray-400 border-t border-gray-700">
-          Created By Bantilan & Friends
+          Created By Exverter
         </div>
       </div>
     </header>
@@ -379,6 +379,27 @@ const Schedules = () => {
     isMobileMenuOpen: false
   });
 
+  const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
+
+  const handleLogout = async () => {
+    try {
+      const token = localStorage.getItem("authToken") || sessionStorage.getItem("authToken");
+      if (!token) throw new Error("No token found");
+      await fetch(`${API_BASE_URL}/logout`, {
+        method: "POST",
+        headers: { "Accept": "application/json", "Authorization": `Bearer ${token}` },
+        mode: "cors",
+      });
+      localStorage.removeItem("authToken");
+      localStorage.removeItem("user");
+      sessionStorage.removeItem("authToken");
+      sessionStorage.removeItem("user");
+      navigate("/loginpage", { replace: true });
+    } catch (err) {
+      console.error(err.message || "An error occurred during logout");
+    }
+  };
+
   const handleNavigation = useCallback((item) => {
     if (item === 'Maintenance') navigate('/maintenance');
   }, [navigate]);
@@ -396,6 +417,7 @@ const Schedules = () => {
           isSidebarCollapsed={state.isSidebarCollapsed}
           onToggleSidebar={() => dispatch({ type: 'TOGGLE_SIDEBAR' })}
           menuItems={MENU_ITEMS}
+          onLogout={handleLogout}   // ← add this
           title="USER"
         />
         

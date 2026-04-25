@@ -65,7 +65,8 @@ function buildCalendarCells(viewDate) {
   return cells;
 }
 
-export default function AssignScheduleScreen({ user, request, onBack, onSuccess }) {
+export default function AssignScheduleScreen(props) {
+  const { user, request, requestId, onBack, onSuccess } = props;
   const [approvedRequests, setApprovedRequests] = useState([]);
   const [selectedRequest, setSelectedRequest] = useState(request || null);
   const [loading, setLoading] = useState(!request);
@@ -81,7 +82,13 @@ export default function AssignScheduleScreen({ user, request, onBack, onSuccess 
   const [notes, setNotes] = useState("");
   const [summaryImageUrls, setSummaryImageUrls] = useState(() => normalizeImageUrls(request?.image_urls));
   const roleId = normalizeRoleId(user?.role_id);
-  const selectedRequestId = getRequestId(selectedRequest);
+  const routeRequestId =
+    requestId == null || requestId === ""
+      ? null
+      : Number.isFinite(Number(requestId))
+        ? Number(requestId)
+        : requestId;
+  const selectedRequestId = getRequestId(selectedRequest) || routeRequestId;
 
   const fetchApproved = useCallback(async () => {
     setLoading(true);
@@ -97,29 +104,40 @@ export default function AssignScheduleScreen({ user, request, onBack, onSuccess 
       const tMap = {};
       tList.forEach(t => { tMap[t.id] = getMaintenanceTypeLabel(t); });
 
-      setApprovedRequests(
-        all
-          .filter((requestItem) => isReadyForScheduling(requestItem) && !requestItem.scheduled_date)
-          .map((requestItem) => {
-            const normalizedId = getRequestId(requestItem);
-            if (!normalizedId) return null;
+      const nextApprovedRequests = all
+        .filter((requestItem) => isReadyForScheduling(requestItem) && !requestItem.scheduled_date)
+        .map((requestItem) => {
+          const normalizedId = getRequestId(requestItem);
+          if (!normalizedId) return null;
 
-            return {
-              ...requestItem,
-              id: normalizedId,
-              request_id: normalizedId,
-              maintenance_type_name:
-                tMap[requestItem.maintenance_type_id] ||
-                getMaintenanceTypeLabel(requestItem.maintenance_type) ||
-                requestItem.maintenance_type ||
-                requestItem.type,
-            };
-          })
-          .filter(Boolean)
-      );
+          return {
+            ...requestItem,
+            id: normalizedId,
+            request_id: normalizedId,
+            maintenance_type_name:
+              tMap[requestItem.maintenance_type_id] ||
+              getMaintenanceTypeLabel(requestItem.maintenance_type) ||
+              requestItem.maintenance_type ||
+              requestItem.type,
+          };
+        })
+        .filter(Boolean);
+
+      setApprovedRequests(nextApprovedRequests);
+
+      if (!request && routeRequestId) {
+        const matchedRequest = nextApprovedRequests.find(
+          (requestItem) => String(getRequestId(requestItem)) === String(routeRequestId)
+        );
+
+        if (matchedRequest) {
+          setSelectedRequest(matchedRequest);
+          setPriority(matchedRequest.priority || "medium");
+        }
+      }
     } catch (_e) { setApprovedRequests([]); }
     finally { setLoading(false); }
-  }, []);
+  }, [request, routeRequestId]);
 
   useEffect(() => { if (!request) fetchApproved(); }, [request, fetchApproved]);
   useEffect(() => {

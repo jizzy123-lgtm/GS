@@ -1,6 +1,6 @@
 import * as Location from "expo-location";
 
-const DEFAULT_TIMEOUT_MS = 3500;
+const DEFAULT_TIMEOUT_MS = 5000; // Increased to 5s to accommodate retries
 
 const withTimeout = (promise, timeoutMs) =>
   Promise.race([
@@ -25,16 +25,40 @@ const formatAddress = (place) => {
   return [...new Set(parts)].join(", ");
 };
 
-const readCoords = async () => {
-  let position = await Location.getLastKnownPositionAsync();
+const isValidCoords = (lat, lng) => {
+  const latitude = Number(lat);
+  const longitude = Number(lng);
+  if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) return false;
+  if (latitude < -90 || latitude > 90) return false;
+  if (longitude < -180 || longitude > 180) return false;
+  if (latitude === 0 && longitude === 0) return false; // Ignore default/error fix
+  return true;
+};
 
-  if (!position?.coords) {
-    position = await Location.getCurrentPositionAsync({
-      accuracy: Location.Accuracy.Balanced,
-    });
+const readCoords = async (maxRetries = 2) => {
+  for (let i = 0; i <= maxRetries; i++) {
+    try {
+      let position = await Location.getLastKnownPositionAsync();
+
+      if (!position?.coords || !isValidCoords(position.coords.latitude, position.coords.longitude)) {
+        position = await Location.getCurrentPositionAsync({
+          accuracy: Location.Accuracy.Balanced,
+        });
+      }
+
+      if (position?.coords && isValidCoords(position.coords.latitude, position.coords.longitude)) {
+        return position.coords;
+      }
+    } catch (e) {
+      // Ignore and allow loop to retry
+    }
+
+    if (i < maxRetries) {
+      await new Promise(r => setTimeout(r, 800)); // Delay between retries
+    }
   }
 
-  return position?.coords || null;
+  return null;
 };
 
 async function loadLoginLocationInternal() {
@@ -46,7 +70,8 @@ async function loadLoginLocationInternal() {
 
   const latitude = Number(coords.latitude);
   const longitude = Number(coords.longitude);
-  if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) return {};
+  
+  if (!isValidCoords(latitude, longitude)) return {};
 
   let address = "";
   try {

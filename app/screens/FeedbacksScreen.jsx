@@ -162,7 +162,8 @@ const sortByDateDescending = (list) =>
     return (Number.isNaN(tb) ? -Infinity : tb) - (Number.isNaN(ta) ? -Infinity : ta);
   });
 
-export default function FeedbacksScreen({ onBack }) {
+export default function FeedbacksScreen(props) {
+  const { onBack } = props;
   const [requests, setRequests] = useState([]);
   const [feedbackByRequestId, setFeedbackByRequestId] = useState({});
   const [selectedRequestId, setSelectedRequestId] = useState(null);

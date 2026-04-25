@@ -31,6 +31,7 @@ import {
 } from "../../utils/maintenanceRequests";
 import { getRoleLabel, normalizeRoleId, ROLE_IDS } from "../constants/roles";
 import ScreenHeader from "./ScreenHeader";
+import AIAssistantBot from "../components/AIAssistantBot";
 
 const C = {
   navy: "#0B1F3A",
@@ -906,6 +907,7 @@ export default function SubmitRequestScreen({ user, onBack, onSuccess }) {
           )}
         </View>
       </ScrollView>
+      {!submitted && <AIAssistantBot formData={{ title: selectedTypeName, location, details: description }} />}
     </KeyboardAvoidingView>
   );
 }

@@ -1,5 +1,5 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import {
   ActivityIndicator, RefreshControl,
   ScrollView,
@@ -82,7 +82,7 @@ export default function DashboardScreen({ user, onLogout, onNavigate }) {
   const insets = useSafeAreaInsets();
   const roleId = normalizeRoleId(user?.role_id);
 
-  const fetchDashboard = async () => {
+  const fetchDashboard = useCallback(async () => {
     try {
       const token = await AsyncStorage.getItem("authToken") || await AsyncStorage.getItem("token");
       const headers = { Authorization: `Bearer ${token}`, Accept: "application/json" };
@@ -161,9 +161,9 @@ export default function DashboardScreen({ user, onLogout, onNavigate }) {
       });
     } catch (_e) { setStats({ total: 0, pending: 0, approved: 0, completed: 0, disapproved: 0, cancelled: 0 }); }
     finally { setLoading(false); setRefreshing(false); }
-  };
+  }, [roleId, types, user]);
 
-  useEffect(() => { fetchDashboard(); }, []);
+  useEffect(() => { fetchDashboard(); }, [fetchDashboard]);
   const onRefresh = () => { setRefreshing(true); fetchDashboard(); };
   const handleLogout = async () => {
     await AsyncStorage.removeItem("authToken");

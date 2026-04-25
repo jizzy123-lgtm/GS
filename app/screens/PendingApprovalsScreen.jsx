@@ -38,23 +38,6 @@ function getStatus(user) {
     return STATUS[s] || STATUS.pending;
 }
 
-const OFFICES = [
-    { id: 1, label: "College of Engineering" },
-    { id: 2, label: "College of Maritime Education" },
-    { id: 3, label: "College of Nursing and Allied Health Sciences" },
-    { id: 4, label: "School of Midwifery" },
-    { id: 5, label: "College of Teacher Education" },
-    { id: 6, label: "College of Business Administration" },
-    { id: 7, label: "College of Computer Studies" },
-    { id: 8, label: "College of Liberal Arts Mathematics and Sciences" },
-    { id: 9, label: "General Service Office" },
-];
-
-const POSITIONS = [
-    { id: 1, label: "Faculty" },
-    { id: 2, label: "Staff" },
-];
-
 export default function PendingApprovalsScreen({ user, onBack }) {
     const [accounts, setAccounts] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -86,11 +69,18 @@ export default function PendingApprovalsScreen({ user, onBack }) {
     useEffect(() => { fetchAccounts(); }, []);
     const onRefresh = () => { setRefreshing(true); fetchAccounts(); };
 
-    const filtered = filter === "All"
+    const filtered = [...(filter === "All"
         ? accounts
         : accounts.filter(a => {
             const s = a?.account_status?.toLowerCase() || a?.status?.toLowerCase() || "pending";
             return s === filter.toLowerCase();
+        }))].sort((a, b) => {
+            const timeA = Date.parse(a?.created_at || "");
+            const timeB = Date.parse(b?.created_at || "");
+            if (!Number.isNaN(timeA) && !Number.isNaN(timeB) && timeA !== timeB) {
+                return timeB - timeA;
+            }
+            return Number(b?.id || 0) - Number(a?.id || 0);
         });
 
     const doAction = async (id, action, reason = "") => {
@@ -139,12 +129,9 @@ export default function PendingApprovalsScreen({ user, onBack }) {
             ? `${selected.first_name} ${selected.last_name || ""}`.trim()
             : selected?.name || "Unknown User";
 
-        const officeLabel = OFFICES.find(o => o.id === selected?.office_id)?.label
-            || selected?.office?.name || selected?.office_name || selected?.office;
-        const positionLabel = POSITIONS.find(p => p.id === selected?.position_id)?.label
-            || selected?.position?.name || selected?.position_name || selected?.position;
-        const roleLabel = getRoleLabel(normalizeRoleId(selected?.role_id), "")
-            || selected?.role?.name || selected?.role_name || selected?.role || "User";
+        const officeLabel = selected?.office || selected?.office_name || "Not specified";
+        const positionLabel = selected?.position || selected?.position_name || "Not specified";
+        const roleLabel = selected?.role || selected?.role_name || getRoleLabel(normalizeRoleId(selected?.role_id), "User");
 
         return (
             <View style={{ flex: 1, backgroundColor: C.bg }}>
@@ -225,7 +212,7 @@ export default function PendingApprovalsScreen({ user, onBack }) {
                                 </TouchableOpacity>
                                 <TouchableOpacity
                                     style={[styles.approveBtn, actionLoading && { opacity: 0.6 }]}
-                                    onPress={() => doAction(selected.id, "approve")}
+                                    onPress={() => doAction(selected.user_id || selected.id, "approve")}
                                     disabled={actionLoading}
                                 >
                                     {actionLoading ? <ActivityIndicator color="#fff" size="small" /> : (
@@ -268,7 +255,7 @@ export default function PendingApprovalsScreen({ user, onBack }) {
                                         const r = rejectionReason;
                                         setIsRejectModalVisible(false);
                                         setRejectionReason("");
-                                        doAction(selected.id, "reject", r);
+                                        doAction(selected.user_id || selected.id, "reject", r);
                                     }}
                                 >
                                     <Text style={styles.modalSubmitText}>Reject and Send</Text>

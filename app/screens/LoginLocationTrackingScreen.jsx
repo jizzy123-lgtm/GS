@@ -9,6 +9,7 @@ import {
   TouchableOpacity,
   View,
   Platform,
+  Linking,
 } from "react-native";
 import { Ionicons } from '@expo/vector-icons';
 import ScreenHeader from "./ScreenHeader";
@@ -42,7 +43,7 @@ const C = {
   infoBg: "#DBEAFE",
 };
 
-const ELIGIBLE_ROLE_LABELS = ["Head", "Staff", "Campus Director"];
+const ELIGIBLE_ROLE_LABELS = ["Requester", "Head", "Staff", "Campus Director"];
 
 const sortLogsNewestFirst = (items = []) =>
   [...items].sort((a, b) => {
@@ -84,6 +85,12 @@ const formatRelativeTime = (value) => {
   return formatDateTime(value);
 };
 
+const handleOpenMap = (lat, lng) => {
+  if (!Number.isFinite(Number(lat)) || !Number.isFinite(Number(lng))) return;
+  const url = `https://www.google.com/maps/search/?api=1&query=${lat},${lng}`;
+  Linking.openURL(url).catch(() => {});
+};
+
 const formatCoordinates = (latitude, longitude) => {
   const lat = Number(latitude);
   const lng = Number(longitude);
@@ -95,6 +102,7 @@ const getRoleTone = (roleId) => {
   if (roleId === ROLE_IDS.HEAD) return { color: C.info, bg: C.infoBg };
   if (roleId === ROLE_IDS.STAFF) return { color: C.success, bg: C.successBg };
   if (roleId === ROLE_IDS.CAMPUS_DIRECTOR) return { color: C.warn, bg: C.warnBg };
+  if (roleId === ROLE_IDS.REQUESTER) return { color: '#8B5CF6', bg: '#EDE9FE' }; // Purple for requesters
   return { color: C.textMute, bg: C.surfaceAlt };
 };
 
@@ -317,9 +325,17 @@ export default function LoginLocationTrackingScreen({ user, onBack }) {
                         </View>
                         <View style={{ flex: 1, paddingLeft: 10 }}>
                           <Text style={styles.dataLabel}>LOCATION ADDRESS</Text>
-                          <Text style={[styles.dataValue, !logItem.address && styles.dataValueEmpty]} numberOfLines={2}>
-                            {logItem.address || "Address unresolved"}
-                          </Text>
+                          {hasLocation ? (
+                            <TouchableOpacity onPress={() => handleOpenMap(logItem.latitude, logItem.longitude)} activeOpacity={0.6}>
+                              <Text style={[styles.dataValue, { color: C.info, textDecorationLine: 'underline' }]} numberOfLines={2}>
+                                {logItem.address || "Address unresolved"}
+                              </Text>
+                            </TouchableOpacity>
+                          ) : (
+                            <Text style={[styles.dataValue, !logItem.address && styles.dataValueEmpty]} numberOfLines={2}>
+                              {logItem.address || "Address unresolved"}
+                            </Text>
+                          )}
                         </View>
                       </View>
 

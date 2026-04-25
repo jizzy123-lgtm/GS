@@ -26,6 +26,13 @@ export default function ProfileScreen({ user, onBack, onUpdateUser }) {
 
   const handleSave = async () => {
     setError(""); setSuccess(false);
+    
+    const trimmedEmail = form.email.trim();
+    if (trimmedEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmedEmail)) {
+      setError("Please enter a valid email address.");
+      return;
+    }
+
     if (!form.first_name.trim()) { setError("First name required."); return; }
     if (!form.last_name.trim()) { setError("Last name required."); return; }
     setLoading(true);
@@ -82,7 +89,7 @@ export default function ProfileScreen({ user, onBack, onUpdateUser }) {
               <InfoRow label="First Name" value={user?.first_name} />
               <InfoRow label="Last Name" value={user?.last_name} />
               <InfoRow label="Middle Initial" value={user?.middle_initial} />
-              <InfoRow label="Email" value={user?.email} />
+              <InfoRow label="Email (Notifications)" value={user?.email} />
               <InfoRow label="Contact" value={user?.contact_number} />
               <InfoRow label="Department" value={user?.department} last />
             </View>
@@ -101,8 +108,11 @@ export default function ProfileScreen({ user, onBack, onUpdateUser }) {
               </View>
               <Text style={styles.label}>Middle Initial</Text>
               <TextInput style={styles.input} value={form.middle_initial} onChangeText={v => set("middle_initial", v)} maxLength={2} />
-              <Text style={styles.label}>Email</Text>
+              <Text style={styles.label}>Email Address (for notifications)</Text>
               <TextInput style={styles.input} value={form.email} onChangeText={v => set("email", v)} keyboardType="email-address" autoCapitalize="none" />
+              <View style={[styles.hintBox, { marginBottom: 10, marginTop: -6 }]}>
+                <Text style={styles.hintText}>Your email will be used to receive important updates about your maintenance requests.</Text>
+              </View>
               <Text style={styles.label}>Contact Number</Text>
               <TextInput style={styles.input} value={form.contact_number} onChangeText={v => set("contact_number", v)} keyboardType="phone-pad" />
               <Text style={styles.label}>Department / Office</Text>
@@ -152,6 +162,8 @@ const styles = StyleSheet.create({
   errorText: { color: "#9B1C1C", fontSize: 13, fontWeight: "600" },
   successBox: { backgroundColor: "#EAF6EF", borderLeftWidth: 4, borderLeftColor: "#1A7A4A", borderRadius: 10, padding: 12, marginBottom: 10 },
   successText: { color: "#1A7A4A", fontSize: 13, fontWeight: "600" },
+  hintBox: { backgroundColor: "#EEF2FF", borderLeftWidth: 4, borderLeftColor: "#1E4D8C", borderRadius: 8, padding: 10 },
+  hintText: { color: "#1E4D8C", fontSize: 11, lineHeight: 17 },
   card: { backgroundColor: "#fff", borderRadius: 12, padding: 16, marginBottom: 12, borderWidth: 1, borderColor: "#DDE3EC", elevation: 2 },
   cardHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 12 },
   cardTitle: { fontSize: 11, fontWeight: "800", color: "#0B1F3A", textTransform: "uppercase", letterSpacing: 1, marginBottom: 12 },

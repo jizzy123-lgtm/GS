@@ -38,11 +38,8 @@ function getStatus(user) {
     return STATUS[s] || STATUS.pending;
 }
 
-
 export default function PendingApprovalsScreen({ user, onBack }) {
     const [accounts, setAccounts] = useState([]);
-    const [offices, setOffices] = useState([]);
-    const [positions, setPositions] = useState([]);
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
     const [filter, setFilter] = useState("All");
@@ -55,20 +52,11 @@ export default function PendingApprovalsScreen({ user, onBack }) {
     const fetchAccounts = async () => {
         try {
             const token = await AsyncStorage.getItem("authToken") || await AsyncStorage.getItem("token");
-            const headers = { Authorization: `Bearer ${token}`, Accept: "application/json" };
-            const [usersRes, commonRes] = await Promise.all([
-                fetch(`${API_URL}/users-list`, { headers }),
-                fetch(`${API_URL}/common-datas`, { headers }),
-            ]);
-            const data = await usersRes.json();
+            const res = await fetch(`${API_URL}/users-list`, {
+                headers: { Authorization: `Bearer ${token}`, Accept: "application/json" },
+            });
+            const data = await res.json();
             setAccounts(Array.isArray(data) ? data : data.data || []);
-            if (commonRes.ok) {
-                const common = await commonRes.json();
-                const officeList = common?.offices || common?.data?.offices || [];
-                const positionList = common?.positions || common?.data?.positions || [];
-                setOffices(officeList.map(o => ({ id: Number(o.id), label: o.name || o.office_name || "" })));
-                setPositions(positionList.map(p => ({ id: Number(p.id), label: p.name || p.position_name || "" })));
-            }
         } catch (e) {
             console.error("fetchAccounts error:", e.name === "TimeoutError" ? "Request timed out" : e.message);
             setAccounts([]);
@@ -81,11 +69,18 @@ export default function PendingApprovalsScreen({ user, onBack }) {
     useEffect(() => { fetchAccounts(); }, []);
     const onRefresh = () => { setRefreshing(true); fetchAccounts(); };
 
-    const filtered = filter === "All"
+    const filtered = [...(filter === "All"
         ? accounts
         : accounts.filter(a => {
             const s = a?.account_status?.toLowerCase() || a?.status?.toLowerCase() || "pending";
             return s === filter.toLowerCase();
+        }))].sort((a, b) => {
+            const timeA = Date.parse(a?.created_at || "");
+            const timeB = Date.parse(b?.created_at || "");
+            if (!Number.isNaN(timeA) && !Number.isNaN(timeB) && timeA !== timeB) {
+                return timeB - timeA;
+            }
+            return Number(b?.id || 0) - Number(a?.id || 0);
         });
 
     const doAction = async (id, action, reason = "") => {
@@ -134,12 +129,9 @@ export default function PendingApprovalsScreen({ user, onBack }) {
             ? `${selected.first_name} ${selected.last_name || ""}`.trim()
             : selected?.name || "Unknown User";
 
-        const officeLabel = offices.find(o => o.id === Number(selected?.office_id))?.label
-            || selected?.office?.name || selected?.office_name || selected?.office;
-        const positionLabel = positions.find(p => p.id === Number(selected?.position_id))?.label
-            || selected?.position?.name || selected?.position_name || selected?.position;
-        const roleLabel = getRoleLabel(normalizeRoleId(selected?.role_id), "")
-            || selected?.role?.name || selected?.role_name || selected?.role || "User";
+        const officeLabel = selected?.office || selected?.office_name || "Not specified";
+        const positionLabel = selected?.position || selected?.position_name || "Not specified";
+        const roleLabel = selected?.role || selected?.role_name || getRoleLabel(normalizeRoleId(selected?.role_id), "User");
 
         return (
             <View style={{ flex: 1, backgroundColor: C.bg }}>

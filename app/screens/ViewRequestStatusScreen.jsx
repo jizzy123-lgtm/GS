@@ -1,5 +1,5 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import {
   ActivityIndicator, RefreshControl,
   ScrollView,
@@ -11,6 +11,9 @@ import {
 import ScreenHeader from "./ScreenHeader";
 import { MAINTENANCE_STATUS, normalizeMaintenanceStatus } from "../constants/maintenanceStatus";
 import { normalizeRoleId, ROLE_IDS } from "../constants/roles";
+import AttachedImagesSection from "../components/AttachedImagesSection";
+import { normalizeImageUrls } from "../../utils/imageAttachments";
+import { getRequestId, getMaintenanceTypeLabel } from "../../utils/maintenanceRequests";
 
 import { API_URL } from '../../api';
 
@@ -23,11 +26,12 @@ const C = {
 const STATUS = {
   [MAINTENANCE_STATUS.PENDING]: { color: C.warn, bg: C.warnBg, label: "Pending", icon: "P" },
   [MAINTENANCE_STATUS.APPROVED]: { color: C.success, bg: C.successBg, label: "Approved", icon: "A" },
+  [MAINTENANCE_STATUS.SCHEDULED]: { color: C.info, bg: C.infoBg, label: "Scheduled", icon: "S" },
   [MAINTENANCE_STATUS.DISAPPROVED]: { color: C.danger, bg: C.dangerBg, label: "Disapproved", icon: "D" },
   [MAINTENANCE_STATUS.DONE]: { color: C.navy, bg: C.surfaceAlt, label: "Done", icon: "N" },
   [MAINTENANCE_STATUS.CANCELLED]: { color: C.textMute, bg: C.surfaceAlt, label: "Cancelled", icon: "C" },
 };
-const FILTERS = ["All", "Pending", "Approved", "Done", "Disapproved", "Cancelled"];
+const FILTERS = ["All", "Pending", "Approved", "Scheduled", "Done", "Disapproved", "Cancelled"];
 
 const toNumberOrNull = (value) => {
   const n = Number(value);
@@ -69,12 +73,20 @@ const sortRequestsDescending = (list) => {
   return [...list].sort((a, b) => {
     const byDate = getTimestamp(b) - getTimestamp(a);
     if (byDate !== 0) return byDate;
-    return Number(b?.id || 0) - Number(a?.id || 0);
+    return Number(getRequestId(b) || 0) - Number(getRequestId(a) || 0);
   });
 };
 const normalizeRequestScope = (value) => {
   const target = String(value || "").toLowerCase();
   if (target === "all" || target === "my") return target;
+  return null;
+};
+
+const getRoleDetailEndpoint = (roleId, requestId) => {
+  if (!requestId) return null;
+  if (roleId === ROLE_IDS.STAFF) return `${API_URL}/staffpov/${requestId}`;
+  if (roleId === ROLE_IDS.HEAD) return `${API_URL}/headpov/${requestId}`;
+  if (roleId === ROLE_IDS.CAMPUS_DIRECTOR) return `${API_URL}/directorpov/${requestId}`;
   return null;
 };
 
@@ -93,7 +105,7 @@ export default function ViewRequestStatusScreen({ onBack, onNavigate, user, init
   const scope = normalizeRequestScope(requestScope) || (roleId === ROLE_IDS.REQUESTER ? "my" : "all");
   const screenTitle = scope === "all" ? "All Requests" : "My Requests";
 
-  const fetchRequests = async () => {
+  const fetchRequests = useCallback(async () => {
     try {
       const token = await AsyncStorage.getItem("authToken") || await AsyncStorage.getItem("token");
 
@@ -133,16 +145,29 @@ export default function ViewRequestStatusScreen({ onBack, onNavigate, user, init
         const tData = await tRes.json();
         const tList = Array.isArray(tData) ? tData : tData.data || [];
         const tMap = {};
-        tList.forEach(t => tMap[t.id] = t.name || t.type_name);
+        tList.forEach(t => tMap[t.id] = getMaintenanceTypeLabel(t));
         setTypes(tMap);
         currentTypes = tMap;
       }
 
-      const normalizedRequests = reqList.map(r => ({
-        ...r,
-        status: normalizeMaintenanceStatus(r.status, r.status_id),
-        maintenance_type_name: currentTypes[r.maintenance_type_id] || r.maintenance_type?.name || r.maintenance_type || r.type
-      }));
+      const normalizedRequests = reqList
+        .map((requestItem) => {
+          const normalizedId = getRequestId(requestItem);
+          if (!normalizedId) return null;
+
+          return {
+            ...requestItem,
+            id: normalizedId,
+            request_id: normalizedId,
+            status: normalizeMaintenanceStatus(requestItem.status, requestItem.status_id),
+            maintenance_type_name:
+              currentTypes[requestItem.maintenance_type_id] ||
+              getMaintenanceTypeLabel(requestItem.maintenance_type) ||
+              requestItem.maintenance_type ||
+              requestItem.type,
+          };
+        })
+        .filter(Boolean);
 
       const scoped = scope === "my"
         ? normalizedRequests.filter((request) => isRequestOwnedByUser(request, user))
@@ -155,9 +180,9 @@ export default function ViewRequestStatusScreen({ onBack, onNavigate, user, init
       setLoading(false);
       setRefreshing(false);
     }
-  };
+  }, [scope, types, user]);
 
-  useEffect(() => { fetchRequests(); }, []);
+  useEffect(() => { fetchRequests(); }, [fetchRequests]);
   useEffect(() => {
     setActiveFilter(normalizeFilter(initialFilter));
   }, [initialFilter]);
@@ -174,19 +199,25 @@ export default function ViewRequestStatusScreen({ onBack, onNavigate, user, init
 
   useEffect(() => {
     if (!requestId || requests.length === 0) return;
-    const target = requests.find((request) => Number(request.id) === Number(requestId));
+    const target = requests.find((request) => Number(getRequestId(request)) === Number(requestId));
     if (target) setSelected(target);
   }, [requestId, requests]);
 
   const onRefresh = () => { setRefreshing(true); fetchRequests(); };
 
   const cancelRequest = async (request) => {
+    const currentRequestId = getRequestId(request);
+    if (!currentRequestId) {
+      setActionMsg("Unable to cancel request: missing request id.");
+      return;
+    }
+
     setActionLoading(true);
     setActionMsg("");
 
     try {
       const token = await AsyncStorage.getItem("authToken") || await AsyncStorage.getItem("token");
-      const res = await fetch(`${API_URL}/maintenance-requests/${request.id}/cancel`, {
+      const res = await fetch(`${API_URL}/maintenance-requests/${currentRequestId}/cancel`, {
         method: "PUT",
         headers: {
           Authorization: `Bearer ${token}`,
@@ -220,7 +251,7 @@ export default function ViewRequestStatusScreen({ onBack, onNavigate, user, init
       actionMsg={actionMsg}
       onCancel={() => cancelRequest(selected)}
       cancelLoading={actionLoading}
-      onFeedback={() => onNavigate("Feedback", { requestId: selected.id })}
+      onFeedback={() => onNavigate("Feedback", { requestId: getRequestId(selected) })}
     />
   );
 
@@ -263,7 +294,7 @@ export default function ViewRequestStatusScreen({ onBack, onNavigate, user, init
                 const s = STATUS[st] || STATUS[MAINTENANCE_STATUS.PENDING];
                 return (
                   <TouchableOpacity
-                    key={i}
+                    key={req.id || i}
                     style={[styles.card, { borderLeftColor: s.color }]}
                     onPress={() => setSelected(req)}
                     activeOpacity={0.8}
@@ -289,11 +320,47 @@ export default function ViewRequestStatusScreen({ onBack, onNavigate, user, init
 }
 
 function RequestDetail({ request, onBack, user, onFeedback, onCancel, cancelLoading, actionMsg }) {
+  const [imageUrls, setImageUrls] = useState(() => normalizeImageUrls(request?.image_urls));
+  const requestId = getRequestId(request);
+
+  useEffect(() => {
+    setImageUrls(normalizeImageUrls(request?.image_urls));
+  }, [request?.id, request?.image_urls]);
+
+  useEffect(() => {
+    let mounted = true;
+
+    const fetchRoleDetailImages = async () => {
+      const initialUrls = normalizeImageUrls(request?.image_urls);
+      if (initialUrls.length > 0) return;
+
+      const endpoint = getRoleDetailEndpoint(normalizeRoleId(user?.role_id), requestId);
+      if (!endpoint) return;
+
+      try {
+        const token = await AsyncStorage.getItem("authToken") || await AsyncStorage.getItem("token");
+        const res = await fetch(endpoint, {
+          headers: { Authorization: `Bearer ${token}`, Accept: "application/json" },
+        });
+        const data = await res.json();
+        const detail = Array.isArray(data) ? data[0] : data?.data || data;
+        const urls = normalizeImageUrls(detail?.image_urls);
+        if (mounted && urls.length > 0) setImageUrls(urls);
+      } catch (_error) {
+        // Keep default empty attachments on fetch failure.
+      }
+    };
+
+    fetchRoleDetailImages();
+    return () => { mounted = false; };
+  }, [requestId, request?.image_urls, user?.role_id]);
+
   const st = normalizeMaintenanceStatus(request.status, request.status_id);
   const s = STATUS[st] || STATUS[MAINTENANCE_STATUS.PENDING];
   const isDone = st === MAINTENANCE_STATUS.DONE;
   const isPending = st === MAINTENANCE_STATUS.PENDING;
   const isRequester = normalizeRoleId(user?.role_id) === ROLE_IDS.REQUESTER;
+  const hasFeedback = Boolean(request?.has_feedback);
   const canCancel = isRequester && isPending;
   const actionError = /failed|cannot|only|unable|required|missing/i.test(String(actionMsg || ""));
 
@@ -311,7 +378,7 @@ function RequestDetail({ request, onBack, user, onFeedback, onCancel, cancelLoad
             <Text style={[styles.statusBannerText, { color: s.color }]}>{s.icon}  {s.label}</Text>
           </View>
           {[
-            { l: "Request ID", v: `#${request.id}` },
+            { l: "Request ID", v: requestId ? `#${requestId}` : "-" },
             { l: "Maintenance Type", v: request.maintenance_type_name || request.maintenance_type?.name || "Unknown Type" },
             { l: "Priority", v: request.priority_number || request.priority || "Pending priority assignment" },
             { l: "Location", v: request.location },
@@ -329,12 +396,13 @@ function RequestDetail({ request, onBack, user, onFeedback, onCancel, cancelLoad
               <Text style={[styles.detailValue, { color: "#92400e", fontWeight: "700" }]}>{request.remarks}</Text>
             </View>
           )}
+          <AttachedImagesSection imageUrls={imageUrls} />
           {canCancel && (
             <TouchableOpacity style={[styles.feedbackBtn, cancelLoading && { opacity: 0.7 }]} onPress={onCancel} activeOpacity={0.85} disabled={cancelLoading}>
               {cancelLoading ? <ActivityIndicator color="#fff" /> : <Text style={styles.feedbackBtnText}>Cancel Request</Text>}
             </TouchableOpacity>
           )}
-          {isDone && isRequester && (
+          {isDone && isRequester && !hasFeedback && (
             <TouchableOpacity style={styles.feedbackBtn} onPress={onFeedback} activeOpacity={0.85}>
               <Text style={styles.feedbackBtnText}>Leave Feedback</Text>
             </TouchableOpacity>

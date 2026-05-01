@@ -16,6 +16,7 @@ import {
 import { API_URL } from '../api';
 import { normalizeRoleId } from "./constants/roles";
 import { registerForPushNotificationsAsync } from '../hooks/usePushNotifications';
+import { getLoginLocationPayload } from "../utils/loginLocation";
 
 export default function LoginScreen({ onLoginSuccess, onSignUp }) {
   const [username, setUsername] = useState("");
@@ -32,10 +33,11 @@ export default function LoginScreen({ onLoginSuccess, onSignUp }) {
     }
     setLoading(true);
     try {
+      const locationPayload = await getLoginLocationPayload();
       const response = await fetch(`${API_URL}/login`, {
         method: "POST",
         headers: { "Content-Type": "application/json", Accept: "application/json" },
-        body: JSON.stringify({ username, password }),
+        body: JSON.stringify({ username, password, ...locationPayload }),
       });
       const data = await response.json();
       if (response.ok) {

@@ -227,6 +227,11 @@ export default function SignUpScreen({ onBack }) {
     const trimmedContact = form.contact_number.trim();
     const finalRoleId = isCollegeOffice ? REQUESTER_ROLE_ID : form.role_id;
 
+    if (trimmedEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmedEmail)) {
+      setError("Please enter a valid email address.");
+      return;
+    }
+
     if (!trimmedFirst) { setError("First name is required."); return; }
     if (!trimmedLast) { setError("Last name is required."); return; }
     if (!trimmedUser) { setError("Username is required."); return; }
@@ -383,10 +388,15 @@ export default function SignUpScreen({ onBack }) {
                 value={form.username} onChangeText={v => set("username", v)} autoCapitalize="none" />
             </View>
             <View style={styles.half}>
-              <TextInput style={styles.input} placeholder="Email Address" placeholderTextColor="#a0aec0"
+              <TextInput style={styles.input} placeholder="Email Address (for notifications)" placeholderTextColor="#a0aec0"
                 value={form.email} onChangeText={v => set("email", v)}
                 keyboardType="email-address" autoCapitalize="none" />
             </View>
+          </View>
+          <View style={[styles.hintBox, { marginBottom: 16 }]}>
+            <Text style={styles.hintText}>
+              Your email will be used to receive important updates about your maintenance requests.
+            </Text>
           </View>
           <TextInput style={styles.input} placeholder="Contact Number *" placeholderTextColor="#a0aec0"
             value={form.contact_number} onChangeText={v => set("contact_number", v)} keyboardType="phone-pad" maxLength={11} />

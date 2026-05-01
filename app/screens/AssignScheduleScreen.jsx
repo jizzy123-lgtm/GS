@@ -1,30 +1,54 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import {
   ActivityIndicator, KeyboardAvoidingView, Modal, Platform,
-  RefreshControl, ScrollView,
+  ScrollView,
   StyleSheet,
   Text, TextInput, TouchableOpacity,
   View,
 } from "react-native";
+import { normalizeImageUrls } from "../../utils/imageAttachments";
+import { getMaintenanceTypeLabel, getRequestId } from "../../utils/maintenanceRequests";
+import AttachedImagesSection from "../components/AttachedImagesSection";
 import { MAINTENANCE_STATUS, normalizeMaintenanceStatus } from "../constants/maintenanceStatus";
+import { normalizeRoleId, ROLE_IDS } from "../constants/roles";
 import ScreenHeader from "./ScreenHeader";
 
 import { API_URL } from '../../api';
 const C = { navy: "#0B1F3A", steel: "#1E4D8C", gold: "#C9A84C", bg: "#F0F2F5", surface: "#FFFFFF", border: "#DDE3EC", textMute: "#8A9BB0", danger: "#9B1C1C", dangerBg: "#FEE8E8", success: "#1A7A4A", successBg: "#EAF6EF", warn: "#B45C10", warnBg: "#FEF3E2", info: "#155E8A", infoBg: "#E6F2FA" };
-const TIME_SLOTS = [
-  { label: "7:00 AM", value: "07:00" },
-  { label: "8:00 AM", value: "08:00" },
-  { label: "9:00 AM", value: "09:00" },
-  { label: "10:00 AM", value: "10:00" },
-  { label: "11:00 AM", value: "11:00" },
-  { label: "1:00 PM", value: "13:00" },
-  { label: "2:00 PM", value: "14:00" },
-  { label: "3:00 PM", value: "15:00" },
-  { label: "4:00 PM", value: "16:00" },
-];
+const PRIORITIES = [{ key: "low", label: "Low", color: C.success }, { key: "medium", label: "Medium", color: C.warn }, { key: "high", label: "High", color: C.danger }, { key: "urgent", label: "Urgent", color: "#6B21A8" }];
+const TIME_SLOTS = ["07:00", "08:00", "09:00", "10:00", "11:00", "13:00", "14:00", "15:00", "16:00"];
 const MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
 const DAY_LABELS = ["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"];
+
+const getRoleDetailEndpoint = (roleId, requestId) => {
+  if (!requestId) return null;
+  if (roleId === ROLE_IDS.STAFF) return `${API_URL}/staffpov/${requestId}`;
+  if (roleId === ROLE_IDS.HEAD) return `${API_URL}/headpov/${requestId}`;
+  if (roleId === ROLE_IDS.CAMPUS_DIRECTOR) return `${API_URL}/directorpov/${requestId}`;
+  return null;
+};
+
+const hasAny = (...values) => values.some((value) => Boolean(value));
+
+const hasPriorityAssigned = (request) =>
+  Boolean(String(request?.priority_number || request?.priority || "").trim());
+
+const isDirectorApproved = (request) =>
+  hasAny(
+    request?.approved_by_2,
+    request?.approved_by_director,
+    request?.director_approved_by,
+    request?.director_approved_at,
+    request?.approver2,
+    request?.director_approver
+  );
+
+const isReadyForScheduling = (request) => {
+  const status = normalizeMaintenanceStatus(request?.status, request?.status_id);
+  if (status === MAINTENANCE_STATUS.APPROVED) return true;
+  return status === MAINTENANCE_STATUS.PENDING && isDirectorApproved(request) && hasPriorityAssigned(request);
+};
 
 function buildCalendarCells(viewDate) {
   const year = viewDate.getFullYear();
@@ -34,16 +58,15 @@ function buildCalendarCells(viewDate) {
   const today = new Date(); today.setHours(0, 0, 0, 0);
   const cells = [];
   for (let i = 0; i < firstDay; i++) cells.push(null);
-  const pad = n => String(n).padStart(2, "0");
   for (let d = 1; d <= daysInMonth; d++) {
     const cellDate = new Date(year, month, d);
-    const dateStr = `${year}-${pad(month + 1)}-${pad(d)}`;
-    cells.push({ day: d, dateStr, past: cellDate < today });
+    cells.push({ day: d, dateStr: cellDate.toISOString().split("T")[0], past: cellDate < today });
   }
   return cells;
 }
 
-export default function AssignScheduleScreen({ user, request, onBack, onSuccess }) {
+export default function AssignScheduleScreen(props) {
+  const { user, request, requestId, onBack, onSuccess } = props;
   const [approvedRequests, setApprovedRequests] = useState([]);
   const [selectedRequest, setSelectedRequest] = useState(request || null);
   const [loading, setLoading] = useState(!request);
@@ -54,84 +77,122 @@ export default function AssignScheduleScreen({ user, request, onBack, onSuccess 
   const [showCalendar, setShowCalendar] = useState(false);
   const [calendarMonth, setCalendarMonth] = useState(new Date());
   const [scheduledTime, setScheduledTime] = useState("");
-  const [title, setTitle] = useState("Maintenance Schedule");
+  const [assignedStaff, setAssignedStaff] = useState(`${user?.first_name || ""} ${user?.last_name || ""}`.trim());
+  const [priority, setPriority] = useState(request?.priority || "medium");
   const [notes, setNotes] = useState("");
-  const [refreshing, setRefreshing] = useState(false);
+  const [summaryImageUrls, setSummaryImageUrls] = useState(() => normalizeImageUrls(request?.image_urls));
+  const roleId = normalizeRoleId(user?.role_id);
+  const routeRequestId =
+    requestId == null || requestId === ""
+      ? null
+      : Number.isFinite(Number(requestId))
+        ? Number(requestId)
+        : requestId;
+  const selectedRequestId = getRequestId(selectedRequest) || routeRequestId;
 
-  useEffect(() => { if (!request) fetchApproved(); }, []);
-
-  const onRefresh = async () => { setRefreshing(true); await fetchApproved(); setRefreshing(false); };
-
-  const fetchApproved = async () => {
+  const fetchApproved = useCallback(async () => {
     setLoading(true);
     try {
       const token = await AsyncStorage.getItem("authToken") || await AsyncStorage.getItem("token");
-      let res = await fetch(`${API_URL}/maintenance-requests/list-with-details`, { headers: { Authorization: `Bearer ${token}`, Accept: "application/json" } });
-      if (!res.ok) res = await fetch(`${API_URL}/maintenance-requests`, { headers: { Authorization: `Bearer ${token}`, Accept: "application/json" } });
+      const res = await fetch(`${API_URL}/maintenance-requests`, { headers: { Authorization: `Bearer ${token}`, Accept: "application/json" } });
       const data = await res.json();
       const all = Array.isArray(data) ? data : data.data || [];
 
-      const hasDirectorApproval = (r) => Boolean(
-        r?.approved_by_2 || r?.approved_by_director || r?.director_approved_by ||
-        r?.director_approved_at || r?.approver2 || r?.director_approver
-      );
+      const tRes = await fetch(`${API_URL}/maintenance-types`, { headers: { Authorization: `Bearer ${token}` } });
+      const tData = await tRes.json();
+      const tList = Array.isArray(tData) ? tData : tData.data || [];
+      const tMap = {};
+      tList.forEach(t => { tMap[t.id] = getMaintenanceTypeLabel(t); });
 
-      setApprovedRequests(
-        all
-          .filter((r) => {
-            if (r.scheduled_date) return false;
-            const normalized = normalizeMaintenanceStatus(r.status, r.status_id);
-            if (normalized === MAINTENANCE_STATUS.DONE) return false;
-            return normalized === MAINTENANCE_STATUS.APPROVED ||
-              (normalized === MAINTENANCE_STATUS.PENDING && hasDirectorApproval(r));
-          })
-          .map(r => ({
-            ...r,
-            id: r.id || r.request_id,
-            maintenance_type_name: r.maintenance_type?.name || r.maintenance_type || r.type,
-            requesting_office: r.requesting_office,
-            needsPriority: normalizeMaintenanceStatus(r.status, r.status_id) !== MAINTENANCE_STATUS.APPROVED,
-          }))
-      );
+      const nextApprovedRequests = all
+        .filter((requestItem) => isReadyForScheduling(requestItem) && !requestItem.scheduled_date)
+        .map((requestItem) => {
+          const normalizedId = getRequestId(requestItem);
+          if (!normalizedId) return null;
+
+          return {
+            ...requestItem,
+            id: normalizedId,
+            request_id: normalizedId,
+            maintenance_type_name:
+              tMap[requestItem.maintenance_type_id] ||
+              getMaintenanceTypeLabel(requestItem.maintenance_type) ||
+              requestItem.maintenance_type ||
+              requestItem.type,
+          };
+        })
+        .filter(Boolean);
+
+      setApprovedRequests(nextApprovedRequests);
+
+      if (!request && routeRequestId) {
+        const matchedRequest = nextApprovedRequests.find(
+          (requestItem) => String(getRequestId(requestItem)) === String(routeRequestId)
+        );
+
+        if (matchedRequest) {
+          setSelectedRequest(matchedRequest);
+          setPriority(matchedRequest.priority || "medium");
+        }
+      }
     } catch (_e) { setApprovedRequests([]); }
     finally { setLoading(false); }
-  };
+  }, [request, routeRequestId]);
+
+  useEffect(() => { if (!request) fetchApproved(); }, [request, fetchApproved]);
+  useEffect(() => {
+    setSummaryImageUrls(normalizeImageUrls(selectedRequest?.image_urls));
+  }, [selectedRequest?.id, selectedRequest?.request_id, selectedRequest?.image_urls]);
+
+  useEffect(() => {
+    let mounted = true;
+
+    const fetchRoleDetailImages = async () => {
+      if (!selectedRequestId) return;
+      const initialUrls = normalizeImageUrls(selectedRequest?.image_urls);
+      if (initialUrls.length > 0) return;
+
+      const endpoint = getRoleDetailEndpoint(roleId, selectedRequestId);
+      if (!endpoint) return;
+
+      try {
+        const token = await AsyncStorage.getItem("authToken") || await AsyncStorage.getItem("token");
+        const res = await fetch(endpoint, {
+          headers: { Authorization: `Bearer ${token}`, Accept: "application/json" },
+        });
+        const data = await res.json();
+        const detail = Array.isArray(data) ? data[0] : data?.data || data;
+        const urls = normalizeImageUrls(detail?.image_urls);
+        if (mounted && urls.length > 0) setSummaryImageUrls(urls);
+      } catch (_error) {
+        // Keep empty attachments when fallback fetch fails.
+      }
+    };
+
+    fetchRoleDetailImages();
+    return () => { mounted = false; };
+  }, [selectedRequestId, selectedRequest?.image_urls, roleId]);
 
   const handleAssign = async () => {
     setError("");
     if (!selectedRequest) { setError("Please select a request."); return; }
+    if (!selectedRequestId) { setError("Unable to assign schedule: missing request id."); return; }
     if (!scheduledDate.trim()) { setError("Please enter a scheduled date."); return; }
     if (!scheduledTime) { setError("Please select a time slot."); return; }
+    const assignedStaffId = Number(user?.id || user?.user_id || 0);
+    if (!assignedStaffId) { setError("Unable to assign schedule: missing staff user id."); return; }
     setSubmitting(true);
     try {
       const token = await AsyncStorage.getItem("authToken") || await AsyncStorage.getItem("token");
-      const headers = { "Content-Type": "application/json", Accept: "application/json", Authorization: `Bearer ${token}` };
-      const reqId = selectedRequest.id;
-
-      if (selectedRequest.needsPriority) {
-        const typeId = selectedRequest.maintenance_type_id || selectedRequest.maintenance_type?.id;
-        let priorityNumber = "";
-        if (typeId) {
-          const pRes = await fetch(`${API_URL}/generate-priority-number/${typeId}`, { headers });
-          if (pRes.ok) {
-            const pData = await pRes.json();
-            priorityNumber = pData?.priority_number || pData?.data?.priority_number || pData?.number || String(pData || "");
-          }
-        }
-        if (!priorityNumber) priorityNumber = `M-${new Date().getFullYear()}-${reqId}`;
-        await fetch(`${API_URL}/maintenance-requests/${reqId}/assign-priority`, {
-          method: "PUT", headers, body: JSON.stringify({ priority_number: priorityNumber }),
-        });
-      }
-
-      const assignedStaffId = user?.id || user?.user_id;
-      const res = await fetch(`${API_URL}/maintenance-requests/${reqId}/assign-schedule`, {
-        method: "POST", headers,
+      const res = await fetch(`${API_URL}/maintenance-requests/${selectedRequestId}/assign-schedule`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Accept: "application/json", Authorization: `Bearer ${token}` },
         body: JSON.stringify({
           scheduled_date: scheduledDate,
           scheduled_time: scheduledTime,
           assigned_staff: assignedStaffId,
           scheduled_notes: notes,
+          priority,
         }),
       });
       const data = await res.json();
@@ -150,10 +211,10 @@ export default function AssignScheduleScreen({ user, request, onBack, onSuccess 
       <View style={styles.successBadge}><Text style={styles.successBadgeText}>OK</Text></View>
       <Text style={styles.successOrg}>GSU GATEWAY</Text>
       <Text style={styles.successTitle}>Schedule Assigned!</Text>
-      <Text style={styles.successSub}>The requester will be notified of their schedule.</Text>
+      <Text style={styles.successSub}>The request was auto-marked as done and the requester was notified for feedback.</Text>
       <View style={styles.successCard}>
         <Text style={styles.successCardTitle}>Schedule Details</Text>
-        {[["Request", selectedRequest?.maintenance_type_name || selectedRequest?.maintenance_type || selectedRequest?.type], ["Title", title], ["Date", scheduledDate], ["Time", scheduledTime]].map(([l, v], i, arr) => (
+        {[["Request", selectedRequest?.maintenance_type || selectedRequest?.type], ["Date", scheduledDate], ["Time", scheduledTime], ["Staff", assignedStaff], ["Priority", priority]].map(([l, v], i, arr) => (
           <View key={i} style={[styles.dRow, i === arr.length - 1 && { borderBottomWidth: 0 }]}>
             <Text style={styles.dLabel}>{l}</Text>
             <Text style={styles.dValue}>{v || "-"}</Text>
@@ -168,8 +229,8 @@ export default function AssignScheduleScreen({ user, request, onBack, onSuccess 
 
   return (
     <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === "ios" ? "padding" : "height"}>
-      <ScreenHeader title="Assign Schedule" subtitle="Assign schedule for approved requests" onBack={onBack} />
-      <ScrollView style={styles.root} contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled" refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[C.steel]} />}>
+      <ScreenHeader title="Assign Schedule" subtitle="Assign schedule for requests awaiting scheduling" onBack={onBack} />
+      <ScrollView style={styles.root} contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
         <View style={styles.body}>
           {error ? <View style={styles.errorBox}><Text style={styles.errorText}>{error}</Text></View> : null}
 
@@ -177,12 +238,12 @@ export default function AssignScheduleScreen({ user, request, onBack, onSuccess 
             <>
               <SLabel title="Select Request" />
               {loading ? <ActivityIndicator color={C.steel} style={{ marginVertical: 20 }} />
-                : approvedRequests.length === 0 ? <View style={styles.emptyCard}><Text style={styles.emptyText}>No approved requests awaiting schedule.</Text></View>
+                : approvedRequests.length === 0 ? <View style={styles.emptyCard}><Text style={styles.emptyText}>No requests awaiting schedule.</Text></View>
                   : approvedRequests.map((req, i) => (
-                    <TouchableOpacity key={i} style={[styles.reqCard, selectedRequest?.id === req.id && styles.reqCardActive]} onPress={() => setSelectedRequest(req)} activeOpacity={0.8}>
+                    <TouchableOpacity key={req.id || i} style={[styles.reqCard, getRequestId(selectedRequest) === getRequestId(req) && styles.reqCardActive]} onPress={() => { setSelectedRequest(req); setPriority(req.priority || "medium"); }} activeOpacity={0.8}>
                       <View style={styles.reqCardTopRow}>
                         <Text style={styles.reqType} numberOfLines={1}>{req.maintenance_type_name || req.maintenance_type?.name || req.maintenance_type || req.type || "Maintenance Request"}</Text>
-                        {selectedRequest?.id === req.id && <View style={styles.selectedTag}><Text style={styles.selectedTagText}>Selected</Text></View>}
+                        {getRequestId(selectedRequest) === getRequestId(req) && <View style={styles.selectedTag}><Text style={styles.selectedTagText}>Selected</Text></View>}
                       </View>
                       {[
                         ["Location", req.location],
@@ -205,6 +266,7 @@ export default function AssignScheduleScreen({ user, request, onBack, onSuccess 
               <Text style={styles.summaryTitle}>Selected Request</Text>
               <Text style={styles.summaryType}>{selectedRequest.maintenance_type || selectedRequest.type}</Text>
               <Text style={styles.summaryMeta}>{selectedRequest.location} - Priority: {selectedRequest.priority_number || selectedRequest.priority || "Pending"}</Text>
+              <AttachedImagesSection imageUrls={summaryImageUrls} title="Attached Images" />
             </View>
           )}
 
@@ -261,14 +323,23 @@ export default function AssignScheduleScreen({ user, request, onBack, onSuccess 
             </View>
           </Modal>
 
-          <Text style={styles.label}>Title *</Text>
-          <TextInput style={styles.input} placeholder="e.g. Maintenance Schedule" placeholderTextColor="#a0aec0" value={title} onChangeText={setTitle} />
-
           <Text style={styles.label}>Time Slot *</Text>
           <View style={styles.timeGrid}>
             {TIME_SLOTS.map((slot, i) => (
-              <TouchableOpacity key={i} style={[styles.timeBtn, scheduledTime === slot.value && styles.timeBtnActive]} onPress={() => setScheduledTime(slot.value)} activeOpacity={0.8}>
-                <Text style={[styles.timeBtnText, scheduledTime === slot.value && styles.timeBtnTextActive]}>{slot.label}</Text>
+              <TouchableOpacity key={i} style={[styles.timeBtn, scheduledTime === slot && styles.timeBtnActive]} onPress={() => setScheduledTime(slot)} activeOpacity={0.8}>
+                <Text style={[styles.timeBtnText, scheduledTime === slot && styles.timeBtnTextActive]}>{slot}</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+
+          <Text style={styles.label}>Assigned Staff *</Text>
+          <TextInput style={styles.input} placeholder="Staff name" placeholderTextColor="#a0aec0" value={assignedStaff} onChangeText={setAssignedStaff} />
+
+          <SLabel title="Priority Schedule" />
+          <View style={styles.priorityGrid}>
+            {PRIORITIES.map(p => (
+              <TouchableOpacity key={p.key} style={[styles.priorityBtn, priority === p.key && { backgroundColor: p.color, borderColor: p.color }]} onPress={() => setPriority(p.key)} activeOpacity={0.8}>
+                <Text style={[styles.priorityText, priority === p.key && { color: "#fff" }]}>{p.label}</Text>
               </TouchableOpacity>
             ))}
           </View>
@@ -325,6 +396,9 @@ const styles = StyleSheet.create({
   timeBtnActive: { backgroundColor: C.navy, borderColor: C.navy },
   timeBtnText: { fontSize: 12, fontWeight: "700", color: C.textMute },
   timeBtnTextActive: { color: "#fff" },
+  priorityGrid: { flexDirection: "row", gap: 8, flexWrap: "wrap" },
+  priorityBtn: { flex: 1, minWidth: "45%", paddingVertical: 10, borderRadius: 8, alignItems: "center", borderWidth: 1.5, borderColor: C.border, backgroundColor: C.surface },
+  priorityText: { fontSize: 12, fontWeight: "700", color: C.textMute },
   submitBtn: { backgroundColor: C.steel, borderRadius: 10, paddingVertical: 15, alignItems: "center", marginTop: 22, elevation: 4 },
   submitText: { color: "#fff", fontSize: 14, fontWeight: "800", letterSpacing: 2 },
   successBadge: { width: 70, height: 70, borderRadius: 35, backgroundColor: C.navy, borderWidth: 3, borderColor: C.gold, alignItems: "center", justifyContent: "center", marginBottom: 16 },

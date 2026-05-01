@@ -1,5 +1,5 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import {
   ActivityIndicator, RefreshControl,
   ScrollView,
@@ -12,17 +12,32 @@ import {
 import ScreenHeader from "./ScreenHeader";
 import { MAINTENANCE_STATUS, normalizeMaintenanceStatus } from "../constants/maintenanceStatus";
 import { normalizeRoleId, ROLE_IDS } from "../constants/roles";
+import AttachedImagesSection from "../components/AttachedImagesSection";
+import { normalizeImageUrls } from "../../utils/imageAttachments";
+import {
+  extractApiItem,
+  extractApiList,
+  getApiErrorMessage,
+  getAuthHeaders,
+  getAuthToken,
+  getMaintenanceTypeLabel,
+  getRequestId,
+  mergeRequestData,
+  requesterIsHead,
+} from "../../utils/maintenanceRequests";
 
 import { API_URL } from '../../api';
 const C = { navy: "#0B1F3A", steel: "#1E4D8C", gold: "#C9A84C", bg: "#F0F2F5", surface: "#FFFFFF", surfaceAlt: "#F7F9FC", border: "#DDE3EC", textMute: "#8A9BB0", danger: "#9B1C1C", dangerBg: "#FEE8E8", success: "#1A7A4A", successBg: "#EAF6EF", warn: "#B45C10", warnBg: "#FEF3E2", info: "#155E8A", infoBg: "#E6F2FA" };
 const SM = {
   [MAINTENANCE_STATUS.PENDING]: { color: C.warn, bg: C.warnBg, label: "Pending" },
   [MAINTENANCE_STATUS.APPROVED]: { color: C.success, bg: C.successBg, label: "Approved" },
+  [MAINTENANCE_STATUS.SCHEDULED]: { color: C.info, bg: C.infoBg, label: "Scheduled" },
   [MAINTENANCE_STATUS.DONE]: { color: C.navy, bg: C.surfaceAlt, label: "Done" },
   [MAINTENANCE_STATUS.DISAPPROVED]: { color: C.danger, bg: C.dangerBg, label: "Disapproved" },
   [MAINTENANCE_STATUS.CANCELLED]: { color: C.textMute, bg: C.surfaceAlt, label: "Cancelled" },
 };
-const FILTERS = ["All", "Pending", "Approved", "Done", "Disapproved", "Cancelled"];
+const FILTERS = ["All", "Pending", "Approved", "Scheduled", "Done", "Disapproved", "Cancelled"];
+const SCHEDULING_AUTO_COMPLETES_REQUEST = true;
 
 const sortRequestsDescending = (list) => {
   const getTimestamp = (request) => {
@@ -34,41 +49,11 @@ const sortRequestsDescending = (list) => {
   return [...list].sort((a, b) => {
     const byDate = getTimestamp(b) - getTimestamp(a);
     if (byDate !== 0) return byDate;
-    return Number(b?.id || 0) - Number(a?.id || 0);
+    return Number(getRequestId(b) || 0) - Number(getRequestId(a) || 0);
   });
 };
 
 const hasAny = (...values) => values.some((v) => Boolean(v));
-
-const isRoleHeadLike = (value) => {
-  const text = String(value || "").toLowerCase();
-  return text.includes("head") && !text.includes("director");
-};
-
-const requesterIsHead = (request) => {
-  const possibleRoleIds = [
-    request?.requester_role_id,
-    request?.requesting_personnel_role_id,
-    request?.requester?.role_id,
-    request?.requesting_personnel?.role_id,
-    request?.requester?.role?.id,
-    request?.requesting_personnel?.role?.id,
-    request?.user?.role_id,
-    request?.user?.role?.id,
-  ];
-  if (possibleRoleIds.some((value) => Number(value) === ROLE_IDS.HEAD)) return true;
-
-  const possibleRoleLabels = [
-    request?.requester_role_name,
-    request?.requesting_personnel_role_name,
-    request?.requester?.role_name,
-    request?.requester?.role?.role_name,
-    request?.requesting_personnel?.role?.role_name,
-    request?.user?.role_name,
-    request?.user?.role?.role_name,
-  ];
-  return possibleRoleLabels.some((value) => isRoleHeadLike(value));
-};
 
 const isVerifiedByStaff = (request) =>
   hasAny(
@@ -99,6 +84,24 @@ const isDirectorApproved = (request) =>
     request?.director_approver
   );
 
+const hasPriorityAssigned = (request) =>
+  Boolean(String(request?.priority_number || request?.priority || "").trim());
+
+const isReadyForScheduling = (request) => {
+  const status = normalizeMaintenanceStatus(request?.status, request?.status_id);
+  if (status === MAINTENANCE_STATUS.APPROVED) return true;
+  // Fallback when backend keeps request as pending after director approval.
+  return status === MAINTENANCE_STATUS.PENDING && isDirectorApproved(request) && hasPriorityAssigned(request);
+};
+
+const getRoleDetailEndpoint = (roleId, requestId) => {
+  if (!requestId) return null;
+  if (roleId === ROLE_IDS.STAFF) return `${API_URL}/staffpov/${requestId}`;
+  if (roleId === ROLE_IDS.HEAD) return `${API_URL}/headpov/${requestId}`;
+  if (roleId === ROLE_IDS.CAMPUS_DIRECTOR) return `${API_URL}/directorpov/${requestId}`;
+  return null;
+};
+
 export default function ReviewRequestsScreen({ user, onBack, onNavigate }) {
   const [requests, setRequests] = useState([]);
   const [types, setTypes] = useState({});
@@ -114,57 +117,124 @@ export default function ReviewRequestsScreen({ user, onBack, onNavigate }) {
   const [priorityTarget, setPriorityTarget] = useState(null);
   const [priorityNumber, setPriorityNumber] = useState("");
   const [priorityLoading, setPriorityLoading] = useState(false);
+  const [detailImageUrls, setDetailImageUrls] = useState([]);
   const roleId = normalizeRoleId(user?.role_id);
+  const selectedRequestId = getRequestId(selected);
 
-  const fetchRequests = async () => {
+  const fetchRequests = useCallback(async () => {
     try {
-      const token = await AsyncStorage.getItem("authToken") || await AsyncStorage.getItem("token");
-      const ep = "/maintenance-requests";
+      const token = await getAuthToken();
+      const headers = getAuthHeaders(token);
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 45000);
       let res;
+      let data;
       try {
-        res = await fetch(`${API_URL}${ep}`, { headers: { Authorization: `Bearer ${token}`, Accept: "application/json" }, signal: controller.signal });
+        res = await fetch(`${API_URL}/maintenance-requests/list-with-details`, { headers, signal: controller.signal });
+        data = await res.json().catch(() => ({}));
+        if (!res.ok) {
+          res = await fetch(`${API_URL}/maintenance-requests`, { headers, signal: controller.signal });
+          data = await res.json().catch(() => ({}));
+        }
       } finally {
         clearTimeout(timeoutId);
       }
-      const data = await res.json();
-      const reqList = Array.isArray(data) ? data : data.data || [];
+      if (!res.ok) throw new Error(getApiErrorMessage(res.status, data, "Failed to load requests."));
+      const reqList = extractApiList(data);
 
       // Fetch maintenance types if not loaded
       let currentTypes = types;
       if (Object.keys(currentTypes).length === 0) {
-        const tRes = await fetch(`${API_URL}/maintenance-types`, { headers: { Authorization: `Bearer ${token}` } });
-        const tData = await tRes.json();
-        const tList = Array.isArray(tData) ? tData : tData.data || [];
+        const tRes = await fetch(`${API_URL}/maintenance-types`, { headers });
+        const tData = await tRes.json().catch(() => ({}));
+        if (!tRes.ok) throw new Error(getApiErrorMessage(tRes.status, tData, "Failed to load maintenance types."));
+        const tList = extractApiList(tData);
         const tMap = {};
-        tList.forEach(t => tMap[t.id] = t.name || t.type_name);
+        tList.forEach(t => tMap[t.id] = getMaintenanceTypeLabel(t));
         setTypes(tMap);
         currentTypes = tMap;
       }
 
-      setRequests(sortRequestsDescending(reqList.map(r => ({
-        ...r,
-        status: normalizeMaintenanceStatus(r.status, r.status_id),
-        maintenance_type_name: currentTypes[r.maintenance_type_id] || r.maintenance_type?.name || r.maintenance_type || r.type
-      }))));
+      setRequests(
+        sortRequestsDescending(
+          reqList
+            .map((requestItem) => {
+              const normalizedId = getRequestId(requestItem);
+              if (!normalizedId) return null;
+
+              return {
+                ...requestItem,
+                id: normalizedId,
+                request_id: normalizedId,
+                status: normalizeMaintenanceStatus(requestItem.status, requestItem.status_id),
+                maintenance_type_name:
+                  currentTypes[requestItem.maintenance_type_id] ||
+                  getMaintenanceTypeLabel(requestItem.maintenance_type) ||
+                  requestItem.maintenance_type ||
+                  requestItem.type,
+              };
+            })
+            .filter(Boolean)
+        )
+      );
     } catch (_e) { setRequests([]); }
     finally { setLoading(false); setRefreshing(false); }
-  };
+  }, [types]);
 
-  useEffect(() => { fetchRequests(); }, []);
+  useEffect(() => { fetchRequests(); }, [fetchRequests]);
+  useEffect(() => {
+    setDetailImageUrls(normalizeImageUrls(selected?.image_urls));
+  }, [selected?.id, selected?.request_id, selected?.image_urls]);
+  useEffect(() => {
+    let mounted = true;
+
+    const fetchRoleDetail = async () => {
+      if (!selectedRequestId) return;
+
+      const endpoint = getRoleDetailEndpoint(roleId, selectedRequestId);
+      if (!endpoint) return;
+
+      try {
+        const token = await getAuthToken();
+        const res = await fetch(endpoint, {
+          headers: getAuthHeaders(token),
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) return;
+
+        const detail = extractApiItem(data);
+        if (!mounted || !detail) return;
+
+        setSelected((current) => (
+          getRequestId(current) === selectedRequestId
+            ? mergeRequestData(current, detail)
+            : current
+        ));
+
+        const urls = normalizeImageUrls(detail?.image_urls);
+        if (urls.length > 0) setDetailImageUrls(urls);
+      } catch (_error) {
+        // Keep empty attachments when fallback detail fails.
+      }
+    };
+
+    fetchRoleDetail();
+    return () => { mounted = false; };
+  }, [selectedRequestId, roleId]);
+
   const onRefresh = () => { setRefreshing(true); fetchRequests(); };
 
   const getSequentialPendingRequests = (reqs, role) => {
     const pendingReqs = reqs.filter(r => r.status === MAINTENANCE_STATUS.PENDING);
     if (role === ROLE_IDS.STAFF) {
-      return pendingReqs.filter(r => !isVerifiedByStaff(r));
+      // Staff must see all pending states (verify, waiting approvals, and post-director pending items).
+      return pendingReqs;
     }
     if (role === ROLE_IDS.HEAD) {
-      return pendingReqs.filter(r => isVerifiedByStaff(r) && !isHeadApproved(r));
+      return pendingReqs.filter(r => isVerifiedByStaff(r) && !requesterIsHead(r) && !isHeadApproved(r));
     }
     if (role === ROLE_IDS.CAMPUS_DIRECTOR) {
-      return pendingReqs.filter(r => isHeadApproved(r) && !isDirectorApproved(r));
+      return pendingReqs.filter(r => isVerifiedByStaff(r) && (requesterIsHead(r) || isHeadApproved(r)) && !isDirectorApproved(r));
     }
     return pendingReqs;
   };
@@ -173,24 +243,10 @@ export default function ReviewRequestsScreen({ user, onBack, onNavigate }) {
 
   const filtered = (() => {
     if (filter === "All") {
-      if (roleId === ROLE_IDS.STAFF) {
-        // Staff sees ALL requests so they can track verified ones waiting for Head/Director
-        return requests;
-      }
-      if (roleNeedsSequentialFilter) {
-        const nonPending = requests.filter(r => r.status !== MAINTENANCE_STATUS.PENDING);
-        return sortRequestsDescending([...getSequentialPendingRequests(requests, roleId), ...nonPending]);
-      }
       return requests;
     }
-    if (filter === "Pending") {
-      if (roleId === ROLE_IDS.STAFF) {
-        // Pending tab for staff shows all pending requests (including verified ones)
-        return requests.filter(r => r.status === MAINTENANCE_STATUS.PENDING);
-      }
-      if (roleNeedsSequentialFilter) {
-        return getSequentialPendingRequests(requests, roleId);
-      }
+    if (filter === "Pending" && roleNeedsSequentialFilter) {
+      return getSequentialPendingRequests(requests, roleId);
     }
     return requests.filter(r => {
       const s = normalizeMaintenanceStatus(r.status, r.status_id);
@@ -201,13 +257,17 @@ export default function ReviewRequestsScreen({ user, onBack, onNavigate }) {
   const doAction = async (id, action, reason = "", extra = {}) => {
     setActionLoading(true); setActionMsg("");
     try {
-      const token = await AsyncStorage.getItem("authToken") || await AsyncStorage.getItem("token");
+      const token = await getAuthToken();
       let endpoint = "";
       let payload = {};
       const now = new Date();
       const dateReceived = now.toISOString().slice(0, 10);
       const timeReceived = now.toTimeString().slice(0, 8);
       const userId = Number(user?.id || user?.user_id || 0);
+      const targetRequest =
+        extra.request ||
+        selected ||
+        requests.find((requestItem) => Number(getRequestId(requestItem)) === Number(id));
 
       if (action === "verify") {
         if (roleId !== ROLE_IDS.STAFF) {
@@ -227,6 +287,10 @@ export default function ReviewRequestsScreen({ user, onBack, onNavigate }) {
         };
       } else if (action === "approve") {
         if (roleId === ROLE_IDS.HEAD) {
+          if (requesterIsHead(targetRequest)) {
+            setActionMsg("Head-submitted requests skip head approval and go straight to Campus Director approval.");
+            return;
+          }
           endpoint = `/maintenance-requests/${id}/approve-head`;
         } else if (roleId === ROLE_IDS.CAMPUS_DIRECTOR) {
           endpoint = `/maintenance-requests/${id}/approve-director`;
@@ -241,7 +305,12 @@ export default function ReviewRequestsScreen({ user, onBack, onNavigate }) {
           return;
         }
         endpoint = `/maintenance-requests/${id}/disapprove`;
-        payload = { comment: reason || "Disapproved" };
+        payload = {
+          comment: reason || "Disapproved",
+          reason: reason || "Disapproved",
+          rejection_reason: reason || "Disapproved",
+          remarks: reason || "Disapproved",
+        };
       } else if (action === "deny") {
         if (roleId !== ROLE_IDS.STAFF) {
           setActionMsg("Only Staff can deny requests.");
@@ -252,6 +321,9 @@ export default function ReviewRequestsScreen({ user, onBack, onNavigate }) {
           date_received: dateReceived,
           time_received: timeReceived,
           comment: reason || "Denied by staff",
+          reason: reason || "Denied by staff",
+          rejection_reason: reason || "Denied by staff",
+          remarks: reason || "Denied by staff",
         };
       } else if (action === "assignPriority") {
         if (roleId !== ROLE_IDS.STAFF) {
@@ -278,17 +350,15 @@ export default function ReviewRequestsScreen({ user, onBack, onNavigate }) {
 
       const res = await fetch(`${API_URL}${endpoint}`, {
         method: "PUT",
-        headers: {
-          Authorization: `Bearer ${token}`,
-          Accept: "application/json",
+        headers: getAuthHeaders(token, {
           "Content-Type": "application/json"
-        },
+        }),
         body: JSON.stringify(payload)
       });
 
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
-        setActionMsg(data?.message || `Failed to ${action}.`);
+        setActionMsg(getApiErrorMessage(res.status, data, `Failed to ${action}.`));
         return;
       }
 
@@ -350,7 +420,6 @@ export default function ReviewRequestsScreen({ user, onBack, onNavigate }) {
     const currentStatus = normalizeMaintenanceStatus(selected.status, selected.status_id);
     const s = SM[currentStatus] || SM[MAINTENANCE_STATUS.PENDING];
     const pending = currentStatus === MAINTENANCE_STATUS.PENDING;
-    const approved = currentStatus === MAINTENANCE_STATUS.APPROVED;
     const isHead = roleId === ROLE_IDS.HEAD;
     const isDirector = roleId === ROLE_IDS.CAMPUS_DIRECTOR;
     const isStaff = roleId === ROLE_IDS.STAFF;
@@ -359,18 +428,25 @@ export default function ReviewRequestsScreen({ user, onBack, onNavigate }) {
     const verified = isVerifiedByStaff(selected);
     const headApproved = isHeadApproved(selected);
     const directorApproved = isDirectorApproved(selected);
+    const readyForScheduling = isReadyForScheduling(selected);
+    const priorityAssigned = hasPriorityAssigned(selected);
+    const headApprovalRequired = !requesterHead;
 
-    const canHeadApprove = isHead && pending && verified && !requesterHead && !headApproved;
-    const canDirectorApprove = isDirector && pending && verified && (requesterHead || headApproved) && !directorApproved;
+    const canHeadApprove = isHead && pending && verified && headApprovalRequired && !headApproved;
+    const canDirectorApprove = isDirector && pending && verified && (!headApprovalRequired || headApproved) && !directorApproved;
     const canApprove = canHeadApprove || canDirectorApprove;
     const canDisapprove = canHeadApprove || canDirectorApprove;
     const canVerify = isStaff && pending && !verified;
-    const canDeny = isStaff && pending && !verified;
-    const canAssignPriority = isStaff && pending && directorApproved;
-    const canAssignSchedule = isStaff && approved;
-    const canMarkDone = isStaff && approved && Boolean(selected.scheduled_date);
+    const canDeny = isStaff && pending;
+    const canAssignPriority = isStaff && pending && directorApproved && !priorityAssigned;
+    const canAssignSchedule = isStaff && readyForScheduling && !selected.scheduled_date;
+    const isScheduledStatus = currentStatus === MAINTENANCE_STATUS.SCHEDULED || Number(selected?.status_id) === 9;
+    const canMarkDone =
+      !SCHEDULING_AUTO_COMPLETES_REQUEST &&
+      isStaff &&
+      (isScheduledStatus || Boolean(selected.scheduled_date));
     const waitingForVerification = [ROLE_IDS.HEAD, ROLE_IDS.CAMPUS_DIRECTOR].includes(roleId) && pending && !verified;
-    const waitingForHead = isDirector && pending && verified && !requesterHead && !headApproved;
+    const waitingForHead = isDirector && pending && verified && headApprovalRequired && !headApproved;
     const actionError = /failed|cannot|only|unable|required|missing/i.test(String(actionMsg || ""));
 
     const openPriorityModal = () => {
@@ -392,6 +468,11 @@ export default function ReviewRequestsScreen({ user, onBack, onNavigate }) {
               <Text style={[styles.msgText, { color: C.warn }]}>Waiting for head approval before director approval.</Text>
             </View>
           )}
+          {requesterHead && (
+            <View style={[styles.msgBox, { borderLeftColor: C.info, backgroundColor: C.infoBg }]}>
+              <Text style={[styles.msgText, { color: C.info }]}>Head-submitted request: after staff verification, this goes directly to Campus Director approval.</Text>
+            </View>
+          )}
           {actionMsg ? (
             <View style={[styles.msgBox, { borderLeftColor: actionError ? C.danger : C.success, backgroundColor: actionError ? C.dangerBg : C.successBg }]}>
               <Text style={[styles.msgText, { color: actionError ? C.danger : C.success }]}>{actionMsg}</Text>
@@ -402,7 +483,7 @@ export default function ReviewRequestsScreen({ user, onBack, onNavigate }) {
           </View>
           <View style={styles.detailCard}>
             {[
-              ["Request ID", `#${selected.id}`],
+              ["Request ID", selectedRequestId ? `#${selectedRequestId}` : "-"],
               ["Type", selected.maintenance_type_name || selected.maintenance_type?.name || selected.maintenance_type || selected.type],
               ["Priority", selected.priority_number || selected.priority || "Pending priority assignment"],
               ["Location", selected.location],
@@ -446,9 +527,11 @@ export default function ReviewRequestsScreen({ user, onBack, onNavigate }) {
               <View style={[styles.approvalStepLine, { backgroundColor: headApproved ? C.success : C.border }]} />
               <ApprovalStepDetail
                 done={headApproved}
+                skipped={!headApprovalRequired}
                 label="Head Approved"
                 who={selected.approver1?.last_name || selected.approved_by_head || null}
                 date={selected.head_approved_at || null}
+                pendingText="Skipped for head-submitted requests"
               />
               <View style={[styles.approvalStepLine, { backgroundColor: directorApproved ? C.success : C.border }]} />
               <ApprovalStepDetail
@@ -459,6 +542,7 @@ export default function ReviewRequestsScreen({ user, onBack, onNavigate }) {
               />
             </View>
           </View>
+          <AttachedImagesSection imageUrls={detailImageUrls} />
 
           {selected.scheduled_date && (
             <View style={styles.schedCard}>
@@ -474,15 +558,15 @@ export default function ReviewRequestsScreen({ user, onBack, onNavigate }) {
           {isStaff && pending && (
             <View style={styles.actionRow}>
               {canVerify && (
-                <TouchableOpacity style={[styles.approveBtn, actionLoading && { opacity: 0.6 }]} onPress={() => doAction(selected.id, "verify")} disabled={actionLoading}>
+                <TouchableOpacity style={[styles.approveBtn, actionLoading && { opacity: 0.6 }]} onPress={() => doAction(selectedRequestId, "verify")} disabled={actionLoading || !selectedRequestId}>
                   {actionLoading ? <ActivityIndicator color="#fff" /> : <Text style={styles.approveBtnText}>VERIFY</Text>}
                 </TouchableOpacity>
               )}
               {canDeny && (
                 <TouchableOpacity
                   style={[styles.disapproveBtn, actionLoading && { opacity: 0.6 }, !canVerify && { flex: 1 }]}
-                  onPress={() => { setRejectMode("deny"); setRejectId(selected.id); }}
-                  disabled={actionLoading}
+                  onPress={() => { setRejectMode("deny"); setRejectId(selectedRequestId); }}
+                  disabled={actionLoading || !selectedRequestId}
                 >
                   <Text style={styles.disapproveBtnText}>DENY</Text>
                 </TouchableOpacity>
@@ -491,14 +575,14 @@ export default function ReviewRequestsScreen({ user, onBack, onNavigate }) {
           )}
           {canApprove && (
             <View style={styles.actionRow}>
-              <TouchableOpacity style={[styles.approveBtn, actionLoading && { opacity: 0.6 }]} onPress={() => doAction(selected.id, "approve")} disabled={actionLoading}>
+              <TouchableOpacity style={[styles.approveBtn, actionLoading && { opacity: 0.6 }]} onPress={() => doAction(selectedRequestId, "approve")} disabled={actionLoading || !selectedRequestId}>
                 {actionLoading ? <ActivityIndicator color="#fff" /> : <Text style={styles.approveBtnText}>APPROVE</Text>}
               </TouchableOpacity>
               {canDisapprove && (
                 <TouchableOpacity
                   style={[styles.disapproveBtn, actionLoading && { opacity: 0.6 }]}
-                  onPress={() => { setRejectMode("disapprove"); setRejectId(selected.id); }}
-                  disabled={actionLoading}
+                  onPress={() => { setRejectMode("disapprove"); setRejectId(selectedRequestId); }}
+                  disabled={actionLoading || !selectedRequestId}
                 >
                   <Text style={styles.disapproveBtnText}>DISAPPROVE</Text>
                 </TouchableOpacity>
@@ -511,12 +595,12 @@ export default function ReviewRequestsScreen({ user, onBack, onNavigate }) {
             </TouchableOpacity>
           )}
           {canAssignSchedule && (
-            <TouchableOpacity style={styles.assignBtn} onPress={() => onNavigate("AssignSchedule", { requestId: selected.id, request: selected })} activeOpacity={0.85}>
+            <TouchableOpacity style={styles.assignBtn} onPress={() => onNavigate("AssignSchedule", { requestId: selectedRequestId, request: selected })} activeOpacity={0.85}>
               <Text style={styles.assignBtnText}>ASSIGN SCHEDULE</Text>
             </TouchableOpacity>
           )}
           {canMarkDone && (
-            <TouchableOpacity style={styles.assignBtn} onPress={() => doAction(selected.id, "markDone")} activeOpacity={0.85}>
+            <TouchableOpacity style={styles.assignBtn} onPress={() => doAction(selectedRequestId, "markDone")} activeOpacity={0.85} disabled={!selectedRequestId}>
               <Text style={styles.assignBtnText}>MARK AS DONE</Text>
             </TouchableOpacity>
           )}
@@ -572,8 +656,8 @@ export default function ReviewRequestsScreen({ user, onBack, onNavigate }) {
                 </TouchableOpacity>
                 <TouchableOpacity
                   style={[styles.saveBtn, (!priorityNumber.trim() || actionLoading) && { opacity: 0.5 }]}
-                  onPress={() => doAction(selected.id, "assignPriority", "", { priority_number: priorityNumber })}
-                  disabled={!priorityNumber.trim() || actionLoading}
+                  onPress={() => doAction(selectedRequestId, "assignPriority", "", { priority_number: priorityNumber })}
+                  disabled={!priorityNumber.trim() || actionLoading || !selectedRequestId}
                 >
                   {actionLoading ? <ActivityIndicator color="#fff" /> : <Text style={styles.saveBtnText}>Save Priority</Text>}
                 </TouchableOpacity>
@@ -608,11 +692,14 @@ export default function ReviewRequestsScreen({ user, onBack, onNavigate }) {
                 const status = normalizeMaintenanceStatus(req.status, req.status_id);
                 const s = SM[status] || SM[MAINTENANCE_STATUS.PENDING];
                 const pending = status === MAINTENANCE_STATUS.PENDING;
-                const approved = status === MAINTENANCE_STATUS.APPROVED;
                 const verified = isVerifiedByStaff(req);
+                const requesterHead = requesterIsHead(req);
+                const headApproved = isHeadApproved(req);
                 const directorApproved = isDirectorApproved(req);
+                const readyForScheduling = isReadyForScheduling(req);
+                const priorityAssigned = hasPriorityAssigned(req);
                 return (
-                  <TouchableOpacity key={i} style={[styles.reqCard, { borderLeftColor: s.color }]} onPress={() => setSelected(req)} activeOpacity={0.8}>
+                  <TouchableOpacity key={req.id || i} style={[styles.reqCard, { borderLeftColor: s.color }]} onPress={() => setSelected(req)} activeOpacity={0.8}>
                     <View style={styles.reqCardTop}>
                       <Text style={styles.reqType} numberOfLines={1}>{req.maintenance_type_name || req.maintenance_type?.name || "Maintenance Request"}</Text>
                       <View style={[styles.chip, { backgroundColor: s.bg }]}>
@@ -623,8 +710,8 @@ export default function ReviewRequestsScreen({ user, onBack, onNavigate }) {
                     {roleId === ROLE_IDS.STAFF && (
                       <View style={styles.approvalTrack}>
                         <ApprovalStep done={verified} label="Verified" />
-                        <View style={[styles.trackLine, { backgroundColor: isHeadApproved(req) ? C.success : C.border }]} />
-                        <ApprovalStep done={isHeadApproved(req)} label="Head" />
+                        <View style={[styles.trackLine, { backgroundColor: headApproved ? C.success : C.border }]} />
+                        <ApprovalStep done={headApproved} label="Head" />
                         <View style={[styles.trackLine, { backgroundColor: directorApproved ? C.success : C.border }]} />
                         <ApprovalStep done={directorApproved} label="Director" />
                       </View>
@@ -632,16 +719,16 @@ export default function ReviewRequestsScreen({ user, onBack, onNavigate }) {
                     {roleId === ROLE_IDS.STAFF && pending && !verified && (
                       <View style={styles.assignTag}><Text style={styles.assignTagText}>Needs Verification</Text></View>
                     )}
-                    {roleId === ROLE_IDS.STAFF && pending && verified && !isHeadApproved(req) && (
+                    {roleId === ROLE_IDS.STAFF && pending && verified && !requesterHead && !headApproved && (
                       <View style={[styles.assignTag, { backgroundColor: C.infoBg }]}><Text style={[styles.assignTagText, { color: C.info }]}>Waiting for Head Approval</Text></View>
                     )}
-                    {roleId === ROLE_IDS.STAFF && pending && isHeadApproved(req) && !directorApproved && (
+                    {roleId === ROLE_IDS.STAFF && pending && verified && (requesterHead || headApproved) && !directorApproved && (
                       <View style={[styles.assignTag, { backgroundColor: C.infoBg }]}><Text style={[styles.assignTagText, { color: C.info }]}>Waiting for Director Approval</Text></View>
                     )}
-                    {roleId === ROLE_IDS.STAFF && pending && verified && directorApproved && (
+                    {roleId === ROLE_IDS.STAFF && pending && verified && directorApproved && !priorityAssigned && (
                       <View style={[styles.assignTag, { backgroundColor: C.warnBg }]}><Text style={[styles.assignTagText, { color: C.warn }]}>Needs Priority</Text></View>
                     )}
-                    {roleId === ROLE_IDS.STAFF && approved && !req.scheduled_date && (
+                    {roleId === ROLE_IDS.STAFF && readyForScheduling && !req.scheduled_date && (
                       <View style={styles.assignTag}><Text style={styles.assignTagText}>Needs Schedule</Text></View>
                     )}
                     {req.scheduled_date && <Text style={styles.scheduledText}>Scheduled: {req.scheduled_date}</Text>}
@@ -663,19 +750,27 @@ function ApprovalStep({ done, label }) {
   );
 }
 
-function ApprovalStepDetail({ done, label, who, date }) {
+function ApprovalStepDetail({ done, skipped, label, who, date, pendingText }) {
+  const dotStyle = skipped
+    ? { backgroundColor: C.infoBg, borderColor: C.info }
+    : done
+      ? { backgroundColor: C.success, borderColor: C.success }
+      : { backgroundColor: C.surface, borderColor: C.border };
+
   return (
     <View style={{ flexDirection: "row", alignItems: "flex-start", gap: 12 }}>
       <View style={{ alignItems: "center", paddingTop: 2 }}>
-        <View style={[{ width: 20, height: 20, borderRadius: 10, alignItems: "center", justifyContent: "center", borderWidth: 2 }, done ? { backgroundColor: C.success, borderColor: C.success } : { backgroundColor: C.surface, borderColor: C.border }]}>
+        <View style={[{ width: 20, height: 20, borderRadius: 10, alignItems: "center", justifyContent: "center", borderWidth: 2 }, dotStyle]}>
+          {skipped && <Text style={{ color: C.info, fontSize: 10, fontWeight: "900" }}>-</Text>}
           {done && <Text style={{ color: "#fff", fontSize: 11, fontWeight: "900" }}>✓</Text>}
         </View>
       </View>
       <View style={{ flex: 1 }}>
-        <Text style={{ fontSize: 13, fontWeight: "700", color: done ? C.navy : C.textMute }}>{label}</Text>
+        <Text style={{ fontSize: 13, fontWeight: "700", color: done || skipped ? C.navy : C.textMute }}>{label}</Text>
         {done && who ? <Text style={{ fontSize: 11, color: C.success, fontWeight: "600", marginTop: 1 }}>by {who}</Text> : null}
         {done && date ? <Text style={{ fontSize: 10, color: C.textMute, marginTop: 1 }}>{String(date).slice(0, 10)}</Text> : null}
-        {!done && <Text style={{ fontSize: 11, color: C.textMute, marginTop: 1 }}>Pending</Text>}
+        {skipped && <Text style={{ fontSize: 11, color: C.info, marginTop: 1 }}>{pendingText || "Skipped"}</Text>}
+        {!done && !skipped && <Text style={{ fontSize: 11, color: C.textMute, marginTop: 1 }}>Pending</Text>}
       </View>
     </View>
   );

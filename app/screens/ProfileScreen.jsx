@@ -1,5 +1,5 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   ActivityIndicator, KeyboardAvoidingView, Platform,
   ScrollView,
@@ -15,29 +15,68 @@ import { getRoleLabel, normalizeRoleId } from "../constants/roles";
 export default function ProfileScreen({ user, onBack, onUpdateUser }) {
   const [editing, setEditing] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [fetchingProfile, setFetchingProfile] = useState(true);
   const [success, setSuccess] = useState(false);
   const [error, setError] = useState("");
+  const [profile, setProfile] = useState(user || {});
+  const [offices, setOffices] = useState([]);
+  const [positions, setPositions] = useState([]);
   const [form, setForm] = useState({
-    first_name: user?.first_name || "", last_name: user?.last_name || "",
-    middle_initial: user?.middle_initial || "", email: user?.email || "",
-    contact_number: user?.contact_number || "", department: user?.department || "",
+    first_name: user?.first_name || "",
+    last_name: user?.last_name || "",
+    middle_initial: user?.middle_initial || "",
+    email: user?.email || "",
+    contact_number: user?.contact_number || "",
   });
   const set = (k, v) => setForm(p => ({ ...p, [k]: v }));
 
+  // Fix 3: Fetch fresh profile data and common data on mount
+  useEffect(() => {
+    const load = async () => {
+      try {
+        const token = await AsyncStorage.getItem("authToken") || await AsyncStorage.getItem("token");
+        const headers = { Authorization: `Bearer ${token}`, Accept: "application/json" };
+
+        const [profileRes, commonRes] = await Promise.all([
+          fetch(`${API_URL}/profile`, { headers }),
+          fetch(`${API_URL}/common-datas`, { headers }),
+        ]);
+
+        if (profileRes.ok) {
+          const data = await profileRes.json();
+          const fresh = data?.user || data?.data || data;
+          // Backend may return middle initial under different field names
+          const middleInitial = fresh?.middle_initial || fresh?.middle_name || fresh?.middleInitial || fresh?.mi || "";
+          setProfile({ ...fresh, middle_initial: middleInitial });
+          setForm({
+            first_name: fresh?.first_name || "",
+            last_name: fresh?.last_name || "",
+            middle_initial: middleInitial,
+            email: fresh?.email || "",
+            contact_number: fresh?.contact_number || "",
+          });
+        }
+
+        if (commonRes.ok) {
+          const common = await commonRes.json();
+          const officeList = common?.offices || common?.data?.offices || [];
+          const positionList = common?.positions || common?.data?.positions || [];
+          setOffices(officeList.map(o => ({ id: Number(o.id), name: o.name || o.office_name || "" })));
+          setPositions(positionList.map(p => ({ id: Number(p.id), name: p.name || p.position_name || "" })));
+        }
+      } catch (_e) { }
+      finally { setFetchingProfile(false); }
+    };
+    load();
+  }, []);
+
   const handleSave = async () => {
     setError(""); setSuccess(false);
-    
-    const trimmedEmail = form.email.trim();
-    if (trimmedEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmedEmail)) {
-      setError("Please enter a valid email address.");
-      return;
-    }
-
     if (!form.first_name.trim()) { setError("First name required."); return; }
     if (!form.last_name.trim()) { setError("Last name required."); return; }
     setLoading(true);
     try {
-      const token = await AsyncStorage.getItem("token");
+      const token = await AsyncStorage.getItem("authToken") || await AsyncStorage.getItem("token");
       const res = await fetch(`${API_URL}/profile`, {
         method: "PUT",
         headers: { "Content-Type": "application/json", Accept: "application/json", Authorization: `Bearer ${token}` },
@@ -45,17 +84,36 @@ export default function ProfileScreen({ user, onBack, onUpdateUser }) {
       });
       const data = await res.json();
       if (res.ok) {
-        const u = { ...user, ...form };
-        await AsyncStorage.setItem("user", JSON.stringify(u));
-        onUpdateUser && onUpdateUser(u);
-        setSuccess(true); setEditing(false);
+        const updated = { ...profile, ...form };
+        setProfile(updated);
+        await AsyncStorage.setItem("user", JSON.stringify(updated));
+        onUpdateUser && onUpdateUser(updated);
+        setSuccess(true);
+        setEditing(false);
       } else setError(data.message || "Failed to update.");
     } catch (_e) { setError("Cannot connect to server."); }
     finally { setLoading(false); }
   };
 
-  const initials = (user?.first_name?.[0] || "") + (user?.last_name?.[0] || "");
-  const roleLabel = getRoleLabel(normalizeRoleId(user?.role_id));
+  // Fix 1 & 2: Resolve office and position names from IDs
+  const officeName = offices.find(o => o.id === Number(profile?.office_id))?.name
+    || profile?.office?.name || profile?.office_name || "—";
+  const positionName = positions.find(p => p.id === Number(profile?.position_id))?.name
+    || profile?.position?.name || profile?.position_name || "—";
+
+  const initials = ((profile?.first_name || user?.first_name || "")?.[0] || "") +
+    ((profile?.last_name || user?.last_name || "")?.[0] || "");
+  const roleLabel = getRoleLabel(normalizeRoleId(profile?.role_id || user?.role_id));
+  const fullName = `${profile?.first_name || ""} ${profile?.last_name || ""}`.trim() || "—";
+
+  if (fetchingProfile) {
+    return (
+      <View style={{ flex: 1, backgroundColor: "#F0F2F5" }}>
+        <ScreenHeader title="My Profile" onBack={onBack} />
+        <ActivityIndicator color="#0B1F3A" style={{ marginTop: 60 }} />
+      </View>
+    );
+  }
 
   return (
     <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === "ios" ? "padding" : "height"}>
@@ -65,13 +123,13 @@ export default function ProfileScreen({ user, onBack, onUpdateUser }) {
         {/* Avatar section */}
         <View style={styles.avatarSection}>
           <View style={styles.avatar}>
-            <Text style={styles.avatarText}>{initials}</Text>
+            <Text style={styles.avatarText}>{initials || "?"}</Text>
           </View>
-          <Text style={styles.fullName}>{user?.first_name} {user?.last_name}</Text>
+          <Text style={styles.fullName}>{fullName}</Text>
           <View style={styles.rolePill}>
             <Text style={styles.rolePillText}>{roleLabel}</Text>
           </View>
-          <Text style={styles.username}>@{user?.username}</Text>
+          <Text style={styles.username}>@{profile?.username || user?.username || "—"}</Text>
         </View>
 
         <View style={styles.body}>
@@ -86,12 +144,11 @@ export default function ProfileScreen({ user, onBack, onUpdateUser }) {
                   <Text style={styles.editBtnText}>Edit</Text>
                 </TouchableOpacity>
               </View>
-              <InfoRow label="First Name" value={user?.first_name} />
-              <InfoRow label="Last Name" value={user?.last_name} />
-              <InfoRow label="Middle Initial" value={user?.middle_initial} />
-              <InfoRow label="Email (Notifications)" value={user?.email} />
-              <InfoRow label="Contact" value={user?.contact_number} />
-              <InfoRow label="Department" value={user?.department} last />
+              <InfoRow label="First Name" value={profile?.first_name} />
+              <InfoRow label="Last Name" value={profile?.last_name} />
+              <InfoRow label="Middle Initial" value={profile?.middle_initial || profile?.middle_name || profile?.middleInitial || profile?.mi} />
+              <InfoRow label="Email" value={profile?.email} />
+              <InfoRow label="Contact" value={profile?.contact_number} last />
             </View>
           ) : (
             <View style={styles.card}>
@@ -108,15 +165,10 @@ export default function ProfileScreen({ user, onBack, onUpdateUser }) {
               </View>
               <Text style={styles.label}>Middle Initial</Text>
               <TextInput style={styles.input} value={form.middle_initial} onChangeText={v => set("middle_initial", v)} maxLength={2} />
-              <Text style={styles.label}>Email Address (for notifications)</Text>
+              <Text style={styles.label}>Email</Text>
               <TextInput style={styles.input} value={form.email} onChangeText={v => set("email", v)} keyboardType="email-address" autoCapitalize="none" />
-              <View style={[styles.hintBox, { marginBottom: 10, marginTop: -6 }]}>
-                <Text style={styles.hintText}>Your email will be used to receive important updates about your maintenance requests.</Text>
-              </View>
               <Text style={styles.label}>Contact Number</Text>
               <TextInput style={styles.input} value={form.contact_number} onChangeText={v => set("contact_number", v)} keyboardType="phone-pad" />
-              <Text style={styles.label}>Department / Office</Text>
-              <TextInput style={styles.input} value={form.department} onChangeText={v => set("department", v)} />
               <View style={styles.btnRow}>
                 <TouchableOpacity style={styles.cancelBtn} onPress={() => setEditing(false)}>
                   <Text style={styles.cancelText}>Cancel</Text>
@@ -128,9 +180,16 @@ export default function ProfileScreen({ user, onBack, onUpdateUser }) {
             </View>
           )}
 
+          {/* Fix 2: Work Information card with resolved office/position */}
+          <View style={styles.card}>
+            <Text style={styles.cardTitle}>Work Information</Text>
+            <InfoRow label="Office" value={officeName} />
+            <InfoRow label="Position" value={positionName} last />
+          </View>
+
           <View style={styles.card}>
             <Text style={styles.cardTitle}>Account</Text>
-            <InfoRow label="Username" value={user?.username} />
+            <InfoRow label="Username" value={profile?.username || user?.username} />
             <InfoRow label="Role" value={roleLabel} last />
           </View>
         </View>
@@ -162,8 +221,6 @@ const styles = StyleSheet.create({
   errorText: { color: "#9B1C1C", fontSize: 13, fontWeight: "600" },
   successBox: { backgroundColor: "#EAF6EF", borderLeftWidth: 4, borderLeftColor: "#1A7A4A", borderRadius: 10, padding: 12, marginBottom: 10 },
   successText: { color: "#1A7A4A", fontSize: 13, fontWeight: "600" },
-  hintBox: { backgroundColor: "#EEF2FF", borderLeftWidth: 4, borderLeftColor: "#1E4D8C", borderRadius: 8, padding: 10 },
-  hintText: { color: "#1E4D8C", fontSize: 11, lineHeight: 17 },
   card: { backgroundColor: "#fff", borderRadius: 12, padding: 16, marginBottom: 12, borderWidth: 1, borderColor: "#DDE3EC", elevation: 2 },
   cardHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 12 },
   cardTitle: { fontSize: 11, fontWeight: "800", color: "#0B1F3A", textTransform: "uppercase", letterSpacing: 1, marginBottom: 12 },

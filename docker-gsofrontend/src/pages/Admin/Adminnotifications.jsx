@@ -31,8 +31,6 @@ const Header = memo(({ isMobileMenuOpen, onToggleMobileMenu, onCloseMobileMenu, 
     </div>
   </header>
 ));
-
-// ─── Filter Toggle ────────────────────────────────────────────────────────────
 // ─── Filter Toggle ────────────────────────────────────────────────────────────
 const FILTERS = ['All', 'Unread', 'Read'];
 

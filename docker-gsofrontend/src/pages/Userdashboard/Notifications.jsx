@@ -48,19 +48,19 @@ const BellIcon = ({ className = 'w-5 h-5' }) => (
 // ─── Filter Toggle ────────────────────────────────────────────────────────────
 const FILTER_OPTIONS = ['All', 'Unread', 'Read'];
 
-const FilterToggle = ({ active, onChange }) => (
-  <div className="flex items-center bg-gray-100 rounded-lg p-1 gap-1 flex-shrink-0">
-    {FILTER_OPTIONS.map((opt) => (
+const FilterToggle = ({ active, onChange }) => (  //mao ni ang component para sa filter toggle buttons (All, Unread, Read). Ang active kay nag-indicate kung unsa nga filter ang active, ug onChange kay function nga i-call kung i-click ang button para ma-change ang active filter. Ang container kay flex nga may gap-1 para sa spacing, bg-gray-100 para sa background color, rounded-lg para sa rounded corners, p-1 para sa padding, ug flex-shrink-0 para dili siya mag-shrink kung gamay ang space. Ang buttons kay nag-loop sa FILTER_OPTIONS array, ug nag-set sa className base sa kung active ba siya or dili. Kung active siya, mag-apply og bg-white, text-gray-900, ug shadow-sm para ma-highlight siya. Kung dili active, mag-apply og text-gray-500 ug hover:text-gray-700 para ma-fade siya ug mag-change color on hover. */}
+  <div className="flex items-center bg-gray-100 rounded-lg p-1 gap-1 flex-shrink-0"> {/* mao ni ang container sa filter toggle, nga nag-hold sa mga buttons. Ang flex-shrink-0 kay para dili siya mag-shrink kung gamay ang space. */}
+    {FILTER_OPTIONS.map((opt) => (  //mao ni ang pag-loop sa mga filter options (All, Unread, Read) para mag-create og button para sa matag usa. Ang key kay opt (nga mao ang text sa button), onClick kay mag-call sa onChange function nga gihatag as prop, ug className kay nag-set sa style base sa kung active ba siya or dili. Kung active siya, mag-apply og bg-white, text-gray-900, ug shadow-sm para ma-highlight siya. Kung dili active, mag-apply og text-gray-500 ug hover:text-gray-700 para ma-fade siya ug mag-change color on hover. */}
       <button
-        key={opt}
-        onClick={() => onChange(opt)}
-        className={`px-3 py-1.5 text-xs font-semibold rounded-md transition-all duration-150 ${
-          active === opt
-            ? 'bg-white text-gray-900 shadow-sm'
+        key={opt} //mao ni ang key para sa button, nga mao ang text sa filter option (All, Unread, Read). Ang key kay importante para sa React para ma-track ang mga elements sa list.
+        onClick={() => onChange(opt)} //mao ni ang onClick handler para sa button, nga mag-call sa onChange function nga gihatag as prop, ug i-pass ang opt (nga mao ang text sa filter option) as argument. Ang onChange function kay mag-update sa active filter sa parent component.
+        className={`px-3 py-1.5 text-xs font-semibold rounded-md transition-all duration-150 ${ //mao ni ang className para sa button, nga nag-set sa padding, text size, font weight, rounded corners, transition, ug duration. Ang bg color, text color, ug shadow kay nag-depend sa kung active ba siya or dili. Kung active siya, mag-apply og bg-white, text-gray-900, ug shadow-sm para ma-highlight siya. Kung dili active, mag-apply og text-gray-500 ug hover:text-gray-700 para ma-fade siya ug mag-change color on hover. */}
+          active === opt  //mao ni ang condition para sa active state, nga nag-check kung ang active filter kay equal sa opt (nga mao ang text sa filter option). Kung true, mag-apply og bg-white, text-gray-900, ug shadow-sm para ma-highlight siya. Kung false, mag-apply og text-gray-500 ug hover:text-gray-700 para ma-fade siya ug mag-change color on hover.
+            ? 'bg-white text-gray-900 shadow-sm' 
             : 'text-gray-500 hover:text-gray-700'
         }`}
       >
-        {opt}
+        {opt} 
       </button>
     ))}
   </div>
@@ -91,11 +91,11 @@ const DashboardContent = memo(() => {
   }, []);
 
   const filteredNotifications = notifications.filter((n) => {
-    const matchesSearch = n.message?.toLowerCase().includes(searchQuery.toLowerCase());
+    const matchesSearch = n.message?.toLowerCase().includes(searchQuery.toLowerCase()); //mao ni ang nag-check kung ang message sa notification kay nag-match sa search query, para ma-show lang siya kung nag-match. Ang toLowerCase kay para case-insensitive ang search.
     const matchesFilter =
-      filter === 'All' ||
-      (filter === 'Read' && n.is_read) ||
-      (filter === 'Unread' && !n.is_read);
+      filter === 'All' ||                    //mao ang nag-check kung All ba ang filter, para ma-show tanan notifications regardless sa read status.
+      (filter === 'Read' && n.is_read) ||   //mao ang nag-check kung gi-basa na ba ang notification, para ma-show lang siya sa Read filter.
+      (filter === 'Unread' && !n.is_read);  //mao ang nag-check kung wala pa gi-basa ang notification, para ma-show lang siya sa Unread filter.
     return matchesSearch && matchesFilter;
   });
 
@@ -144,12 +144,6 @@ const DashboardContent = memo(() => {
         <h2 className="text-2xl md:text-3xl lg:text-4xl font-extrabold text-gray-900">
           Notifications
         </h2>
-        {!loading && notifications.length > 0 && unreadCount > 0 && (
-          <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold bg-red-50 text-red-600 border border-red-100">
-            <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse" />
-            {unreadCount} unread
-          </span>
-        )}
       </div>
 
       {/* ── Search Bar + Filter Toggle ──────────────────────────────────────── */}

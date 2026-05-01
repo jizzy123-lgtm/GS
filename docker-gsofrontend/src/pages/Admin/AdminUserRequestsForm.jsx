@@ -160,39 +160,45 @@ function AdminUserRequestsForm() {
   };
 
   const updateAccountStatus = async (statusId) => {
-    if (!userData || !user_id) return;
-    try {
-      const numericStatusId = parseInt(statusId);
-      if (isNaN(numericStatusId)) throw new Error("Invalid status ID");
+  if (!userData || !user_id) return;
+  try {
+    const numericStatusId = parseInt(statusId);
+    if (isNaN(numericStatusId)) throw new Error("Invalid status ID");
 
-      let endpoint = `${API_BASE_URL}/users/${user_id}/updateAccountStatus`;
-      if (numericStatusId === 3) {
-        endpoint = `${API_BASE_URL}/users/${user_id}/dissaproveAccountStatus`;
-      }
-
-      const response = await fetch(endpoint, {
-        method: "PUT",
-        headers: {
-          "Authorization": `Bearer ${token}`,
-          "Accept": "application/json",
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ status_id: numericStatusId }),
-      });
-
-      const result = await response.json();
-      if (!response.ok) throw new Error(result.message || "Failed to update status");
-
-      const statusLabel = getLabelFromLookup(statuses, numericStatusId, `Status ${numericStatusId}`);
-      setStatusMessage(`User status updated to ${statusLabel}`);
-      setUserData({ ...userData, account_status: numericStatusId });
-
-      setTimeout(() => navigate('/adminuserrequests'), 2000);
-    } catch (err) {
-      console.error("Error updating status:", err);
-      setStatusMessage(`Failed to update status: ${err.message}`);
+    let endpoint = API_BASE_URL + "/users/" + user_id + "/updateAccountStatus";
+    if (numericStatusId === 3) {
+      endpoint = API_BASE_URL + "/users/" + user_id + "/dissaproveAccountStatus";
     }
-  };
+
+    const response = await fetch(endpoint, {
+      method: "PUT",
+      headers: {
+        "Authorization": "Bearer " + token,
+        "Accept": "application/json",
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ account_status_id: numericStatusId }),
+    });
+
+    const result = await response.json();
+    if (!response.ok) throw new Error(result.message || "Failed to update status");
+
+    setStatusMessage("User status updated successfully.");
+    setUserData({
+      ...userData,
+      account_status_id: numericStatusId,
+      account_status:
+        numericStatusId === 2 ? "Approved" :
+        numericStatusId === 3 ? "Disapproved" : "Pending",
+    });
+
+    setTimeout(() => navigate("/adminuserrequests"), 2000);
+  } catch (err) {
+    console.error("Error updating status:", err);
+    setStatusMessage("Failed to update status: " + err.message);
+  }
+};
+
 
   // Delete account function
   const handleDeleteAccount = async () => {
@@ -347,10 +353,10 @@ function AdminUserRequestsForm() {
                   <div className="flex flex-wrap items-center justify-between gap-4">
                     <div className="flex items-center gap-3">
                       <div className={`px-4 py-2 rounded-lg font-medium text-sm
-                        ${userData.status_id === 2 ? 'bg-green-100 text-green-800' : 
-                          userData.status_id === 3 ? 'bg-red-100 text-red-800' : 
+                        ${userData.account_status === 'Approved' ? 'bg-green-100 text-green-800' : 
+                          userData.account_status === 'Disapproved' ? 'bg-red-100 text-red-800' : 
                           'bg-amber-100 text-amber-800'}`}>
-                        Current Status: {getLabelFromLookup(statuses, userData.status_id, userData.status || 'Pending')}
+                        Current Status: {userData.account_status || 'Pending'}
                       </div>
                       <div className="text-sm text-gray-500">
                         <span className="mr-1">Registered on:</span>
@@ -363,7 +369,7 @@ function AdminUserRequestsForm() {
                     </div>
 
                     {/* Approve/Reject buttons - Pending only */}
-                    {(userData.status_id === 1 || userData.status === 'Pending') && (
+                    {userData.account_status === 'Pending' && (
                       <div className="flex gap-3">
                         <button
                           onClick={() => updateAccountStatus(3)}
@@ -384,7 +390,7 @@ function AdminUserRequestsForm() {
                   </div>
 
                   {/* Delete button - Approved accounts only */}
-                  {userData.status_id === 2 && (
+                  {userData.account_status === 'Approved' && (
                     <div className="flex justify-end mt-4">
                       <button
                         onClick={() => setShowDeleteModal(true)}

@@ -106,11 +106,7 @@ const DashboardContent = memo(() => {
   useEffect(() => {
     const fetchNotifications = async () => {
       try {
-        fetch(`${API_BASE_URL}/notifications/markAllAsRead`, {
-          method: 'PUT',
-          headers: authHeaders(),
-        }).catch(() => {});
-
+        // ← TANGTANG na ang markAllAsRead - mag-mark ra sa individual click
         const res    = await fetch(`${API_BASE_URL}/notifications`, { headers: authHeaders() });
         const data   = await res.json();
         const notifs = Array.isArray(data) ? data : data.data || [];
@@ -128,7 +124,9 @@ const DashboardContent = memo(() => {
     fetchNotifications();
   }, []);
 
+  // ─── Resolve the maintenance request ID from notification data ────────────
   const resolveMaintenanceRequestId = (notif) => {
+    // Check all possible ID fields from the notification object
     const direct =
       notif.maintenance_request_id  ||
       notif.request_id              ||
@@ -136,12 +134,15 @@ const DashboardContent = memo(() => {
       notif.reference_id            ||
       notif.maintenance_id          ||
       notif.data?.id                ||
+      notif.data?.maintenance_request_id ||
+      notif.data?.request_id        ||
       notif.maintenance_request?.id;
 
     if (direct) return direct;
 
-    const match = String(notif.message || '').match(/\d+/);
-    return match ? match[0] : null;
+    // Last resort: extract first number from message
+    const match = String(notif.message || '').match(/\b(\d+)\b/);
+    return match ? match[1] : null;
   };
 
   const markAsRead = async (id) => {
@@ -164,6 +165,7 @@ const DashboardContent = memo(() => {
     if (processingId === notif.id) return;
     setProcessingId(notif.id);
 
+    // Mark as read first
     if (!notif.is_read) {
       await markAsRead(notif.id);
     }
@@ -171,11 +173,11 @@ const DashboardContent = memo(() => {
     const requestId = resolveMaintenanceRequestId(notif);
 
     if (requestId) {
-      navigate(`/headmaintenancerequestform/${requestId}`, {
-        state: { from: '/headnotifications' },
-      });
+      // Navigate to the form - HeadMaintenanceRequestForm will handle the fetch
+      navigate(`/headmaintenancerequestform/${requestId}`);
     } else {
-      alert('Could not find the maintenance request linked to this notification.');
+      // Fallback: go to requests list if no ID found
+      navigate('/headrequests');
       setProcessingId(null);
     }
   };

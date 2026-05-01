@@ -9,6 +9,7 @@ import AirConditioning from "./pages/Maintenance/AirConditioning";
 import Notifications from "./pages/Userdashboard/Notifications";
 import Schedules from "./pages/Userdashboard/Schedules";
 import AdminDashboard from "./pages/Admin/AdminDashboard";
+import AdminProfile from './pages/admin/AdminProfile';
 import Signuppage from "./pages/SignupScreen/Signuppage";
 import Adminnotifications from "./pages/Admin/Adminnotifications";
 import AdminSchedules from "./pages/Admin/AdminSchedules";
@@ -195,6 +196,7 @@ function App() {
             </AdminNotificationProvider>
           }
         />
+        <Route path="/adminprofile" element={<AdminProfile />} />
         <Route
           path="/adminnotifications"
           element={

@@ -5,7 +5,6 @@ import { HeadSidebar, HEAD_MENU_ITEMS } from "../../components/HeadSidebar";
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
 
-// sidebar reducer
 const sidebarReducer = (state, action) => {
   switch (action.type) {
     case "TOGGLE_SIDEBAR":
@@ -39,25 +38,25 @@ const RequestsTable = ({ onRowClick, requests, showActions }) => (
           {requests.length > 0 ? (
             requests.map((request) => (
               <tr key={request.request_id} className="hover:bg-gray-50 even:bg-gray-50 border-b border-gray-400">
-                <td>{request.date_requested}</td>
-<td>{request.requesting_personnel}</td>
-<td>{request.position}</td>
-<td>{request.requesting_office}</td>
-<td>{request.maintenance_type}</td>
-<td>
-  <span className={`px-3 py-1 rounded-full text-sm ${
-    request.status === "Pending"
-      ? "bg-yellow-100 text-yellow-800"
-      : request.status === "Verified"
-      ? "bg-yellow-100 text-yellow-800"
-      : request.status === "Approved"
-      ? "bg-green-100 text-green-800"
-      : "bg-red-100 text-red-800"
-  }`}>
-    {request.status}
-  </span>
-</td>
-<td>{request.contact_number}</td>
+                <td className="p-3">{request.date_requested}</td>
+                <td className="p-3">{request.requesting_personnel}</td>
+                <td className="p-3">{request.position}</td>
+                <td className="p-3">{request.requesting_office}</td>
+                <td className="p-3">{request.maintenance_type}</td>
+                <td className="p-3">
+                  <span className={`px-3 py-1 rounded-full text-sm ${
+                    request.status === "Pending"
+                      ? "bg-yellow-100 text-yellow-800"
+                      : request.status === "Verified"
+                      ? "bg-yellow-100 text-yellow-800"
+                      : request.status === "Approved"
+                      ? "bg-green-100 text-green-800"
+                      : "bg-red-100 text-red-800"
+                  }`}>
+                    {request.status}
+                  </span>
+                </td>
+                <td className="p-3">{request.contact_number}</td>
                 {showActions && (
                   <td className="p-3">
                     <button
@@ -97,7 +96,6 @@ const HeadRequests = () => {
 
   const token = localStorage.getItem("authToken") || sessionStorage.getItem("authToken");
 
-  // Fetch statuses for tabs (dynamic)
   useEffect(() => {
     const fetchStatuses = async () => {
       if (!token) return;
@@ -144,13 +142,21 @@ const HeadRequests = () => {
       try {
         const res = await fetch(`${API_BASE_URL}/maintenance-requests/list-with-details`, {
           headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json'
-          }
-
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
         });
         const data = await res.json();
-        setRequests(Array.isArray(data) ? data : (Array.isArray(data.data) ? data.data : []));
+        const raw = Array.isArray(data) ? data : (Array.isArray(data.data) ? data.data : []);
+
+        // ── Sort: newest request first ─────────────────────────────────────
+        const sorted = [...raw].sort((a, b) => {
+          const dateA = new Date(a.created_at || a.date_requested || 0);
+          const dateB = new Date(b.created_at || b.date_requested || 0);
+          return dateB - dateA;
+        });
+
+        setRequests(sorted);
       } catch (err) {
         console.error(err);
         setRequests([]);
@@ -158,9 +164,7 @@ const HeadRequests = () => {
         setLoading(false);
       }
     };
-    if (usersMap) {
-      fetchRequests();
-    }
+    if (usersMap) fetchRequests();
   }, [token, navigate, usersMap]);
 
   const handleRowClick = useCallback(
@@ -181,14 +185,13 @@ const HeadRequests = () => {
     [navigate]
   );
 
-  // Dynamic tab logic based on backend statuses
   const filtered = requests.filter((r) => {
     if (selectedTab === "Pending") {
       return r.status === "Pending";
     }
     if (selectedTab.toLowerCase() === "urgent") {
       return (
-        (r.status?.toLowerCase() === "urgent") &&
+        r.status?.toLowerCase() === "urgent" &&
         r.verified_by !== null && r.verified_by !== undefined &&
         (r.approved_by_1 === null || r.approved_by_1 === undefined)
       );
@@ -200,7 +203,6 @@ const HeadRequests = () => {
         (r.approved_by_1 === null || r.approved_by_1 === undefined)
       );
     }
-    // You can add more status-specific logic here if needed
     return (
       r.verified_by !== null &&
       r.verified_by !== undefined &&
@@ -208,9 +210,8 @@ const HeadRequests = () => {
     );
   });
 
-  const showActions = true;
-
   if (loading) return <div className="p-4">Loading requests...</div>;
+
   return (
     <div className="flex flex-col h-screen bg-gray-50">
       <header className="bg-black text-white p-4 flex justify-between items-center relative">
@@ -263,7 +264,6 @@ const HeadRequests = () => {
           <h2 className="text-3xl font-extrabold text-gray-900 border-b mb-4 pb-3">
             Maintenance Requests
           </h2>
-          {/* Dynamic Tabs */}
           <div className="flex space-x-4 mb-6">
             {statuses.map((status) => (
               <button
@@ -288,7 +288,7 @@ const HeadRequests = () => {
           <RequestsTable
             onRowClick={handleRowClick}
             requests={filtered}
-            showActions={showActions}
+            showActions={true}
           />
         </main>
       </div>

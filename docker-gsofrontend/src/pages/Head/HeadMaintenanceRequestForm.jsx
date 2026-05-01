@@ -15,7 +15,6 @@ const HeadMaintenanceRequestForm = () => {
   const navigate = useNavigate();
   const { id } = useParams();
 
-  // Sidebar state
   const [sidebarState, sidebarDispatch] = useReducer(sidebarReducer, {
     isSidebarCollapsed: true,
   });
@@ -36,7 +35,6 @@ const HeadMaintenanceRequestForm = () => {
   const [requestDetails, setRequestDetails] = useState({});
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
-  const [token, setToken] = useState("");
 
   const [date_received, setDateReceived] = useState("");
   const [time_received, setTimeReceived] = useState("");
@@ -47,6 +45,10 @@ const HeadMaintenanceRequestForm = () => {
   const [head1Input, setHead1Input] = useState("");
   const [head2Input, setHead2Input] = useState("");
   const [approvedBy1, setApprovedBy1] = useState(null);
+
+  // ── Get token directly - no state timing issues ──────────────────────────
+  const getToken = () =>
+    localStorage.getItem("authToken") || sessionStorage.getItem("authToken");
 
   const fetchCurrentUser = async (authToken) => {
     try {
@@ -81,12 +83,13 @@ const HeadMaintenanceRequestForm = () => {
     if (currentUser.suffix) name += ` ${currentUser.suffix}`;
     return name.trim();
   };
+
+  // ── Auth check on mount ───────────────────────────────────────────────────
   useEffect(() => {
-    const authToken = localStorage.getItem("authToken") || sessionStorage.getItem("authToken");
+    const authToken = getToken();
     if (!authToken) {
       navigate("/loginpage");
     } else {
-      setToken(authToken);
       fetchCurrentUser(authToken);
     }
   }, [navigate]);
@@ -95,8 +98,7 @@ const HeadMaintenanceRequestForm = () => {
     try {
       const response = await fetch(`${API_BASE_URL}/users/idfullname`, {
         method: "GET",
-        headers:
-         {
+        headers: {
           Authorization: `Bearer ${authToken}`,
           Accept: "application/json",
         },
@@ -115,6 +117,7 @@ const HeadMaintenanceRequestForm = () => {
     }
   };
 
+  // ── Fetch request details - kuha token directly, dili mag-rely sa state ──
   useEffect(() => {
     const fetchRequestDetails = async () => {
       if (!id || id === "undefined") {
@@ -123,12 +126,20 @@ const HeadMaintenanceRequestForm = () => {
         return;
       }
 
+      const authToken = getToken();
+      if (!authToken) {
+        navigate("/loginpage");
+        return;
+      }
+
       try {
         setIsLoading(true);
+        setError("");
+
         const response = await fetch(`${API_BASE_URL}/headpov/${id}`, {
           method: "GET",
           headers: {
-            Authorization: `Bearer ${token}`,
+            Authorization: `Bearer ${authToken}`,
             Accept: "application/json",
           },
         });
@@ -145,7 +156,7 @@ const HeadMaintenanceRequestForm = () => {
         setComment("");
         setApprovedBy1(responseData.approved_by_1 || null);
 
-        const userInfo = await fetchUserInfo(token);
+        const userInfo = await fetchUserInfo(authToken);
         setApprovedByName(userInfo.full_name);
         setApprovedById(userInfo.id);
       } catch (err) {
@@ -156,8 +167,8 @@ const HeadMaintenanceRequestForm = () => {
       }
     };
 
-    if (token) fetchRequestDetails();
-  }, [id, token, API_BASE_URL]);
+    fetchRequestDetails();
+  }, [id, API_BASE_URL]); // ← removed token dependency, getToken() handles it
 
   const formatTimeTo24Hour = (time) => {
     if (!time) return "";
@@ -175,6 +186,12 @@ const HeadMaintenanceRequestForm = () => {
 
     if (approvedById === HEAD2_ID && !approvedBy1) {
       setError("You cannot approve this request until Head 1 has approved it.");
+      return;
+    }
+
+    const authToken = getToken();
+    if (!authToken) {
+      navigate("/loginpage");
       return;
     }
 
@@ -208,7 +225,7 @@ const HeadMaintenanceRequestForm = () => {
       const response = await fetch(endpoint, {
         method: "PUT",
         headers: {
-          Authorization: `Bearer ${token}`,
+          Authorization: `Bearer ${authToken}`,
           "Content-Type": "application/json",
           Accept: "application/json",
         },
@@ -361,7 +378,6 @@ const HeadMaintenanceRequestForm = () => {
                         disabled
                       />
                     </div>
-                    {/* Only show Approved By 1 if present */}
                     {requestDetails.approved_by_1 && (
                       <div>
                         <label className="block text-sm font-semibold text-gray-700 mb-1">
@@ -375,7 +391,6 @@ const HeadMaintenanceRequestForm = () => {
                         />
                       </div>
                     )}
-                    {/* Only show Verified By if present */}
                     {requestDetails.verified_by && (
                       <div>
                         <label className="block text-sm font-semibold text-gray-700 mb-1">
@@ -424,30 +439,28 @@ const HeadMaintenanceRequestForm = () => {
                     />
                   </div>
                   <div>
-                    <div>
-                      <label className="block text-sm font-semibold text-gray-700 mb-1">
-                        Staff Comments:s
-                      </label>
-                      {Array.isArray(requestDetails.comments) && requestDetails.comments.length > 0 ? (
-                        <div className="space-y-2">
-                          {requestDetails.comments.map((c) => (
-                            <div key={c.id} className="p-2 bg-gray-100 rounded">
-                              <div className="text-sm text-gray-800">{c.comment}</div>
-                              <div className="text-xs text-gray-500">
-                                By: {c.user} ({c.role}) on {c.date} {c.time}
-                              </div>
+                    <label className="block text-sm font-semibold text-gray-700 mb-1">
+                      Staff Comments:
+                    </label>
+                    {Array.isArray(requestDetails.comments) && requestDetails.comments.length > 0 ? (
+                      <div className="space-y-2">
+                        {requestDetails.comments.map((c) => (
+                          <div key={c.id} className="p-2 bg-gray-100 rounded">
+                            <div className="text-sm text-gray-800">{c.comment}</div>
+                            <div className="text-xs text-gray-500">
+                              By: {c.user} ({c.role}) on {c.date} {c.time}
                             </div>
-                          ))}
-                        </div>
-                      ) : (
-                        <textarea
-                          className="w-full border border-gray-300 rounded-lg px-4 py-2 bg-gray-100"
-                          rows="2"
-                          value="No comments"
-                          disabled
-                        />
-                      )}
-                    </div>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <textarea
+                        className="w-full border border-gray-300 rounded-lg px-4 py-2 bg-gray-100"
+                        rows="2"
+                        value="No comments"
+                        disabled
+                      />
+                    )}
                   </div>
                 </div>
               )}
@@ -513,7 +526,7 @@ const HeadMaintenanceRequestForm = () => {
                     <button
                       type="submit"
                       disabled={alreadyApproved || (approvedById === HEAD2_ID && !approvedBy1)}
-                      className={`flex-1 bg-green-600 text-white px-6 py-3 rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed font-semibold transition-colors`}
+                      className="flex-1 bg-green-600 text-white px-6 py-3 rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed font-semibold transition-colors"
                     >
                       {buttonText}
                     </button>

@@ -47,7 +47,7 @@ const CampusDirectorProfile = () => {
   const cameraInputRef = useRef(null);
   const videoRef       = useRef(null);
 
-  const [profilePicture,     setProfilePicture]     = useState(() => localStorage.getItem('cdProfilePicture') || null);
+  const [profilePicture,     setProfilePicture]     = useState(() => localStorage.getItem('profilePicture') || null);
   const [previewImage,       setPreviewImage]       = useState(null);
   const [selectedFile,       setSelectedFile]       = useState(null);
   const [isUploadingPicture, setIsUploadingPicture] = useState(false);
@@ -150,7 +150,7 @@ const CampusDirectorProfile = () => {
           setImgError(false);
           const picUrl = data.profile_picture + '?t=' + Date.now();
           setProfilePicture(picUrl);
-          localStorage.setItem('cdProfilePicture', data.profile_picture);
+          localStorage.setItem('profilePicture', data.profile_picture);
         }
       } catch (err) {
         console.error('Error fetching user details:', err);

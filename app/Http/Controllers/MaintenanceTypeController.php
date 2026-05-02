@@ -10,14 +10,37 @@ class MaintenanceTypeController extends Controller
 {
     public function index()
     {
-        return response()->json(MaintenanceType::all(), 200);
+        $user = auth()->user();
+
+        if ($user->role === 'head') {
+            // Head sees global types + their own added types
+            $types = MaintenanceType::where(function($query) use ($user) {
+                $query->whereNull('created_by')
+                    ->orWhere('created_by', $user->id);
+            })->get();
+        } else {
+            // Staff, Requester, Campus Director sees global types ONLY
+            $types = MaintenanceType::whereNull('created_by')->get();
+        }
+
+        return response()->json($types, 200);
     }
 
     public function store(Request $request)
     {
+        $user = auth()->user();
+
+        // Only head can add maintenance types
+        if ($user->role !== 'head') {
+            return response()->json(['message' => 'Unauthorized'], 403);
+        }
+
         $request->validate(['type_name' => 'required|string|unique:maintenance_types']);
 
-        $type = MaintenanceType::create(['type_name' => $request->type_name]);
+        $type = MaintenanceType::create([
+            'type_name'  => $request->type_name,
+            'created_by' => $user->id, // tag it to the head
+        ]);
 
         return response()->json($type, 201);
     }

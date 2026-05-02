@@ -1,0 +1,17 @@
+﻿node_modules
+dist
+build
+
+.DS_Store
+Thumbs.db
+
+.git
+.gitignore
+
+Dockerfile
+docker-compose.yml
+.dockerignore
+
+*.log
+.env.local
+.env.*.local

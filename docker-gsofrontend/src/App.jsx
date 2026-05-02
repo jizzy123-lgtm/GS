@@ -520,6 +520,14 @@ function App() {
           }
         />
         <Route
+          path="/campusdirectorviewmaintenancerequestform/:id"
+          element={
+            <CampusDirectorNotificationProvider>
+              <CampusDirectorMaintenanceRequestForm token={token} />
+            </CampusDirectorNotificationProvider>
+          }
+        />
+        <Route
           path="/campusdirectornotifications"
           element={
             <CampusDirectorNotificationProvider>

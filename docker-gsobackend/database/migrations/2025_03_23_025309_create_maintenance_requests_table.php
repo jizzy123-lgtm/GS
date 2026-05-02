@@ -11,31 +11,35 @@ return new class extends Migration {
             $table->id();
             $table->date('date_requested');
             $table->text('details');
-            $table->string('requesting_personnel');
-            $table->string('position');
-            $table->string('requesting_office');
+            $table->foreignId('requesting_personnel')->constrained('users');
+            $table->foreignId('position_id')->constrained('positions');
+            $table->foreignId('requesting_office')->constrained('offices');
             $table->string('contact_number');
-            $table->string('status')->default('Pending');
+            $table->foreignId('status_id')->constrained('statuses');
             $table->date('date_received')->nullable();
             $table->time('time_received')->nullable();
-            $table->integer('priority_number')->nullable();
+            $table->string('priority_number')->nullable();
             $table->text('remarks')->nullable();
             $table->foreignId('verified_by')->nullable()->constrained('users');
             $table->foreignId('approved_by_1')->nullable()->constrained('users');
             $table->foreignId('approved_by_2')->nullable()->constrained('users');
             $table->foreignId('maintenance_type_id')->constrained('maintenance_types')->onDelete('cascade');
-            $table->timestamp('user_marked_done_at')->nullable();
-            $table->timestamp('staff_marked_done_at')->nullable();
             $table->date('scheduled_date')->nullable();
             $table->time('scheduled_time')->nullable();
             $table->unsignedBigInteger('assigned_staff_id')->nullable();
             $table->foreign('assigned_staff_id')->references('id')->on('users');
+            
+            $table->boolean('schedule_confirmed')->default(false);
+            $table->string('schedule_status')->default('none');
+            $table->date('requester_proposed_date')->nullable();
+            $table->time('requester_proposed_time')->nullable();
+            $table->text('requester_schedule_note')->nullable();
             $table->timestamps();
         });
     }
 
     public function down()
     {
-        Schema::dropIfExists('maintenance_types');
+        Schema::dropIfExists('maintenance_requests');
     }
 };

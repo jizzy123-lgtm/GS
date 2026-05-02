@@ -1,29 +1,40 @@
 <?php
 
 namespace App\Models;
+
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
 class MaintenanceRequest extends Model
 {
     use HasFactory;
+
+    const STATUS_HEAD_OK      = 8;
+    const STATUS_DIRECTOR_OK  = 9;
+
     protected $fillable = [
         'date_requested',
         'details',
-        'requesting_personnel', // will become a user_id (foreign key)
+        'requesting_personnel',
         'position_id',
         'requesting_office',
         'contact_number',
+        'maintenance_type_id',
         'status_id',
         'date_received',
         'time_received',
-        'priority_number', // now a string
+        'priority_number',
         'remarks',
         'verified_by',
         'approved_by_1',
         'approved_by_2',
-        'maintenance_type_id',
     ];
+
+    // ✅ Fixed: uses maintenance_request_id
+    public function feedback()
+    {
+        return $this->hasOne(Feedback::class, 'maintenance_request_id');
+    }
 
     public function requester()
     {
@@ -42,7 +53,7 @@ class MaintenanceRequest extends Model
 
     public function status()
     {
-        return $this->belongsTo(Status::class, 'status_id');
+        return $this->belongsTo(Status::class);
     }
 
     public function verifier()
@@ -69,6 +80,4 @@ class MaintenanceRequest extends Model
     {
         return $this->hasMany(Comment::class, 'request_id');
     }
-
 }
-

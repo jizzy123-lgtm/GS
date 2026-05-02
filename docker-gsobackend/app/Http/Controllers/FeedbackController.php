@@ -11,108 +11,106 @@ use App\Notifications\FeedbackSubmitted;
 
 class FeedbackController extends Controller
 {
-   public function store(Request $request)
-{
-    $validated = $request->validate([
-        'maintenance_request_id' => 'required|exists:maintenance_requests,id',
-        'client_type' => 'required|string',
-        'service_type' => 'required|string',
-        'request_date'=> 'required|date',
-        'date' => 'required|date',
-        'sex' => 'required|string',
-        'region' => 'nullable|string',
-        'age' => 'required|integer',
-        'office_visited' => 'required|string',
-        'service_availed' => 'required|string',
-        'cc1' => 'required|integer',
-        'cc2' => 'nullable|integer',
-        'cc3' => 'nullable|integer',
-        'sqd0' => 'required|integer',
-        'sqd1' => 'required|integer',
-        'sqd2' => 'required|integer',
-        'sqd3' => 'required|integer',
-        'sqd4' => 'required|integer',
-        'sqd5' => 'required|integer',
-        'sqd6' => 'required|integer',
-        'sqd7' => 'required|integer',
-        'sqd8' => 'required|integer',
-        'suggestions' => 'nullable|string',
-        'email' => 'nullable|email',
-    ]);
+    public function store(Request $request)
+    {
+        $validated = $request->validate([
+            'maintenance_request_id' => 'required|exists:maintenance_requests,id',
+            'client_type'     => 'required|string',
+            'service_type'    => 'required|string',
+            'request_date'    => 'required|date',
+            'date'            => 'required|date',
+            'sex'             => 'required|string',
+            'region'          => 'nullable|string',
+            'age'             => 'required|integer',
+            'office_visited'  => 'required|string',
+            'service_availed' => 'required|string',
+            'cc1'  => 'required|integer',
+            'cc2'  => 'nullable|integer',
+            'cc3'  => 'nullable|integer',
+            'sqd0' => 'required|integer',
+            'sqd1' => 'required|integer',
+            'sqd2' => 'required|integer',
+            'sqd3' => 'required|integer',
+            'sqd4' => 'required|integer',
+            'sqd5' => 'required|integer',
+            'sqd6' => 'required|integer',
+            'sqd7' => 'required|integer',
+            'sqd8' => 'required|integer',
+            'suggestions' => 'nullable|string',
+            'email'       => 'nullable|email',
+        ]);
 
-    // ✅ Prevent multiple feedbacks for the same request
-    $existingFeedback = Feedback::where('maintenance_request_id', $validated['maintenance_request_id'])->first();
+        $maintenance = MaintenanceRequest::find($validated['maintenance_request_id']);
 
-    if ($existingFeedback) {
+        // ✅ Gate 1 — Request must exist
+        if (!$maintenance) {
+            return response()->json(['message' => 'Maintenance request not found.'], 404);
+        }
+
+        // ✅ Gate 2 — Only the requester can submit feedback
+        if ($maintenance->requesting_personnel !== Auth::id()) {
+            return response()->json(['message' => 'Unauthorized.'], 403);
+        }
+
+        // ✅ Gate 3 — Must be marked as done by staff (status 5)
+        if ($maintenance->status_id !== 5) {
+            return response()->json([
+                'message' => 'Feedback can only be submitted after the request is marked as done by staff.'
+            ], 403);
+        }
+
+        // ✅ Gate 4 — Prevent duplicate feedback (permanently closed)
+        $existingFeedback = Feedback::where('maintenance_request_id', $validated['maintenance_request_id'])->first();
+        if ($existingFeedback) {
+            return response()->json([
+                'message' => 'Feedback has already been submitted for this request and cannot be changed.'
+            ], 409);
+        }
+
+        $validated['user_id'] = Auth::id();
+        $feedback = Feedback::create($validated);
+
+        //after the feedback submitted it will save to the completed id , which we can see it in the completed tab
+        $maintenance->status_id = 6;
+        $maintenance->save();
+
+        // ✅ Notify staff and head
+        $staffUsers = User::whereIn('role_id', [2, 3])
+            ->whereNotNull('email')
+            ->get();
+
+        foreach ($staffUsers as $staff) {
+            $staff->notify(new FeedbackSubmitted($feedback));
+        }
+
         return response()->json([
-            'message' => 'Feedback has already been submitted for this maintenance request.'
-        ], 409); // 409 Conflict
+            'message' => 'Feedback submitted successfully.',
+            'data'    => $feedback
+        ], 201);
     }
 
-    $maintenance = MaintenanceRequest::find($validated['maintenance_request_id']);
-
-    // Optional approval check
-    // if (!$maintenance || $maintenance->status_id != 2) {
-    //     return response()->json([
-    //         'message' => 'Feedback can only be submitted for approved maintenance requests.'
-    //     ], 403);
-    // }
-
-    // ✅ Mark as done
-    $maintenance->status_id = 8;
-    $maintenance->save();
-
-    $validated['user_id'] = Auth::id();
-
-    $feedback = Feedback::create($validated);
-
-    // ✅ Notify staff & head
-    $staffUsers = User::whereIn('role_id', [2, 3])
-        ->whereNotNull('email')
-        ->get();
-
-    foreach ($staffUsers as $staff) {
-        $staff->notify(new FeedbackSubmitted($feedback));
-    }
-
-    return response()->json([
-        'message' => 'Feedback submitted successfully and staff notified.',
-        'data' => $feedback
-    ], 201);
-}
-
-
-
-
-
-    // Show a specific feedback
     public function show($id)
     {
         return response()->json(Feedback::findOrFail($id));
     }
 
-    // Update feedback
+    // ✅ FIXED — update is now completely disabled
+    // Feedback is final once submitted, no edits allowed
     public function update(Request $request, $id)
     {
-        $feedback = Feedback::findOrFail($id);
-        $validated = $request->validate([
-            'rating' => 'sometimes|integer|min:1|max:5',
-            'comments' => 'sometimes|string',
-        ]);
-
-        $feedback->update($validated);
-
-        return response()->json($feedback);
+        return response()->json([
+            'message' => 'Feedback cannot be edited after submission.'
+        ], 403);
     }
 
-    // Delete feedback
+    // ✅ FIXED — destroy is now completely disabled
+    // Deleting feedback would allow resubmission, which breaks the one-feedback rule
     public function destroy($id)
     {
-        Feedback::destroy($id);
-        return response()->json(['message' => 'Feedback deleted']);
+        return response()->json([
+            'message' => 'Feedback cannot be deleted.'
+        ], 403);
     }
-
-
 
     public function showFeedbackDetails($id)
     {
@@ -123,19 +121,17 @@ class FeedbackController extends Controller
         }
 
         return response()->json([
-            'client_type' => $feedback->client_type,
-            'service_type' => $feedback->service_type,
-            'date'=> $feedback->date,
-            'sex' => $feedback->sex,
-            'region' => $feedback->region,
-            'age' => $feedback->age,
+            'client_type'    => $feedback->client_type,
+            'service_type'   => $feedback->service_type,
+            'date'           => $feedback->date,
+            'sex'            => $feedback->sex,
+            'region'         => $feedback->region,
+            'age'            => $feedback->age,
             'office_visited' => $feedback->office_visited,
-            'service_availed' => $feedback->service_availed,
-
-            'cc1' => $feedback->cc1,
-            'cc2' => $feedback->cc2,
-            'cc3' => $feedback->cc3,
-
+            'service_availed'=> $feedback->service_availed,
+            'cc1'  => $feedback->cc1,
+            'cc2'  => $feedback->cc2,
+            'cc3'  => $feedback->cc3,
             'sqd0' => $feedback->sqd0,
             'sqd1' => $feedback->sqd1,
             'sqd2' => $feedback->sqd2,
@@ -145,9 +141,8 @@ class FeedbackController extends Controller
             'sqd6' => $feedback->sqd6,
             'sqd7' => $feedback->sqd7,
             'sqd8' => $feedback->sqd8,
-
             'suggestions' => $feedback->suggestions,
-            'email' => $feedback->email,
+            'email'       => $feedback->email,
         ], 200);
     }
 
@@ -157,11 +152,11 @@ class FeedbackController extends Controller
 
         return response()->json([
             'message' => 'All feedbacks retrieved successfully.',
-            'data' => $feedbacks
+            'data'    => $feedbacks
         ]);
     }
 
-      public function getByRequest($maintenance_request_id)
+    public function getByRequest($maintenance_request_id)
     {
         $feedback = Feedback::where('maintenance_request_id', $maintenance_request_id)->first();
 
@@ -171,6 +166,4 @@ class FeedbackController extends Controller
 
         return response()->json($feedback);
     }
-
-
 }

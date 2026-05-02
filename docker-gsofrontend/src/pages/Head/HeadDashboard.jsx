@@ -151,7 +151,7 @@ const HeadDashboard = () => {
             ))}
           </nav>
           <div className="text-center py-2 text-xs text-gray-400 border-t border-gray-700">
-            Created By Bantilan & Friends
+            Created By Exverter
           </div>
         </div>
       </header>

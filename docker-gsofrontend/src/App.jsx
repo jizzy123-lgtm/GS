@@ -35,6 +35,7 @@ import HeadJanitorial from "./pages/Head/headmaintenance/HeadJanitorial.jsx";
 import HeadCarpentry from "./pages/Head/headmaintenance/HeadCarpentry.jsx";
 import HeadElectrical from "./pages/Head/headmaintenance/HeadElectrical.jsx";
 import HeadAirconditioning from "./pages/Head/headmaintenance/HeadAirconditioning.jsx";
+import HeadServiceRequest from "./pages/Head/headmaintenance/HeadServiceRequest";
 import StaffMaintenance from "./pages/Staff/StaffMaintenance/StaffMaintenance.jsx";
 import StaffJanitorial from "./pages/Staff/StaffMaintenance/StaffJanitorial.jsx";
 import StaffElectrical from "./pages/Staff/StaffMaintenance/StaffElectrical.jsx";
@@ -489,6 +490,7 @@ function App() {
           }
 
         />
+        <Route path="/head-service/:serviceName" element={<HeadServiceRequest />} />
         <Route
           path="/headnotifications"
           element={

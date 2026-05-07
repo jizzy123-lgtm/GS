@@ -353,6 +353,7 @@ function getQuickActions(roleId, onNavigate) {
   const common = [
     { label: "My Profile", onPress: () => onNavigate("Profile") },
     { label: "Notifications", onPress: () => onNavigate("Notifications") },
+    { label: "User Manual", onPress: () => onNavigate("UserManual") },
   ];
   if (roleId === ROLE_IDS.REQUESTER) return [
     { label: "New Request", onPress: () => onNavigate("SubmitRequest") },

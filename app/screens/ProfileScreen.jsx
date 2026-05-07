@@ -1,5 +1,5 @@
-import AsyncStorage from "@react-native-async-storage/async-storage";
-import { useState } from "react";
+﻿import AsyncStorage from "@react-native-async-storage/async-storage";
+import { useEffect, useState } from "react";
 import {
   ActivityIndicator, KeyboardAvoidingView, Platform,
   ScrollView,
@@ -7,22 +7,61 @@ import {
   Text, TextInput, TouchableOpacity,
   View,
 } from "react-native";
+import { Ionicons } from "@expo/vector-icons";
 import ScreenHeader from "./ScreenHeader";
 
 import { API_URL } from '../../api';
 import { getRoleLabel, normalizeRoleId } from "../constants/roles";
 
-export default function ProfileScreen({ user, onBack, onUpdateUser }) {
+const resolveProfile = (raw) => ({
+  ...raw,
+  first_name: raw?.first_name || raw?.firstname || "",
+  last_name: raw?.last_name || raw?.lastname || raw?.surname || "",
+  middle_initial: raw?.middle_initial || raw?.middle_name || raw?.middlename || raw?.mi || "",
+  email: raw?.email || "",
+  contact_number: raw?.contact_number || raw?.contact || raw?.phone || raw?.mobile || "",
+  department: raw?.department || raw?.office || raw?.office_name || raw?.department_name || raw?.college || "",
+  username: raw?.username || "",
+  role_id: raw?.role_id,
+});
+
+export default function ProfileScreen({ user, onBack, onUpdateUser, onNavigate }) {
+  const [profileData, setProfileData] = useState(resolveProfile(user));
   const [editing, setEditing] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [fetchLoading, setFetchLoading] = useState(true);
   const [success, setSuccess] = useState(false);
   const [error, setError] = useState("");
   const [form, setForm] = useState({
-    first_name: user?.first_name || "", last_name: user?.last_name || "",
-    middle_initial: user?.middle_initial || "", email: user?.email || "",
-    contact_number: user?.contact_number || "", department: user?.department || "",
+    first_name: profileData.first_name, last_name: profileData.last_name,
+    middle_initial: profileData.middle_initial, email: profileData.email,
+    contact_number: profileData.contact_number, department: profileData.department,
   });
   const set = (k, v) => setForm(p => ({ ...p, [k]: v }));
+
+  useEffect(() => {
+    const fetchProfile = async () => {
+      try {
+        const token = await AsyncStorage.getItem("authToken") || await AsyncStorage.getItem("token");
+        const res = await fetch(`${API_URL}/profile`, {
+          headers: { Authorization: `Bearer ${token}`, Accept: "application/json" },
+        });
+        if (res.ok) {
+          const data = await res.json();
+          const raw = data?.data || data?.user || data;
+          const resolved = resolveProfile({ ...user, ...raw });
+          setProfileData(resolved);
+          setForm({
+            first_name: resolved.first_name, last_name: resolved.last_name,
+            middle_initial: resolved.middle_initial, email: resolved.email,
+            contact_number: resolved.contact_number, department: resolved.department,
+          });
+        }
+      } catch (_e) {}
+      finally { setFetchLoading(false); }
+    };
+    fetchProfile();
+  }, []);
 
   const handleSave = async () => {
     setError(""); setSuccess(false);
@@ -38,8 +77,9 @@ export default function ProfileScreen({ user, onBack, onUpdateUser }) {
       });
       const data = await res.json();
       if (res.ok) {
-        const u = { ...user, ...form };
+        const u = { ...user, ...profileData, ...form };
         await AsyncStorage.setItem("user", JSON.stringify(u));
+        setProfileData(resolveProfile(u));
         onUpdateUser && onUpdateUser(u);
         setSuccess(true); setEditing(false);
       } else setError(data.message || "Failed to update.");
@@ -47,8 +87,8 @@ export default function ProfileScreen({ user, onBack, onUpdateUser }) {
     finally { setLoading(false); }
   };
 
-  const initials = (user?.first_name?.[0] || "") + (user?.last_name?.[0] || "");
-  const roleLabel = getRoleLabel(normalizeRoleId(user?.role_id));
+  const initials = (profileData.first_name?.[0] || "") + (profileData.last_name?.[0] || "");
+  const roleLabel = getRoleLabel(normalizeRoleId(profileData.role_id));
 
   return (
     <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === "ios" ? "padding" : "height"}>
@@ -58,13 +98,15 @@ export default function ProfileScreen({ user, onBack, onUpdateUser }) {
         {/* Avatar section */}
         <View style={styles.avatarSection}>
           <View style={styles.avatar}>
-            <Text style={styles.avatarText}>{initials}</Text>
+            {fetchLoading
+              ? <ActivityIndicator color="#fff" />
+              : <Text style={styles.avatarText}>{initials}</Text>}
           </View>
-          <Text style={styles.fullName}>{user?.first_name} {user?.last_name}</Text>
+          <Text style={styles.fullName}>{profileData.first_name} {profileData.last_name}</Text>
           <View style={styles.rolePill}>
             <Text style={styles.rolePillText}>{roleLabel}</Text>
           </View>
-          <Text style={styles.username}>@{user?.username}</Text>
+          <Text style={styles.username}>@{profileData.username}</Text>
         </View>
 
         <View style={styles.body}>
@@ -79,12 +121,12 @@ export default function ProfileScreen({ user, onBack, onUpdateUser }) {
                   <Text style={styles.editBtnText}>Edit</Text>
                 </TouchableOpacity>
               </View>
-              <InfoRow label="First Name" value={user?.first_name} />
-              <InfoRow label="Last Name" value={user?.last_name} />
-              <InfoRow label="Middle Initial" value={user?.middle_initial} />
-              <InfoRow label="Email" value={user?.email} />
-              <InfoRow label="Contact" value={user?.contact_number} />
-              <InfoRow label="Department" value={user?.department} last />
+              <InfoRow label="First Name" value={profileData.first_name} />
+              <InfoRow label="Last Name" value={profileData.last_name} />
+              <InfoRow label="Middle Initial" value={profileData.middle_initial} />
+              <InfoRow label="Email" value={profileData.email} />
+              <InfoRow label="Contact" value={profileData.contact_number} />
+              <InfoRow label="Department" value={profileData.department} last />
             </View>
           ) : (
             <View style={styles.card}>
@@ -120,9 +162,15 @@ export default function ProfileScreen({ user, onBack, onUpdateUser }) {
 
           <View style={styles.card}>
             <Text style={styles.cardTitle}>Account</Text>
-            <InfoRow label="Username" value={user?.username} />
+            <InfoRow label="Username" value={profileData.username} />
             <InfoRow label="Role" value={roleLabel} last />
           </View>
+
+          <TouchableOpacity style={styles.manualBtn} onPress={() => onNavigate && onNavigate('UserManual')} activeOpacity={0.85}>
+            <Ionicons name="book-outline" size={18} color="#fff" style={{ marginRight: 10 }} />
+            <Text style={styles.manualBtnText}>User Manual</Text>
+            <Ionicons name="chevron-forward" size={16} color="#C9A84C" style={{ marginLeft: "auto" }} />
+          </TouchableOpacity>
         </View>
       </ScrollView>
     </KeyboardAvoidingView>
@@ -168,4 +216,7 @@ const styles = StyleSheet.create({
   cancelText: { fontSize: 13, fontWeight: "700", color: "#8A9BB0" },
   saveBtn: { flex: 2, backgroundColor: "#0B1F3A", borderRadius: 10, paddingVertical: 13, alignItems: "center", elevation: 3 },
   saveText: { color: "#fff", fontSize: 13, fontWeight: "800", letterSpacing: 1.5 },
+  manualBtn: { flexDirection: "row", alignItems: "center", backgroundColor: "#0B1F3A", borderRadius: 12, padding: 16, marginBottom: 12, borderWidth: 1, borderColor: "#C9A84C", elevation: 2 },
+  manualBtnText: { color: "#fff", fontSize: 14, fontWeight: "700" },
 });
+

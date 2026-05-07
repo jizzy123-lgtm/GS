@@ -1,4 +1,4 @@
-import { useState } from 'react';
+﻿import { useState } from 'react';
 import { View } from 'react-native';
 import LoginScreen from '../LoginScreen';
 import AssignScheduleScreen from '../screens/AssignScheduleScreen';
@@ -11,13 +11,15 @@ import ReviewRequestsScreen from '../screens/ReviewRequestsScreen';
 import SignUpScreen from '../screens/SignUpScreen';
 import SubmitRequestScreen from '../screens/SubmitRequestScreen';
 import UserManagementScreen from '../screens/UserManagementScreen';
+import UserManualScreen from '../screens/UserManualScreen';
 import ViewRequestStatusScreen from '../screens/ViewRequestStatusScreen';
 import { normalizeRoleId } from "../constants/roles";
 
 type Screen =
   | 'Login' | 'SignUp' | 'Dashboard' | 'SubmitRequest'
   | 'ViewRequestStatus' | 'Feedback' | 'Notifications'
-  | 'ReviewRequests' | 'PendingApprovals' | 'Profile' | 'AssignSchedule' | 'UserManagement';
+  | 'ReviewRequests' | 'PendingApprovals' | 'Profile' | 'AssignSchedule' | 'UserManagement'
+  | 'UserManual';
 
 export default function HomeScreen() {
   const [user, setUser] = useState<any>(null);
@@ -70,10 +72,14 @@ export default function HomeScreen() {
     return <UserManagementScreen user={user} onBack={() => navigate('Dashboard')} />;
   }
   if (screen === 'Profile') {
-    return <ProfileScreen user={user} onBack={() => navigate('Dashboard')} onUpdateUser={(u: any) => setUser(u)} />;
+    return <ProfileScreen user={user} onBack={() => navigate('Dashboard')} onUpdateUser={(u: any) => setUser(u)} onNavigate={navigate} />;
   }
   if (screen === 'AssignSchedule') {
     return <AssignScheduleScreen user={user} requestId={screenParams.requestId} request={screenParams.request} onBack={() => navigate('ReviewRequests')} onSuccess={() => navigate('Dashboard')} />;
   }
+  if (screen === 'UserManual') {
+    return <UserManualScreen user={user} onBack={() => navigate('Dashboard')} />;
+  }
   return <View />;
 }
+

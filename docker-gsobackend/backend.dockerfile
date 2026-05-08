@@ -1,4 +1,3 @@
-
 # Use an official PHP image with Apache (Debian-based OS)
 FROM php:8.2-apache
 
@@ -9,8 +8,7 @@ RUN apt-get update && apt-get install -y \
     libpng-dev \
     libjpeg62-turbo-dev \
     libfreetype6-dev \
-    libicu-dev \
-    && docker-php-ext-install pdo pdo_mysql gd intl
+    && docker-php-ext-install pdo pdo_mysql gd
 
 # Enable Apache rewrite module (Laravel requires this)
 RUN a2enmod rewrite

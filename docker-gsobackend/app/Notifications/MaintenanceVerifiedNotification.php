@@ -3,64 +3,39 @@
 namespace App\Notifications;
 
 use Illuminate\Bus\Queueable;
-use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Notifications\Notification;
+use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Notifications\Messages\MailMessage;
 use App\Models\MaintenanceRequest;
-use App\Models\User;
 
-class MaintenanceVerifiedNotification extends Notification implements ShouldQueue
+class MaintenanceVerifiedNotification extends Notification
 {
     use Queueable;
 
-    public MaintenanceRequest $maintenanceRequest;
-    public User $requester;
+    public $maintenanceRequest;
 
-    public function __construct(MaintenanceRequest $maintenanceRequest, User $requester)
+    public function __construct(MaintenanceRequest $maintenanceRequest)
     {
         $this->maintenanceRequest = $maintenanceRequest;
-        $this->requester = $requester;
     }
 
-    public function via($notifiable): array
+    public function via($notifiable)
     {
         return ['mail'];
     }
 
-    public function toMail($notifiable): MailMessage
+    public function toMail($notifiable)
     {
-        $fullName = trim(
-            ($this->requester->last_name ? $this->requester->last_name . ', ' : '') .
-            ($this->requester->first_name ?? '') . ' ' .
-            ($this->requester->middle_name ?? '')
-        );
-
         return (new MailMessage)
-            ->subject('Your Maintenance Request Has Been Verified')
-            ->view('emails.gso-notification', [
-                'subject'    => 'Your Maintenance Request Has Been Verified',
-                'badgeType'  => 'green',                    // ✅ different color from "submitted"
-                'badgeLabel' => 'Request Verified',         // ✅ NOT "Request Submitted"
-                'greeting'   => 'Dear ' . $fullName . ',',  // ✅ requester's actual name
-                'lines'      => [
-                    'Your maintenance request <strong>(ID: #' . $this->maintenanceRequest->id . ')</strong> has been <strong>verified by our staff</strong>.',
-                    'Your request will now be forwarded to the <strong>Head of GSO</strong> for approval.',
-                    'Please log in to your account to view further details.',
-                ],
-                'actionUrl'  => 'http://localhost:5173/',
-                'actionText' => 'View Request',
-                'notices'    => [
-                    '⚠️ If you have any concerns, please contact your Campus Admin.',
-                ],
-            ]);
-    }
-
-    // ✅ Required if database channel is ever added
-    public function toArray($notifiable): array
-    {
-        return [
-            'request_id' => $this->maintenanceRequest->id,
-            'message'    => 'Your maintenance request has been verified by staff.',
-        ];
+            ->subject('✅ Your Maintenance Request Was Verified')
+            ->greeting('Hello ' . $notifiable->first_name . '!')
+            ->line('Your maintenance request has been verified by our staff.')
+            ->line('Details:')
+            ->line('• Date Requested: ' . $this->maintenanceRequest->date_requested)
+            ->line('Priority Number: ' .$this->maintenanceRequest->priority_number)
+            ->line('• Details: ' . $this->maintenanceRequest->details)
+           // ->line('• Status: ' . $this->maintenanceRequest->status)
+            ->line('We’ll notify you again once it’s approved.')
+            ->salutation('Thank you for using GSO System!');
     }
 }

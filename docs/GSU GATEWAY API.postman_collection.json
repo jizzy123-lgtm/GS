@@ -1,0 +1,438 @@
+{
+  "info": {
+    "_postman_id": "23932f62-7a38-4cb7-8c22-d812c0c81642",
+    "name": "GSU GATEWAY API",
+    "description": "**API documentation for the GSU Gateway Mobile Application. Developed for the General Services Office (GSO) of Jose Rizal Memorial State University (JRMSU).**\n\nBase URL: http://:8000/api\n\nAuthentication:  \nAll protected endpoints require:\n\n- Authorization: Bearer\n    \n- Accept: application/json\n    \n- Content-Type: application/json",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "_exporter_id": "54234949"
+  },
+  "item": [
+    {
+      "name": "Authentication",
+      "item": [
+        {
+          "name": "Login",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\r\n  \"username\": \"Admin123\",\r\n  \"password\": \"password123\"\r\n}\r\n",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "http://<SERVER_IP>:8000/api/login",
+              "protocol": "http",
+              "host": [
+                "<SERVER_IP>"
+              ],
+              "port": "8000",
+              "path": [
+                "api",
+                "login"
+              ]
+            },
+            "description": "Authenticates a user and returns a Bearer token.  \nAccess: Public (no token required)\n\n**Test Credentials:**\n\n- Admin:\n    \n    - username: admin123\n        \n    - password: password123\n        \n- Staff:\n    \n    - username: staff\n        \n    - password: password123\n        \n- Head:\n    \n    - username: head\n        \n    - password: password123\n        \n- Director:\n    \n    - username: director\n        \n    - password: password123"
+          },
+          "response": []
+        },
+        {
+          "name": "Register",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\r\n  \"name\": \"Juan Dela Cruz\",\r\n  \"email\": \"juan@email.com\",\r\n  \"username\": \"juan123\",\r\n  \"password\": \"password123\",\r\n  \"password_confirmation\": \"password123\",\r\n  \"office\": \"Engineering\",\r\n  \"position\": \"Faculty\",\r\n  \"role\": \"requester\"\r\n}\r\n",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "http://<SERVER_IP>:8000/api/register",
+              "protocol": "http",
+              "host": [
+                "<SERVER_IP>"
+              ],
+              "port": "8000",
+              "path": [
+                "api",
+                "register"
+              ]
+            },
+            "description": "Registers a new user account.\n\nAccess: Public.\n\nAccount is placed in pending state until approved by Admin."
+          },
+          "response": []
+        },
+        {
+          "name": "Logout",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "http://<SERVER_IP>:8000/api/logout",
+              "protocol": "http",
+              "host": [
+                "<SERVER_IP>"
+              ],
+              "port": "8000",
+              "path": [
+                "api",
+                "logout"
+              ]
+            },
+            "description": "Invalidates the Bearer token and ends the session.\n\nAccess: Authenticated."
+          },
+          "response": []
+        }
+      ],
+      "description": "Handles user authentication and session management for the GSU Gateway system.  \n﻿\n\nEndpoints:\n\n- Login: Authenticates a user and returns a Bearer token used for all protected API requests\n    \n- Register: Submits a new user account for Admin approval before gaining system access\n    \n- Logout: Invalidates the current Bearer token and ends the user session ﻿\n    \n\nAccess Levels:\n\n- Login and Register: Public (no token required)\n    \n- Logout: Authenticated (requires Bearer token) ﻿\n    \n\nNote:  \nRegistered accounts are placed in a pending state and cannot be used until reviewed and approved by the System Admin."
+    },
+    {
+      "name": "Maintenance Request",
+      "item": [
+        {
+          "name": "maintenance-request",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "http://<SERVER_IP>:8000/api/maintenance-requests",
+              "protocol": "http",
+              "host": [
+                "<SERVER_IP>"
+              ],
+              "port": "8000",
+              "path": [
+                "api",
+                "maintenance-requests"
+              ]
+            },
+            "description": "Returns list of maintenance requests based on the logged-in user's role.\n\nAccess: Authenticated."
+          },
+          "response": []
+        },
+        {
+          "name": "maintenance-request",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\r\n  \"maintenance_type_id\": 1,\r\n  \"location\": \"Room 201, Engineering Building\",\r\n  \"description\": \"Broken ceiling fan needs replacement\"\r\n}\r\n",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "http://<SERVER_IP>:8000/api/maintenance-requests",
+              "protocol": "http",
+              "host": [
+                "<SERVER_IP>"
+              ],
+              "port": "8000",
+              "path": [
+                "api",
+                "maintenance-requests"
+              ]
+            },
+            "description": "Submits a new maintenance request.\n\nAccess: Requester only."
+          },
+          "response": []
+        },
+        {
+          "name": "maintenance-requests/(id)",
+          "request": {
+            "method": "PATCH",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\r\n  \"action\": \"approve\"\r\n}\r\n",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "http://<SERVER_IP>:8000/api/maintenance-requests/1",
+              "protocol": "http",
+              "host": [
+                "<SERVER_IP>"
+              ],
+              "port": "8000",
+              "path": [
+                "api",
+                "maintenance-requests",
+                "1"
+              ]
+            },
+            "description": "Updates the status of a maintenance request.  \nAccess: Head, Campus Director.\n\nActions:\n\n- approve: Approves the request\n    \n- disapprove: Requires \"reason\" field\n    \n\nExample (disapprove):  \n{  \n\"action\": \"disapprove\",  \n\"reason\": \"Insufficient budget.\"  \n}"
+          },
+          "response": []
+        }
+      ],
+      "description": "**Maintenance Request**  \nHandles all maintenance request operations in the GSU Gateway system. Covers submission, status tracking, and approval/disapproval workflow.\n\nApproval Flow:  \nRequester submits → Staff verifies → Head approves → Campus Director approves → Staff assigns schedule  \n\nStatus Values:\n\n- pending: Newly submitted, awaiting Staff verification\n    \n- verified: Confirmed by Staff, forwarded to Head\n    \n- approved: Approved by Head, forwarded to Campus Director\n    \n- fully_approved: Approved by Campus Director, ready for scheduling\n    \n- scheduled: Maintenance date and time assigned by Staff\n    \n- done: Maintenance work completed by Staff\n    \n- denied: Rejected by Staff (requires reason)\n    \n- disapproved: Rejected by Head or Campus Director (requires reason)"
+    },
+    {
+      "name": "Maintenance Types",
+      "item": [
+        {
+          "name": "maintenance-types",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "http://<SERVER_IP>:8000/api/maintenance-types",
+              "protocol": "http",
+              "host": [
+                "<SERVER_IP>"
+              ],
+              "port": "8000",
+              "path": [
+                "api",
+                "maintenance-types"
+              ]
+            },
+            "description": "Returns list of available maintenance types.\n\nAccess: Authenticated"
+          },
+          "response": []
+        }
+      ],
+      "description": "**Maintenance Types are predefined by the system and selected by the Requester during request submission.**\n\nExamples:\n\n- Electrical\n    \n- Plumbing\n    \n- Carpentry\n    \n- Air Conditioning\n    \n- Others\n    \n\nAccess: Authenticated (all roles)"
+    },
+    {
+      "name": "Schedule",
+      "item": [
+        {
+          "name": "schedule-events",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\r\n  \"maintenance_request_id\": 1,\r\n  \"scheduled_date\": \"2026-04-25\",\r\n  \"time_slot\": \"09:00:00\"\r\n}\r\n",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "http://<SERVER_IP>:8000/api/schedule-events",
+              "protocol": "http",
+              "host": [
+                "<SERVER_IP>"
+              ],
+              "port": "8000",
+              "path": [
+                "api",
+                "schedule-events"
+              ]
+            },
+            "description": "Assigns a maintenance schedule to a fully approved request.\n\nAccess: Staff only.\n\nTime slots: 7AM-4PM hourly, excluding 12PM."
+          },
+          "response": []
+        }
+      ],
+      "description": "Manages the assignment of maintenance schedules for fully approved requests.\n\nStaff assigns a date and time slot to a request after it has been approved by all levels (Staff → Head → Campus Director).  \n﻿\n\nSchedule Rules:\n\n- Available time slots: 7:00 AM to 4:00 PM (hourly increments)\n    \n- Excluded time slot: 12:00 PM (lunch break)\n    \n- Past dates are disabled and cannot be selected\n    \n- Requester is notified via push notification once a schedule is assigned\n    \n\nAccess: Staff only"
+    },
+    {
+      "name": "Users",
+      "item": [
+        {
+          "name": "users-list",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "http://<SERVER_IP>:8000/api/users-list",
+              "protocol": "http",
+              "host": [
+                "<SERVER_IP>"
+              ],
+              "port": "8000",
+              "path": [
+                "api",
+                "users-list"
+              ]
+            },
+            "description": "Returns list of all registered user accounts.\n\nAccess: System Admin only."
+          },
+          "response": []
+        },
+        {
+          "name": "users/(id)/approve",
+          "request": {
+            "method": "PATCH",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\r\n  \"action\": \"approve\"\r\n}\r\n",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "http://<SERVER_IP>:8000/api/users/1/approve",
+              "protocol": "http",
+              "host": [
+                "<SERVER_IP>"
+              ],
+              "port": "8000",
+              "path": [
+                "api",
+                "users",
+                "1",
+                "approve"
+              ]
+            },
+            "description": "**Approves or rejects a pending user account.  \nAccess: System Admin only.**\n\nActions:\n\n- approve: Activates the account\n    \n- reject: Requires \"reason\" field\n    \n\nExample (reject):  \n{  \n\"action\": \"reject\",  \n\"reason\": \"Invalid credentials submitted.\"  \n}"
+          },
+          "response": []
+        },
+        {
+          "name": "users/push-token",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\r\n  \"push_token\": \"ExponentPushToken[xxxxxxxxxxxxxxxxxxxxxx]\"\r\n}\r\n",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "http://<SERVER_IP>:8000/api/users/push-token",
+              "protocol": "http",
+              "host": [
+                "<SERVER_IP>"
+              ],
+              "port": "8000",
+              "path": [
+                "api",
+                "users",
+                "push-token"
+              ]
+            },
+            "description": "`Registers the device push notification token for the logged-in user.`\n\n`Access: Authenticated.`"
+          },
+          "response": []
+        }
+      ],
+      "description": "**Manages all user account operations in the GSU Gateway system.**\n\n**Covers account listing, approval/rejection of pending accounts, and device push notification token registration.**\n\n**User Roles:**\n\n- admin: Manages user accounts and system access\n    \n- staff: Verifies requests and assigns schedules\n    \n- head: Reviews and approves/disapproves requests\n    \n- director: Final approval authority for maintenance requests\n    \n- requester: Submits maintenance requests and receives updates\n    \n\n**Account Status:**\n\n- pending: Newly registered, awaiting Admin approval\n    \n- approved: Active account, can log in to the system\n    \n- disapproved: Rejected by Admin, cannot access the system\n    \n\n**Access**: System Admin only (except push token registration which is Authenticated)"
+    },
+    {
+      "name": "Notifications",
+      "item": [
+        {
+          "name": "notifications",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "http://<SERVER_IP>:8000/api/notifications",
+              "protocol": "http",
+              "host": [
+                "<SERVER_IP>"
+              ],
+              "port": "8000",
+              "path": [
+                "api",
+                "notifications"
+              ]
+            },
+            "description": "Returns all notifications for the logged-in user in reverse chronological order.\n\nAccess: Authenticated."
+          },
+          "response": []
+        },
+        {
+          "name": "notifications/(id)/read",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "http://<SERVER_IP>:8000/api/notifications/1/read",
+              "protocol": "http",
+              "host": [
+                "<SERVER_IP>"
+              ],
+              "port": "8000",
+              "path": [
+                "api",
+                "notifications",
+                "1",
+                "read"
+              ]
+            },
+            "description": "Marks a specific notification as read.\n\nAccess: Authenticated."
+          },
+          "response": []
+        },
+        {
+          "name": "notification/read all",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "http://<SERVER_IP>:8000/api/notifications/read-all",
+              "protocol": "http",
+              "host": [
+                "<SERVER_IP>"
+              ],
+              "port": "8000",
+              "path": [
+                "api",
+                "notifications",
+                "read-all"
+              ]
+            },
+            "description": "Marks all notifications as read for the logged-in user.\n\nAccess: Authenticated."
+          },
+          "response": []
+        }
+      ],
+      "description": "**Manages all notification records for users in the GSU Gateway system.**\n\n**Push notifications are sent automatically at key events in the maintenance workflow. All notifications are stored and accessible through the notification inbox.**\n\nNotification Triggers:\n\n- Request verified by Staff\n    \n- Request approved by Head\n    \n- Request approved by Campus Director\n    \n- Schedule assigned by Staff\n    \n- Request marked as Done\n    \n- Request denied or disapproved (with reason)\n    \n\nNotification Features:\n\n- Full notification history in reverse chronological order\n    \n- Unread notifications are visually distinguished from read ones\n    \n- Users can mark a single notification or all notifications as read\n    \n- Tapping a notification opens the relevant screen in the app\n    \n\nAccess: Authenticated (all roles)"
+    },
+    {
+      "name": "Dashboard",
+      "item": [
+        {
+          "name": "Dashboard-stats",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "http://<SERVER_IP>:8000/api/dashboard-stats",
+              "protocol": "http",
+              "host": [
+                "<SERVER_IP>"
+              ],
+              "port": "8000",
+              "path": [
+                "api",
+                "dashboard-stats"
+              ]
+            },
+            "description": "Returns KPI statistics for the dashboard based on the logged-in user's role.\n\nAccess: Authenticated."
+          },
+          "response": []
+        }
+      ],
+      "description": "**Provides KPI statistics and activity summaries for the GSU Gateway dashboard.**\n\n**Each role sees a tailored set of statistics relevant to their responsibilities.**﻿\n\nDashboard Statistics per Role:\n\n- System Admin: Total users, Pending accounts, Approved accounts, Disapproved accounts\n    \n- Staff / Head / Campus Director / Requester: Total requests, Pending, Approved, Done, Disapproved\n    \n\nAccess: Authenticated (all roles)"
+    }
+  ]
+}

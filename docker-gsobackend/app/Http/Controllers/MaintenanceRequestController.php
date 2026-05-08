@@ -1,7 +1,6 @@
 <?php
 
 namespace App\Http\Controllers;
-use App\Services\SmsService;
 use App\Models\MaintenanceRequest;
 use App\Models\Notification as SystemNotification;
 use Illuminate\Http\Request;
@@ -9,7 +8,7 @@ use Illuminate\Support\Facades\Auth;
 use App\Models\User;
 use App\Models\MaintenanceType;
 use App\Notifications\MaintenanceRequestCreated;
-use App\Notifications\MaintenanceRequestCreatedNotifyStaff;
+use Illuminate\Support\Facades\Mail;
 use App\Notifications\MaintenanceVerifiedNotification;
 use App\Notifications\MaintenanceRequestApproved;
 use Illuminate\Support\Facades\Notification;
@@ -18,15 +17,8 @@ use App\Notifications\RequestApprovedByHead;
 use App\Notifications\RequestApprovedByCampusDirector;
 use App\Notifications\AssignPriorityToRequest;
 use App\Notifications\RequestAssignedPriority;
-use App\Notifications\RequestApprovedByHeadNotifyStaff;
-use App\Notifications\RequestApprovedByDirectorNotifyStaff;
-use App\Notifications\RequestFullyApproved;
-use App\Notifications\RequestFullyApprovedNotifyStaff;
-use App\Notifications\MaintenanceRequestDisapproved;
-use App\Notifications\MaintenanceRequestDisapprovedNotifyStaff;
 use Carbon\Carbon;
 use App\Models\Comment;
-
 class MaintenanceRequestController extends Controller
 {
     public function index()
@@ -36,107 +28,80 @@ class MaintenanceRequestController extends Controller
 
     public function store(Request $request)
     {
-        if ($request->contact_number) {
-            $raw = $request->contact_number;
-            $raw = preg_replace('/^\+63/', '', $raw);
-            $raw = preg_replace('/^63(?=9)/', '0', $raw);
-            $raw = ltrim($raw, '+');
-            if (!str_starts_with($raw, '0')) {
-                $raw = '0' . $raw;
-            }
-            $request->merge(['contact_number' => $raw]);
-        }
-
         $request->validate([
-            'date_requested'      => ['required', 'string', 'date_format:Y-m-d'],
-            'details'             => 'required|string',
-            'position_id'         => 'required|exists:positions,id',
-            'requesting_office'   => 'required|exists:offices,id',
-            'contact_number'      => [
-                'required',
-                'string',
-                'size:11',
-                'regex:/^09[0-9]{9}$/',
-            ],
+            'date_requested' => 'required|date',
+            'details' => 'required|string',
+            'requesting_personnel' => 'required|exists:users,id',
+            'position_id' => 'required|exists:positions,id',
+            'requesting_office' => 'required|exists:offices,id',
+            'contact_number' => 'required|string',
             'maintenance_type_id' => 'required|exists:maintenance_types,id',
+            'images' => 'nullable|array|max:12',
+            'images.*' => 'image|mimes:jpeg,png,jpg,gif|max:5120',
         ]);
 
-        // ✅ Block if there's ANY active/ongoing request
-        $hasActiveRequest = MaintenanceRequest::where('requesting_personnel', Auth::id())
-            ->whereNotIn('status_id', [4, 5, 6]) // 4=denied, 5=done, 6=cancelled
-            ->exists();
 
-        if ($hasActiveRequest) {
-            return response()->json([
-                'message' => 'You already have an ongoing maintenance request. You can only submit a new one after your current request is completed and feedback has been submitted.'
-            ], 403);
-        }
-
-        // ✅ Block if completed (status 5) but feedback not yet submitted
-        $pendingFeedback = MaintenanceRequest::where('requesting_personnel', Auth::id())
-            ->where('status_id', 5)
-            ->whereDoesntHave('feedback')
-            ->exists();
-
-        if ($pendingFeedback) {
-            return response()->json([
-                'message' => 'You cannot submit a new maintenance request until you have submitted feedback for your completed request.'
-            ], 403);
+        //image attachment
+        $imagePaths = array_fill(0, 12, null);
+        if ($request->hasFile('images')) {
+            foreach ($request->file('images') as $index => $file) {
+                if ($index >= 12)
+                    break;
+                $imagePaths[$index] = $file->store('maintenance_requests', 'public');
+            }
         }
 
         $maintenanceRequest = MaintenanceRequest::create([
-            'date_requested'       => $request->date_requested,
-            'details'              => $request->details,
-            'requesting_personnel' => Auth::id(),
-            'position_id'          => $request->position_id,
-            'requesting_office'    => $request->requesting_office,
-            'contact_number'       => '+63' . substr($request->contact_number, 1),
-            'maintenance_type_id'  => $request->maintenance_type_id,
-            'status_id'            => 1,
+            'date_requested' => $request->date_requested,
+            'details' => $request->details,
+            'requesting_personnel' => $request->requesting_personnel,
+            'position_id' => $request->position_id,
+            'requesting_office' => $request->requesting_office,
+            'contact_number' => $request->contact_number,
+            'maintenance_type_id' => $request->maintenance_type_id,
+            'status_id' => 1,
+            'image_path' => $imagePaths[0],
+            'image_path_2' => $imagePaths[1],
+            'image_path_3' => $imagePaths[2],
+            'image_path_4' => $imagePaths[3],
+            'image_path_5' => $imagePaths[4],
+            'image_path_6' => $imagePaths[5],
+            'image_path_7' => $imagePaths[6],
+            'image_path_8' => $imagePaths[7],
+            'image_path_9' => $imagePaths[8],
+            'image_path_10' => $imagePaths[9],
+            'image_path_11' => $imagePaths[10],
+            'image_path_12' => $imagePaths[11],
         ]);
 
-        $requester = User::find($maintenanceRequest->requesting_personnel);
-        $requesterName = $requester->last_name . ', ' . $requester->first_name;
+        // Create a new maintenance request
+        //$maintenanceRequest = MaintenanceRequest::create($request->all());
 
-        // ✅ Email — Requester
-        if ($requester && $requester->email) {
-            $requester->notify(new MaintenanceRequestCreated());
+        // Notify all heads and staff (role_id 2 = head, role_id 3 = staff)
+        $submitter = Auth::user();
+        if ($submitter && $submitter->role_id !== 2) {
+            $usersToNotify = User::whereIn('role_id', [2])->get();
+
+            // Use Notification facade to send notifications in bulk
+            Notification::send($usersToNotify, new MaintenanceRequestCreated($submitter->last_name));
         }
 
-        // ✅ SMS — Requester
-        if ($requester && $requester->contact_number) {
-            SmsService::send(
-                $requester->contact_number,
-                "Your maintenance request has been submitted. Request ID: {$maintenanceRequest->id}"
-            );
-        }
-
-        // ✅ System Notification — Requester
-        SystemNotification::create([
-            'user_id'      => $maintenanceRequest->requesting_personnel,
-            'type'         => 'maintenance_request_created',
-            'message'      => 'Your maintenance request has been successfully submitted. Please wait for it to be reviewed.',
-            'is_read'      => false,
-            'reference_id' => $maintenanceRequest->id,
-        ]);
-
-        // ✅ Email + System Notification — Staff
         $staffUsers = User::where('role_id', 3)->get();
-        foreach ($staffUsers as $staff) {
-            $staff->notify(new MaintenanceRequestCreatedNotifyStaff($maintenanceRequest, $requesterName));
 
+        foreach ($staffUsers as $staff) {
             SystemNotification::create([
-                'user_id'      => $staff->id,
-                'type'         => 'maintenance_request_created',
-                'message'      => 'A new maintenance request was submitted by ' . $requesterName,
-                'is_read'      => false,
+                'user_id' => $staff->id,
+                'type' => 'maintenance_request_created',
+                'message' => 'A new maintenance request was submitted by ' . Auth::user()->last_name . ', ' . Auth::user()->first_name,
                 'reference_id' => $maintenanceRequest->id,
+                'is_read' => false,
             ]);
         }
 
+        // Return a response with the created maintenance request and a message
         return response()->json([
             'message' => 'Maintenance request created and notifications sent.',
-            'data'    => $maintenanceRequest
+            'data' => $maintenanceRequest
         ], 201);
     }
 
@@ -145,196 +110,232 @@ class MaintenanceRequestController extends Controller
         return response()->json(MaintenanceRequest::findOrFail($id));
     }
 
-    //Function to verify request
+    // this function is for the staff's verification
     public function verify(Request $request, $id)
     {
         $request->validate([
-            'date_received'  => 'required|date',
-            'time_received'  => 'required|date_format:H:i:s',
-            'priority_number'=> 'nullable|string',
-            'remarks'        => 'nullable|string',
-            'comment'        => 'nullable|string|max:500'
+            'date_received' => 'required|date',
+            'time_received' => 'required|date_format:H:i:s',
+            'priority_number' => 'nullable|string',
+            'remarks' => 'nullable|string',
+            'verified_by' => 'required|exists:users,id', // Staff ID must exist in users table
+            'comment' => 'nullable|string|max:500'  // ✅ Optional comment field
         ]);
 
         $maintenanceRequest = MaintenanceRequest::findOrFail($id);
 
+        // Update only the staff's fields
         $maintenanceRequest->update([
-            'date_received'  => $request->date_received,
-            'time_received'  => $request->time_received,
-            'priority_number'=> $request->priority_number,
-            'remarks'        => $request->remarks,
-            'verified_by'    => Auth::id(),
-            'status_id'      => 3,
+            'date_received' => $request->date_received,
+            'time_received' => $request->time_received,
+            'priority_number' => $request->priority_number,
+            'remarks' => $request->remarks,
+            'verified_by' => $request->verified_by,
+            // 'status_id' => 8,
+
         ]);
 
+        // ✅ Optional: Create comment if provided
         if ($request->filled('comment')) {
             Comment::create([
-                'comment'    => $request->comment,
+                'comment' => $request->comment,
                 'request_id' => $maintenanceRequest->id,
-                'user_id'    => Auth::id(),
-                'role_id'    => Auth::user()->role_id,
-                'date'       => Carbon::now()->toDateString(),
-                'time'       => Carbon::now()->toTimeString(),
+                'user_id' => $request->verified_by,
+                'role_id' => Auth::user()->role_id,
+                'date' => Carbon::now()->toDateString(),
+                'time' => Carbon::now()->toTimeString(),
             ]);
         }
 
-        $requester = User::where('id', $maintenanceRequest->requesting_personnel)->first();
-        //notify requester in emial
-        if ($requester && $requester->email) {
-            $requester->notify(new MaintenanceVerifiedNotification($maintenanceRequest, $requester));
-        }
-        //notify in sms
-        if ($requester && $requester->contact_number) {
-            SmsService::send(
-                $requester->contact_number,
-                "Your maintenance request has been VERIFIED by staff."
-            );
-        }
-       //system notif by to requester
-        SystemNotification::create([
-            'user_id'      => $maintenanceRequest->requesting_personnel,
-            'type'         => 'maintenance_verified',
-            'message'      => 'Your maintenance request has been verified by staff.',
-            'is_read'      => false,
-            'reference_id' => $maintenanceRequest->id,
-        ]);
+        // $requester = User::where('id', $maintenanceRequest->requesting_personnel)->first();
+        // if ($requester && $requester->email) {
+        //     $requester->notify(new MaintenanceVerifiedNotification($maintenanceRequest));
+        // }
+
+        // $heads = User::where('role_id', 2)->where('status_id', 2)->get(); // assuming role_id = 2 is Head
+
+        // foreach ($heads as $head) {
+        //     $head->notify(new RequestVerifiedByStaff($maintenanceRequest));
+        // }
 
         SystemNotification::create([
-            'user_id'      => Auth::id(),
-            'type'         => 'maintenance_request_verified_by_you',
-            'message'      => 'You have successfully verified a maintenance request.',
-            'is_read'      => false,
+            'user_id' => $maintenanceRequest->requesting_personnel, // requester
+            'type' => 'maintenance_verified',
+            'message' => 'Your maintenance request has been verified by staff.',
             'reference_id' => $maintenanceRequest->id,
+            'is_read' => false,
         ]);
 
-        $heads = User::where('role_id', 2)->get();
-        foreach ($heads as $head) {
-            $head->notify(new RequestVerifiedByStaff($maintenanceRequest));
 
-            SystemNotification::create([
-                'user_id'      => $head->id,
-                'type'         => 'maintenance_request_verified',
-                'message'      => 'A maintenance request was verified by the staff.',
-                'is_read'      => false,
-                'reference_id' => $maintenanceRequest->id,
-            ]);
+        $requesterRoleId = optional($maintenanceRequest->requester)->role_id;
+        if ($requesterRoleId === 2) {
+            $users = User::where('role_id', 5)->get();
+            foreach ($users as $user) {
+                SystemNotification::create([
+                    'user_id' => $user->id,
+                    'type' => 'maintenance_request_verified',
+                    'message' => 'A maintenance request submitted by a Head was verified by staff and is awaiting your approval.',
+                    'reference_id' => $maintenanceRequest->id,
+                    'is_read' => false,
+                ]);
+            }
+        } else {
+            $users = User::where('role_id', 2)->get();
+            foreach ($users as $user) {
+                SystemNotification::create([
+                    'user_id' => $user->id,
+                    'type' => 'maintenance_request_verified',
+                    'message' => 'A maintenance request was verified by the staff',
+                    'reference_id' => $maintenanceRequest->id,
+                    'is_read' => false,
+                ]);
+            }
         }
 
         return response()->json([
             'message' => 'Maintenance request reviewed successfully',
-            'data'    => $maintenanceRequest,
+            'data' => $maintenanceRequest,
         ], 200);
+    }
+
+    // this function is for the approval of heads
+    public function approve(Request $request, $id)
+    {
+        $user = Auth::user(); // Get the currently logged-in user
+        $maintenanceRequest = MaintenanceRequest::findOrFail($id);
+
+        //  Ensure only Heads (role_id = 2) can approve
+        if ($user->role_id !== 2) {
+            return response()->json(['message' => 'Unauthorized'], 403);
+        }
+
+        //  Step 1: Assign first approver
+        if (is_null($maintenanceRequest->approved_by_1)) {
+            $maintenanceRequest->approved_by_1 = $user->id;
+        }
+        // Step 2: Assign second approver and auto-approve
+        elseif (is_null($maintenanceRequest->approved_by_2)) {
+            // Prevent same user from approving twice
+            if ($maintenanceRequest->approved_by_1 == $user->id) {
+                return response()->json(['message' => 'You have already approved this request.'], 400);
+            }
+
+            $maintenanceRequest->approved_by_2 = $user->id;
+            $maintenanceRequest->status = 2; // Auto-update status
+
+            // Notify the requester by email after final approval
+            $requester = User::where('id', $maintenanceRequest->requesting_personnel)->first();
+
+            if ($requester && $requester->email) {
+                $requester->notify(new MaintenanceRequestApproved($maintenanceRequest));
+            }
+        } else {
+            return response()->json(['message' => 'Request is already fully approved'], 400);
+        }
+
+        $maintenanceRequest->save();
+
+        return response()->json([
+            'message' => 'Request approved successfully',
+            'maintenance_request' => $maintenanceRequest
+        ]);
     }
 
     public function approveByHead(Request $request, $id)
     {
         $user = Auth::user();
 
-        if ($user->role_id != 2) {
+        if ($user->role_id !== 2) {
             return response()->json(['message' => 'Only Heads can perform this approval.'], 403);
         }
 
         $maintenanceRequest = MaintenanceRequest::findOrFail($id);
+
+        $requesterRoleId = optional($maintenanceRequest->requester)->role_id;
+        if ($requesterRoleId === 2) {
+            return response()->json([
+                'message' => 'This request was submitted by a Head, so Head approval is skipped. It goes directly to the Campus Director after staff verification.'
+            ], 400);
+        }
 
         if (!is_null($maintenanceRequest->approved_by_1)) {
             return response()->json(['message' => 'Already approved by a Head.'], 400);
         }
 
         $request->validate([
-            'comment' => 'nullable|string|max:500'
+            'comment' => 'nullable|string|max:500'  // ✅ Optional comment field
         ]);
 
+        // ✅ Optional: Create comment if provided
         if ($request->filled('comment')) {
             Comment::create([
-                'comment'    => $request->comment,
+                'comment' => $request->comment,
                 'request_id' => $maintenanceRequest->id,
-                'user_id'    => Auth::user()->id,
-                'role_id'    => Auth::user()->role_id,
-                'date'       => Carbon::now()->toDateString(),
-                'time'       => Carbon::now()->toTimeString(),
+                'user_id' => Auth::user()->id,
+                'role_id' => Auth::user()->role_id,
+                'date' => Carbon::now()->toDateString(),
+                'time' => Carbon::now()->toTimeString(),
             ]);
         }
-
         $maintenanceRequest->approved_by_1 = $user->id;
-        $maintenanceRequest->status_id = 8;
+        // $maintenanceRequest->status_id = 9;
         $maintenanceRequest->save();
-        
-        //head system notif
-        SystemNotification::create([
-            'user_id'      => $user->id,
-            'type'         => 'maintenance_request_approval_confirmed',
-            'message'      => 'A maintenance request has been approved and recorded under your authorization.',
-            'is_read'      => false,
-            'reference_id' => $maintenanceRequest->id,
-        ]);
 
-        $requester = User::where('id', $maintenanceRequest->requesting_personnel)->first();
+        // Notify the requester by email after final approval
+        // $requester = User::where('id', $maintenanceRequest->requesting_personnel)->first();
 
-        //condition where requester gets notified if approved by head notified in email
-        if ($requester && $requester->email) {
-            $requester->notify(new RequestApprovedByHead($maintenanceRequest));
-        }
-        //for sms notif
-        if ($requester && $requester->contact_number) {
-            SmsService::send(
-                $requester->contact_number,
-                "Your maintenance request has been APPROVED by the Head of GSO."
-            );
-        }
-        
-        //requester system notif
-        SystemNotification::create([
-            'user_id'      => $maintenanceRequest->requesting_personnel,
-            'type'         => 'maintenance_request_approved_by_head',
-            'message'      => 'Your maintenance request has been approved by the Head of GSO.',
-            'is_read'      => false,
-            'reference_id' => $maintenanceRequest->id,
-        ]);
-        
-        //this use to notify staff if the head approved request
-        $staffUsers = User::where('role_id', 3)->get();
-        foreach ($staffUsers as $staff) {
-            $staff->notify(new RequestApprovedByHeadNotifyStaff($maintenanceRequest));
+        // if ($requester && $requester->email) {
+        //     $requester->notify(new MaintenanceRequestApproved($maintenanceRequest));
+        // }
 
-            SystemNotification::create([
-                'user_id'      => $staff->id,
-                'type'         => 'maintenance_request_approved_by_head',
-                'message'      => 'A maintenance request has been approved by the Head of GSO.',
-                'is_read'      => false,
-                'reference_id' => $maintenanceRequest->id,
-            ]);
-        }
-        //notify also the staff
-        $campusDirectors = User::where('role_id', 5)->get();
+        // Notify the campus director
+        $campusDirectors = User::where('role_id', 5)->where('status_id', 2)->get(); // assuming role_id 5 = Campus Director
         foreach ($campusDirectors as $director) {
-            $director->notify(new RequestApprovedByHeadNotifyStaff($maintenanceRequest));
+            $director->notify(new RequestApprovedByHead($maintenanceRequest));
+        }
 
+        SystemNotification::create([
+            'user_id' => $maintenanceRequest->requesting_personnel, // requester
+            'type' => 'maintenance_request_approved_by_head',
+            'message' => 'Your maintenance request has been approved by the head of GSO.',
+            'reference_id' => $maintenanceRequest->id,
+            'is_read' => false,
+        ]);
+
+
+        $users = User::where('role_id', 5)->get();
+
+        foreach ($users as $user) {
             SystemNotification::create([
-                'user_id'      => $director->id,
-                'type'         => 'maintenance_request_approved_by_head',
-                'message'      => 'A maintenance request was approved by the Head of GSO.',
-                'is_read'      => false,
+                'user_id' => $user->id,
+                'type' => 'maintenance_request_approved_by_head',
+                'message' => 'A maintenance request was approved by the head GSO',
                 'reference_id' => $maintenanceRequest->id,
+                'is_read' => false,
             ]);
         }
+
 
         return response()->json([
-            'message'             => 'Approved by Head successfully.',
+            'message' => 'Approved by Head successfully.',
             'maintenance_request' => $maintenanceRequest
         ]);
     }
+
+
 
     public function approveByDirector(Request $request, $id)
     {
         $user = Auth::user();
 
-        if ($user->role_id != 5) {
+        if ($user->role_id !== 5) {////////means it is a campus director
             return response()->json(['message' => 'Only the Campus Director can perform this approval.'], 403);
         }
 
         $maintenanceRequest = MaintenanceRequest::findOrFail($id);
 
-        if (is_null($maintenanceRequest->approved_by_1)) {
+        $requesterRoleId = optional($maintenanceRequest->requester)->role_id;
+        if (is_null($maintenanceRequest->approved_by_1) && $requesterRoleId !== 2) {
             return response()->json(['message' => 'This request must first be approved by a Head.'], 400);
         }
 
@@ -342,78 +343,157 @@ class MaintenanceRequestController extends Controller
             return response()->json(['message' => 'Already approved by the Campus Director.'], 400);
         }
 
+
         $request->validate([
-            'comment' => 'nullable|string|max:500'
+            'comment' => 'nullable|string|max:500'  // ✅ Optional comment field
         ]);
 
+        // ✅ Optional: Create comment if provided
         if ($request->filled('comment')) {
             Comment::create([
-                'comment'    => $request->comment,
+                'comment' => $request->comment,
                 'request_id' => $maintenanceRequest->id,
-                'user_id'    => Auth::user()->id,
-                'role_id'    => Auth::user()->role_id,
-                'date'       => Carbon::now()->toDateString(),
-                'time'       => Carbon::now()->toTimeString(),
+                'user_id' => Auth::user()->id,
+                'role_id' => Auth::user()->role_id,
+                'date' => Carbon::now()->toDateString(),
+                'time' => Carbon::now()->toTimeString(),
             ]);
         }
 
         $maintenanceRequest->approved_by_2 = $user->id;
-        $maintenanceRequest->status_id = 9;
+        // $maintenanceRequest->status_id = 10;
         $maintenanceRequest->save();
 
-        //system notifaction of the campus director when itself approved the request
-        SystemNotification::create([
-            'user_id'      => $user->id,
-            'type'         => 'maintenance_request_approval_confirmed',
-            'message'      => 'A maintenance request has been approved and recorded under your authorization.',
-            'is_read'      => false,
-            'reference_id' => $maintenanceRequest->id,
-        ]);
+        // Notify Requester
+        // $requester = User::where('id', $maintenanceRequest->requesting_personnel)->first();
+        // if ($requester && $requester->email) {
+        //     $requester->notify(new RequestApprovedByCampusDirector($maintenanceRequest));
+        // }
 
-        $requester = User::where('id', $maintenanceRequest->requesting_personnel)->first();
-        $requesterName = $requester->last_name . ', ' . $requester->first_name;
-
-        //notiify requester
-        if ($requester && $requester->email) {
-            $requester->notify(new RequestApprovedByCampusDirector($maintenanceRequest));
-        }
-        //sms notifacation ,that notify requester
-        if ($requester && $requester->contact_number) {
-            SmsService::send(
-                $requester->contact_number,
-                "Your request is FULLY APPROVED by the Campus Director. Please wait for scheduling."
-            );
-        }
-        //requester system notif or in app notif
-
-        SystemNotification::create([
-            'user_id'      => $maintenanceRequest->requesting_personnel,
-            'type'         => 'maintenance_request_approved_by_campus_director',
-            'message'      => 'Your maintenance request has been approved by the Campus Director, please wait for your priority number.',
-            'is_read'      => false,
-            'reference_id' => $maintenanceRequest->id,
-        ]);
-
-        // staff get notify by campus director
-        $staffMembers = User::where('role_id', 3)->get();
+        // Notify Staff
+        $staffMembers = User::where('role_id', 3)->where('status_id', 2)->get(); // Assuming role_id = 3 is staff
         foreach ($staffMembers as $staff) {
-            $staff->notify(new RequestApprovedByDirectorNotifyStaff($maintenanceRequest, $requesterName));
+            $staff->notify(new AssignPriorityToRequest($maintenanceRequest));
+        }
 
+        SystemNotification::create([
+            'user_id' => $maintenanceRequest->requesting_personnel, // requester
+            'type' => 'maintenance_request_approved_by_campus_director',
+            'message' => 'Your maintenance request has been approved by the campus director, please wait for priority number.',
+            'reference_id' => $maintenanceRequest->id,
+            'is_read' => false,
+        ]);
+
+        $staffUsers = User::where('role_id', 3)->get();
+
+        foreach ($staffUsers as $staff) {
             SystemNotification::create([
-                'user_id'      => $staff->id,
-                'type'         => 'maintenance_request_approved_by_campus_director',
-                'message'      => 'A maintenance request by ' . $requesterName . ' was approved by the Campus Director, please assign a priority number.',
-                'is_read'      => false,
+                'user_id' => $staff->id,
+                'type' => 'maintenance_request_approved_by_campus_director',
+                'message' => 'A maintenance request was approved by the campus director, please view and assign a priority number ',
                 'reference_id' => $maintenanceRequest->id,
+                'is_read' => false,
             ]);
         }
 
         return response()->json([
-            'message'             => 'Approved by Campus Director successfully. Request is now fully approved.',
+            'message' => 'Approved by Campus Director successfully. Request is now fully approved.',
             'maintenance_request' => $maintenanceRequest
         ]);
     }
 
+
+
+
+
+
+
+
+    //this function gets the data of an specific maintenance request filled up by the requester
+    public function staffpov($id)
+    {
+        $request = MaintenanceRequest::with([
+            'requester',
+            'position',
+            'office',
+            'status',
+            'verifier',
+            'approver1',
+            'approver2',
+            'maintenanceType',
+            'comments.user',     // include comment user
+            'comments.role',      // if you want to show role name too
+            'feedback'
+        ])->find($id);
+
+        if (!$request) {
+            return response()->json(['message' => 'Maintenance request not found'], 404);
+        }
+
+        $requester = optional($request->requester);
+        $fullName = trim(
+            ($requester->last_name ? $requester->last_name . ', ' : '') .
+            ($requester->first_name ?? '') . ' ' .
+            ($requester->middle_name ?? '') . ' ' .
+            ($requester->suffix ?? '')
+        );
+
+        $data = [
+            'request_id' => $request->id,
+            'date_requested' => $request->date_requested,
+            'details' => $request->details,
+            'requester_id' => $request->requesting_personnel,
+            'requester_role_id' => optional($requester)->role_id,
+            'requesting_personnel' => $fullName,
+            'position' => optional($request->position)->name,
+            'requesting_office' => optional($request->office)->name,
+            'requesting_office_id' => $request->requesting_office,
+            'contact_number' => $request->contact_number,
+            'status' => optional($request->status)->name,
+            'maintenance_type' => optional($request->maintenanceType)->type_name,
+            'maintenance_type_id' => $request->maintenance_type_id,
+            'verified_by' => optional($request->verifier)->last_name,
+            'approved_by_1' => optional($request->approver1)->last_name,
+            'approved_by_2' => optional($request->approver2)->last_name,
+            'scheduled_date' => $request->scheduled_date,
+            'scheduled_time' => $request->scheduled_time,
+            'assigned_staff_id' => $request->assigned_staff,
+            'has_feedback' => !is_null($request->feedback),
+            'image_urls' => array_values(array_filter([
+                $request->image_path ? asset('storage/' . $request->image_path) : null,
+                $request->image_path_2 ? asset('storage/' . $request->image_path_2) : null,
+                $request->image_path_3 ? asset('storage/' . $request->image_path_3) : null,
+                $request->image_path_4 ? asset('storage/' . $request->image_path_4) : null,
+                $request->image_path_5 ? asset('storage/' . $request->image_path_5) : null,
+                $request->image_path_6 ? asset('storage/' . $request->image_path_6) : null,
+                $request->image_path_7 ? asset('storage/' . $request->image_path_7) : null,
+                $request->image_path_8 ? asset('storage/' . $request->image_path_8) : null,
+                $request->image_path_9 ? asset('storage/' . $request->image_path_9) : null,
+                $request->image_path_10 ? asset('storage/' . $request->image_path_10) : null,
+                $request->image_path_11 ? asset('storage/' . $request->image_path_11) : null,
+                $request->image_path_12 ? asset('storage/' . $request->image_path_12) : null,
+            ])),
+            'created_at' => $request->created_at,
+            'updated_at' => $request->updated_at,
+
+            // Include comments
+            'comments' => $request->comments->map(function ($comment) {
+                return [
+                    'id' => $comment->id,
+                    'comment' => $comment->comment,
+                    'user' => optional($comment->user)->first_name . ' ' . optional($comment->user)->last_name,
+                    'role' => optional($comment->role)->role_name,
+                    'date' => $comment->date,
+                    'time' => $comment->time,
+                ];
+            }),
+        ];
+
+        return response()->json($data);
+    }
+
+
+    //this function shows the used priority numbers
     public function getUsedPriorityNumbers()
     {
         $usedPriorityNumbers = MaintenanceRequest::whereNotNull('priority_number')
@@ -424,78 +504,67 @@ class MaintenanceRequestController extends Controller
         return response()->json($usedPriorityNumbers);
     }
 
+
+
+
+
+    //staff denies the maintenance request
     public function denyRequest(Request $request, $id)
     {
         $maintenanceRequest = MaintenanceRequest::find($id);
 
         if (!$maintenanceRequest) {
-            return response()->json(['message' => 'Maintenance request not found.'], 404);
+            return response()->json(['message' => 'Maintenance request not found.'], 404); // Alternative to Response::HTTP_NOT_FOUND
         }
 
+        // Check if the authenticated user is a staff member (role_id = 3)
         if (Auth::user()->role_id !== 3) {
-            return response()->json(['message' => 'Unauthorized'], 403);
+            return response()->json(['message' => 'Unauthorized'], 403); // Alternative to Response::HTTP_FORBIDDEN
         }
 
+        // Validate request input
         $request->validate([
             'date_received' => 'required|date',
             'time_received' => 'required|date_format:H:i:s',
-            'comment'       => 'required|string|max:1000',
+            'comment' => 'required|string|max:1000',
+            // 'remarks' => 'required|string|max:255',
+
         ]);
 
+        // Update the request status and remarks
         $maintenanceRequest->update([
-            'date_received'  => $request->date_received,
-            'time_received'  => $request->time_received,
-            'status_id'      => 4,
-            'priority_number'=> null,
+            'date_received' => $request->date_received,
+            'time_received' => $request->time_received,
+            // 'remarks' => $request->remarks,
+            'status_id' => 3, //3 means dissaproved
+            'priority_number' => null,
         ]);
 
+        // Create comment (reason for disapproval)
         Comment::create([
-            'comment'    => $request->comment,
+            'comment' => $request->comment,
             'request_id' => $maintenanceRequest->id,
-            'user_id'    => Auth::user()->id,
-            'role_id'    => Auth::user()->role_id,
-            'date'       => Carbon::now()->toDateString(),
-            'time'       => Carbon::now()->toTimeString(),
+            'user_id' => Auth::user()->id,
+            'role_id' => Auth::user()->role_id,
+            'date' => \Carbon\Carbon::now()->toDateString(),
+            'time' => \Carbon\Carbon::now()->toTimeString(),
         ]);
 
-        $requester = User::find($maintenanceRequest->requesting_personnel);
-        $deniedByName = Auth::user()->first_name . ' ' . Auth::user()->last_name;
-
-        //the requester gets notified when the staf decline the request
-        if ($requester && $requester->email) {
-            $requester->notify(new MaintenanceRequestDisapproved($deniedByName, 'Staff'));
-        }
-
-        if ($requester && $requester->contact_number) {
-            SmsService::send(
-                $requester->contact_number,
-                "Your maintenance request was DENIED by {$deniedByName}. Please check the system for details."
-            );
-        }
-
         SystemNotification::create([
-            'user_id'      => $maintenanceRequest->requesting_personnel,
-            'type'         => 'maintenance_request_denied',
-            'message'      => 'Your maintenance request was denied by ' . $deniedByName . '.',
-            'is_read'      => false,
+            'user_id' => $maintenanceRequest->requesting_personnel, // requester
+            'type' => 'maintenance_request_denied',
+            'message' => 'Your maintenance request was denied by ' . Auth::user()->first_name . ' ' . Auth::user()->last_name,
             'reference_id' => $maintenanceRequest->id,
-        ]);
-        
-        //notify the staff itself
-        SystemNotification::create([
-            'user_id'      => Auth::user()->id,
-            'type'         => 'maintenance_request_denial_confirmed',
-            'message'      => 'A maintenance request has been denied and recorded under your authorization.',
-            'is_read'      => false,
-            'reference_id' => $maintenanceRequest->id,
+            'is_read' => false,
         ]);
 
         return response()->json([
             'message' => 'Maintenance request has been denied.',
-            'data'    => $maintenanceRequest
-        ], 200);
+            'data' => $maintenanceRequest
+        ], 200); // Alternative to Response::HTTP_OK
     }
 
+    //autosaves the date and time in the request
     public function autosaveDateTime($id)
     {
         $maintenanceRequest = MaintenanceRequest::find($id);
@@ -504,48 +573,47 @@ class MaintenanceRequestController extends Controller
             return response()->json(['message' => 'Maintenance request not found.'], 404);
         }
 
+        // Check if the authenticated user is a staff member (role_id = 3)
         if (Auth::user()->role_id !== 3) {
             return response()->json(['message' => 'Unauthorized'], 403);
         }
 
+        // Only set the timestamp if it's null (first time viewing)
         if (!$maintenanceRequest->date_received && !$maintenanceRequest->time_received) {
-            $maintenanceRequest->date_received = now()->toDateString();
-            $maintenanceRequest->time_received = now()->toTimeString();
+            $maintenanceRequest->date_received = now()->toDateString();  // e.g., "2025-04-02"
+            $maintenanceRequest->time_received = now()->toTimeString();  // e.g., "15:20:00" (3:20 PM)
             $maintenanceRequest->save();
         }
 
         return response()->json([
             'message' => 'View timestamp saved successfully (only once).',
-            'data'    => $maintenanceRequest
+            'data' => $maintenanceRequest
         ], 200);
     }
 
+
+    //function for schedules
     public function getSchedules()
     {
+        // Get the authenticated user's role
         $user = Auth::user();
 
+        // Allow only Admin (1), Head (2), and Staff (3)
         if (!in_array($user->role_id, [1, 2, 3])) {
             return response()->json(['message' => 'Unauthorized'], 403);
         }
 
-        $schedules = MaintenanceRequest::with('office')
-            ->whereNotNull('approved_by_2')
-            ->get()
-            ->map(function ($request) {
-                return [
-                    'id'                => $request->id,
-                    'date_requested'    => $request->date_requested,
-                    'details'           => $request->details,
-                    'requesting_office' => optional($request->office)->name,
-                ];
-            });
+        // Retrieve schedules with only selected fields
+        $schedules = MaintenanceRequest::select('date_requested', 'details', 'requesting_office')->get();
 
         return response()->json([
             'message' => 'Schedules retrieved successfully.',
-            'data'    => $schedules
+            'data' => $schedules
         ], 200);
     }
 
+
+    //head dissapproves the request
     public function disapprove(Request $request, $id)
     {
         $maintenanceRequest = MaintenanceRequest::find($id);
@@ -554,120 +622,353 @@ class MaintenanceRequestController extends Controller
             return response()->json(['message' => 'Maintenance request not found.'], 404);
         }
 
-        $authUser = Auth::user();
-        if (!in_array($authUser->role_id, [2, 5])) {
-            return response()->json(['message' => 'Unauthorized'], 403);
-        }
+        // Only heads (role_id = 2) can disapprove — uncomment if needed
+        // if (Auth::user()->role_id !== 2) {
+        //     return response()->json(['message' => 'Unauthorized'], 403);
+        // }
 
+        // Require omment
         $request->validate([
+            // 'remarks' => 'required|string|max:255',
             'comment' => 'required|string|max:1000',
         ]);
 
+        // Update request status to "Disapproved"
         $maintenanceRequest->update([
-            'status_id'       => 4,
+            'status_id' => 3,
+            //'remarks' => $request->remarks,
             'priority_number' => null,
         ]);
 
+        // Create comment (reason for disapproval)
         Comment::create([
-            'comment'    => $request->comment,
+            'comment' => $request->comment,
             'request_id' => $maintenanceRequest->id,
-            'user_id'    => $authUser->id,
-            'role_id'    => $authUser->role_id,
-            'date'       => Carbon::now()->toDateString(),
-            'time'       => Carbon::now()->toTimeString(),
+            'user_id' => Auth::user()->id,
+            'role_id' => Auth::user()->role_id,
+            'date' => \Carbon\Carbon::now()->toDateString(),
+            'time' => \Carbon\Carbon::now()->toTimeString(),
         ]);
 
+        // Notify the requester
         SystemNotification::create([
-            'user_id'      => $authUser->id,
-            'type'         => 'maintenance_request_disapproval_confirmed',
-            'message'      => 'A maintenance request has been disapproved and recorded under your authorization.',
-            'is_read'      => false,
+            'user_id' => $maintenanceRequest->requesting_personnel,
+            'type' => 'maintenance_request_disapproved',
+            'message' => 'Your maintenance request was disapproved by ' . Auth::user()->first_name . ' ' . Auth::user()->last_name,
             'reference_id' => $maintenanceRequest->id,
+            'is_read' => false,
         ]);
-
-        $requester = User::find($maintenanceRequest->requesting_personnel);
-        $disapprovedByName = $authUser->first_name . ' ' . $authUser->last_name;
-
-        //this use to identify who disapprove request, either maintenance request or registration request
-        if ($authUser->role_id == 2) {
-            $roleLabel = 'Head of GSO';
-        } elseif ($authUser->role_id == 5) {
-            $roleLabel = 'Campus Director';
-        } else {
-            $roleLabel = 'Administrator';
-        }
-
-        // notify the requester or the user
-        if ($requester && $requester->email) {
-            $requester->notify(new MaintenanceRequestDisapproved($disapprovedByName, $roleLabel));
-        }
-
-        if ($requester && $requester->contact_number) {
-            SmsService::send(
-                $requester->contact_number,
-                "Your maintenance request was disapproved by {$disapprovedByName}. Please check the system for details."
-            );
-        }
-
-        SystemNotification::create([
-            'user_id'      => $maintenanceRequest->requesting_personnel,
-            'type'         => 'maintenance_request_disapproved',
-            'message'      => 'Your maintenance request was disapproved by ' . $disapprovedByName,
-            'is_read'      => false,
-            'reference_id' => $maintenanceRequest->id,
-        ]);
-
-        //notify the staff
-        $staffUsers = User::where('role_id', 3)->get();
-        foreach ($staffUsers as $staff) {
-            $staff->notify(new MaintenanceRequestDisapprovedNotifyStaff($disapprovedByName, $roleLabel));
-
-            SystemNotification::create([
-                'user_id'      => $staff->id,
-                'type'         => $authUser->role_id == 2
-                                    ? 'maintenance_request_disapproved_by_Head'
-                                    : 'maintenance_request_disapproved_by_Campus_director',
-                'message'      => 'A maintenance request was disapproved by the ' . $roleLabel . '.',
-                'is_read'      => false,
-                'reference_id' => $maintenanceRequest->id,
-            ]);
-        }
 
         return response()->json([
             'message' => 'Maintenance request has been disapproved.',
         ], 200);
     }
 
+
+
+    //for display of data purposes only
+    public function headpov($id)
+    {
+        $request = MaintenanceRequest::with([
+            'requester',
+            'position',
+            'office',
+            'status',
+            'verifier',
+            'approver1',
+            'maintenanceType',
+            'comments.user',
+            'comments.role',
+            'feedback'
+        ])->find($id);
+
+        if (!$request) {
+            return response()->json(['message' => 'Maintenance request not found'], 404);
+        }
+
+        $requester = optional($request->requester);
+        $fullName = trim(
+            ($requester->last_name ? $requester->last_name . ', ' : '') .
+            ($requester->first_name ?? '') . ' ' .
+            ($requester->middle_name ?? '') . ' ' .
+            ($requester->suffix ?? '')
+        );
+
+        $data = [
+            'request_id' => $request->id,
+            'date_requested' => $request->date_requested,
+            'details' => $request->details,
+            'requester_id' => $request->requesting_personnel,
+            'requester_role_id' => optional($requester)->role_id,
+            'requesting_personnel' => $fullName,
+            'position' => optional($request->position)->name,
+            'requesting_office' => optional($request->office)->name,
+            'contact_number' => $request->contact_number,
+            'status' => optional($request->status)->name,
+            'date_received' => $request->date_received,
+            'time_received' => $request->time_received,
+            'priority_number' => $request->priority_number,
+            'remarks' => $request->remarks,
+            'verified_by' => optional($request->verifier)->last_name,
+            'approved_by_1' => optional($request->approver1)->last_name,
+            'maintenance_type' => optional($request->maintenanceType)->type_name,
+            'scheduled_date' => $request->scheduled_date,
+            'scheduled_time' => $request->scheduled_time,
+            'assigned_staff_id' => $request->assigned_staff,
+            'has_feedback' => !is_null($request->feedback),
+            'image_urls' => array_values(array_filter([
+                $request->image_path ? asset('storage/' . $request->image_path) : null,
+                $request->image_path_2 ? asset('storage/' . $request->image_path_2) : null,
+                $request->image_path_3 ? asset('storage/' . $request->image_path_3) : null,
+                $request->image_path_4 ? asset('storage/' . $request->image_path_4) : null,
+                $request->image_path_5 ? asset('storage/' . $request->image_path_5) : null,
+                $request->image_path_6 ? asset('storage/' . $request->image_path_6) : null,
+                $request->image_path_7 ? asset('storage/' . $request->image_path_7) : null,
+                $request->image_path_8 ? asset('storage/' . $request->image_path_8) : null,
+                $request->image_path_9 ? asset('storage/' . $request->image_path_9) : null,
+                $request->image_path_10 ? asset('storage/' . $request->image_path_10) : null,
+                $request->image_path_11 ? asset('storage/' . $request->image_path_11) : null,
+                $request->image_path_12 ? asset('storage/' . $request->image_path_12) : null,
+            ])),
+            'created_at' => $request->created_at,
+            'updated_at' => $request->updated_at,
+
+            // Include comments
+            'comments' => $request->comments->map(function ($comment) {
+                return [
+                    'id' => $comment->id,
+                    'comment' => $comment->comment,
+                    'user' => optional($comment->user)->first_name . ' ' . optional($comment->user)->last_name,
+                    'role' => optional($comment->role)->role_name,
+                    'date' => $comment->date,
+                    'time' => $comment->time,
+                ];
+            }),
+        ];
+
+        return response()->json($data);
+    }
+
+
+
+    public function directorpov($id)
+    {
+        $request = MaintenanceRequest::with([
+            'requester',
+            'position',
+            'office',
+            'status',
+            'verifier',
+            'approver1',
+            'approver2',
+            'maintenanceType',
+            'comments.user',
+            'comments.role',
+            'feedback'
+        ])->find($id);
+
+        if (!$request) {
+            return response()->json(['message' => 'Maintenance request not found'], 404);
+        }
+
+        $requester = optional($request->requester);
+        $fullName = trim(
+            ($requester->last_name ? $requester->last_name . ', ' : '') .
+            ($requester->first_name ?? '') . ' ' .
+            ($requester->middle_name ?? '') . ' ' .
+            ($requester->suffix ?? '')
+        );
+
+        $data = [
+            'request_id' => $request->id,
+            'date_requested' => $request->date_requested,
+            'details' => $request->details,
+            'requester_id' => $request->requesting_personnel,
+            'requester_role_id' => optional($requester)->role_id,
+            'requesting_personnel' => $fullName,
+            'position' => optional($request->position)->name,
+            'requesting_office' => optional($request->office)->name,
+            'contact_number' => $request->contact_number,
+            'status' => optional($request->status)->name,
+            'date_received' => $request->date_received,
+            'time_received' => $request->time_received,
+            'priority_number' => $request->priority_number,
+            'remarks' => $request->remarks,
+            'verified_by' => optional($request->verifier)->last_name,
+            'approved_by_1' => optional($request->approver1)->last_name,
+            'approved_by_2' => optional($request->approver2)->last_name,
+            'maintenance_type' => optional($request->maintenanceType)->type_name,
+            'scheduled_date' => $request->scheduled_date,
+            'scheduled_time' => $request->scheduled_time,
+            'assigned_staff_id' => $request->assigned_staff,
+            'has_feedback' => !is_null($request->feedback),
+            'image_urls' => array_values(array_filter([
+                $request->image_path ? asset('storage/' . $request->image_path) : null,
+                $request->image_path_2 ? asset('storage/' . $request->image_path_2) : null,
+                $request->image_path_3 ? asset('storage/' . $request->image_path_3) : null,
+                $request->image_path_4 ? asset('storage/' . $request->image_path_4) : null,
+                $request->image_path_5 ? asset('storage/' . $request->image_path_5) : null,
+                $request->image_path_6 ? asset('storage/' . $request->image_path_6) : null,
+                $request->image_path_7 ? asset('storage/' . $request->image_path_7) : null,
+                $request->image_path_8 ? asset('storage/' . $request->image_path_8) : null,
+                $request->image_path_9 ? asset('storage/' . $request->image_path_9) : null,
+                $request->image_path_10 ? asset('storage/' . $request->image_path_10) : null,
+                $request->image_path_11 ? asset('storage/' . $request->image_path_11) : null,
+                $request->image_path_12 ? asset('storage/' . $request->image_path_12) : null,
+            ])),
+            'created_at' => $request->created_at,
+            'updated_at' => $request->updated_at,
+
+            // Include comments
+            'comments' => $request->comments->map(function ($comment) {
+                return [
+                    'id' => $comment->id,
+                    'comment' => $comment->comment,
+                    'user' => optional($comment->user)->first_name . ' ' . optional($comment->user)->last_name,
+                    'role' => optional($comment->role)->role_name,
+                    'date' => $comment->date,
+                    'time' => $comment->time,
+                ];
+            }),
+        ];
+
+        return response()->json($data);
+    }
+
+
+
+
+
+    //allows editing of the maintenance request
     public function updateDetails(Request $request, $id)
     {
+        // Find the maintenance request
         $maintenanceRequest = MaintenanceRequest::find($id);
 
         if (!$maintenanceRequest) {
             return response()->json(['message' => 'Maintenance request not found.'], 404);
         }
 
-        if ($maintenanceRequest->requesting_personnel !== Auth::id()) {
-            return response()->json(['message' => 'Unauthorized.'], 403);
-        }
-
+        // Optional: Only allow update if status is still Pending
         if ($maintenanceRequest->status_id !== 1) {
             return response()->json(['message' => 'Cannot edit a request that is already processed.'], 403);
         }
 
+        // Validate that only 'details' is being updated
         $request->validate([
             'details' => 'required|string|max:255',
         ]);
 
+        // Update the 'details' field
         $maintenanceRequest->details = $request->details;
         $maintenanceRequest->save();
 
         return response()->json([
             'message' => 'Maintenance request details updated successfully.',
-            'data'    => $maintenanceRequest,
+            'data' => $maintenanceRequest,
         ], 200);
     }
 
-    //no notification is used or did not use notifacation to notify requester
+
+    public function markAsUrgent(Request $request, $id)
+    {
+        $user = Auth::user();
+        if (!$user) {
+            return response()->json(['message' => 'Unauthenticated.'], 401);
+        }
+
+        $maintenanceRequest = MaintenanceRequest::find($id);
+
+        if (!$maintenanceRequest) {
+            return response()->json(['message' => 'Maintenance request not found.'], 404);
+        }
+
+        // ✅ Validate the request input
+        $request->validate([
+            'comment' => 'required|string|max:1000',
+        ]);
+
+        // ✅ Store the comment
+        Comment::create([
+            'comment' => $request->comment,
+            'request_id' => $maintenanceRequest->id,
+            'user_id' => Auth::user()->id,
+            'role_id' => Auth::user()->role_id,
+            'date' => \Carbon\Carbon::now()->toDateString(),
+            'time' => \Carbon\Carbon::now()->toTimeString(),
+        ]);
+
+        // ✅ Update the request to "Urgent"
+        $maintenanceRequest->status_id = 6;
+        $maintenanceRequest->save();
+
+        // ✅ Notify the requester
+        SystemNotification::create([
+            'user_id' => $maintenanceRequest->requesting_personnel,
+            'type' => 'maintenance_request_urgent',
+            'message' => 'Your maintenance request was marked as urgent.',
+            'reference_id' => $maintenanceRequest->id,
+            'is_read' => false,
+        ]);
+
+        return response()->json([
+            'message' => 'Maintenance request marked as urgent.',
+            'data' => $maintenanceRequest
+        ]);
+    }
+
+
+
+    public function markAsOnHold(Request $request, $id)
+    {
+
+        $user = Auth::user();
+        if (!$user) {
+            return response()->json(['message' => 'Unauthenticated.'], 401);
+        }
+        $maintenanceRequest = MaintenanceRequest::find($id);
+
+        if (!$maintenanceRequest) {
+            return response()->json(['message' => 'Maintenance request not found.'], 404);
+        }
+
+        // ✅ Validate optional comment
+        $request->validate([
+            'comment' => 'required|string|max:1000',
+        ]);
+
+        // ✅ Save comment
+        Comment::create([
+            'comment' => $request->comment,
+            'request_id' => $maintenanceRequest->id,
+            'user_id' => Auth::user()->id,
+            'role_id' => Auth::user()->role_id,
+            'date' => Carbon::now()->toDateString(),
+            'time' => Carbon::now()->toTimeString(),
+        ]);
+
+        // ✅ Update status to On Hold
+        $maintenanceRequest->status_id = 7;
+        $maintenanceRequest->save();
+
+        // ✅ Create system notification for requester
+        SystemNotification::create([
+            'user_id' => $maintenanceRequest->requesting_personnel,
+            'type' => 'maintenance_request_onhold',
+            'message' => 'Your maintenance request was marked as on hold.',
+            'reference_id' => $maintenanceRequest->id,
+            'is_read' => false,
+        ]);
+
+        return response()->json([
+            'message' => 'Maintenance request marked as on hold.',
+            'data' => $maintenanceRequest
+        ]);
+    }
+
+
+
+    //this cancels the request of the user
     public function cancelRequest($id)
     {
         $request = MaintenanceRequest::find($id);
@@ -676,21 +977,17 @@ class MaintenanceRequestController extends Controller
             return response()->json(['message' => 'Maintenance request not found.'], 404);
         }
 
-        if ($request->requesting_personnel !== Auth::id()) {
-            return response()->json(['message' => 'Unauthorized.'], 403);
-        }
-
-        if ($request->status_id !== 1) {
+        if ($request->status_id != 1) {
             return response()->json(['message' => 'Only pending requests can be canceled.'], 400);
         }
 
-        $request->status_id = 6;
+        $request->status_id = 5; // 5 = canceled
         $request->save();
 
         return response()->json(['message' => 'Maintenance request canceled successfully.']);
     }
-    
-    //use to git list of request by there status 
+
+
     public function indexWithDetails()
     {
         $requests = MaintenanceRequest::with([
@@ -702,11 +999,13 @@ class MaintenanceRequestController extends Controller
             'approver1',
             'approver2',
             'maintenanceType',
-            'comments.user',
-            'comments.role'
-        ])->paginate(20);
+            'comments.user',     // include comment user
+            'comments.role',     // if you want to show role name too
+            'feedback'
+        ])->get();
 
-        $data = $requests->getCollection()->map(function ($request) {
+        $data = $requests->map(function ($request) {
+
             $requester = optional($request->requester);
             $fullName = trim(
                 ($requester->last_name ? $requester->last_name . ', ' : '') .
@@ -716,96 +1015,72 @@ class MaintenanceRequestController extends Controller
             );
 
             return [
-                'request_id'           => $request->id,
-                'date_requested'       => $request->date_requested,
-                'details'              => $request->details,
-                'requester_id'         => $request->requesting_personnel,
+                'request_id' => $request->id,
+                'date_requested' => $request->date_requested,
+                'details' => $request->details,
+                'requester_id' => $request->requesting_personnel,
+                'requester_role_id' => optional($requester)->role_id,
                 'requesting_personnel' => $fullName,
-                'position'             => optional($request->position)->name,
-                'requesting_office'    => optional($request->office)->name,
-                'contact_number'       => $request->contact_number,
-                'status'               => optional($request->status)->name,
-                'status_id'            => $request->status_id,
-                'date_received'        => $request->date_received,
-                'time_received'        => $request->time_received,
-                'priority_number'      => $request->priority_number,
-                'verified_by'          => optional($request->verifier)->last_name,
-                'approved_by_1'        => optional($request->approver1)->last_name,
-                'approved_by_2'        => optional($request->approver2)->last_name,
-                'maintenance_type'     => optional($request->maintenanceType)->type_name,
-                'created_at'           => $request->created_at,
-                'updated_at'           => $request->updated_at,
-                'comments'             => $request->comments->map(function ($comment) {
+                'position' => optional($request->position)->name,
+                'requesting_office' => optional($request->office)->name,
+                'contact_number' => $request->contact_number,
+                'status' => optional($request->status)->name,
+                'date_received' => $request->date_received,
+                'time_received' => $request->time_received,
+                'priority_number' => $request->priority_number,
+                // 'remarks' => $request->remarks,
+                'verified_by' => optional($request->verifier)->last_name,
+                'approved_by_1' => optional($request->approver1)->last_name,
+                'approved_by_2' => optional($request->approver2)->last_name,
+                'maintenance_type' => optional($request->maintenanceType)->type_name,
+                'scheduled_date' => $request->scheduled_date,
+                'scheduled_time' => $request->scheduled_time,
+                'assigned_staff_id' => $request->assigned_staff,
+                'has_feedback' => !is_null($request->feedback),
+                'created_at' => $request->created_at,
+                'updated_at' => $request->updated_at,
+                'image_urls' => array_values(array_filter([
+                    $request->image_path ? asset('storage/' . $request->image_path) : null,
+                    $request->image_path_2 ? asset('storage/' . $request->image_path_2) : null,
+                    $request->image_path_3 ? asset('storage/' . $request->image_path_3) : null,
+                    $request->image_path_4 ? asset('storage/' . $request->image_path_4) : null,
+                ])),
+
+                // Include comments
+                'comments' => $request->comments->map(function ($comment) {
                     return [
-                        'id'      => $comment->id,
+                        'id' => $comment->id,
                         'comment' => $comment->comment,
-                        'user'    => optional($comment->user)->first_name . ' ' . optional($comment->user)->last_name,
-                        'role'    => optional($comment->role)->role_name,
-                        'date'    => $comment->date,
-                        'time'    => $comment->time,
+                        'user' => optional($comment->user)->first_name . ' ' . optional($comment->user)->last_name,
+                        'role' => optional($comment->role)->role_name,
+                        'date' => $comment->date,
+                        'time' => $comment->time,
                     ];
                 }),
             ];
         });
 
-        return response()->json([
-            'data'         => $data,
-            'current_page' => $requests->currentPage(),
-            'last_page'    => $requests->lastPage(),
-            'total'        => $requests->total(),
-        ]);
-    }
-
-    public function approvedByHeadRequests()
-    {
-        $requests = MaintenanceRequest::with([
-            'requester', 'position', 'office', 'status',
-            'verifier', 'approver1', 'maintenanceType',
-            'comments.user', 'comments.role'
-        ])
-        ->where('requesting_personnel', Auth::id())
-        ->where('status_id', MaintenanceRequest::STATUS_HEAD_OK)
-        ->get();
-
-        return response()->json($this->formatRequests($requests));
-    }
-
-    public function approvedByDirectorRequests()
-    {
-        $requests = MaintenanceRequest::with([
-            'requester', 'position', 'office', 'status',
-            'verifier', 'approver1', 'approver2', 'maintenanceType',
-            'comments.user', 'comments.role'
-        ])
-        ->where('requesting_personnel', Auth::id())
-        ->where('status_id', MaintenanceRequest::STATUS_DIRECTOR_OK)
-        ->get();
-
-        return response()->json($this->formatRequests($requests));
+        return response()->json($data);
     }
 
     public function forPriorityNumber()
     {
-        if (!in_array(Auth::user()->role_id, [1, 2, 3])) {
-            return response()->json(['message' => 'Unauthorized.'], 403);
-        }
+        $requests = MaintenanceRequest::with([
 
-        $requests = MaintenanceRequest::with(['maintenanceType'])
-            ->whereNotNull('approved_by_2')
-            ->whereNull('priority_number')
-            ->get();
-
+            'maintenanceType'
+        ])->get();
         $data = $requests->map(function ($request) {
             return [
-                'request_id'       => $request->id,
+                'request_id' => $request->id,
                 'maintenance_type' => optional($request->maintenanceType)->type_name,
-                'date_received'    => $request->date_received,
-                'time_received'    => $request->time_received,
+                'date_received' => $request->date_received,
+                'time_received' => $request->time_received,
             ];
         });
-
         return response()->json($data);
     }
+
+
 
     public function assignPriority(Request $request, $id)
     {
@@ -813,80 +1088,134 @@ class MaintenanceRequestController extends Controller
             'priority_number' => 'required|string',
         ]);
 
-        $alreadyUsed = MaintenanceRequest::where('priority_number', $request->priority_number)
-            ->where('id', '!=', $id)
-            ->exists();
-
-        if ($alreadyUsed) {
-            return response()->json(['message' => 'This priority number is already assigned to another request.'], 409);
-        }
-
         $maintenanceRequest = MaintenanceRequest::findOrFail($id);
 
+        // Update the priority number
         $maintenanceRequest->priority_number = $request->priority_number;
-        $maintenanceRequest->status_id = 10;
+        $maintenanceRequest->status_id = 2; // Approved status ID
         $maintenanceRequest->save();
 
+        // Notify the requester
         $requester = User::find($maintenanceRequest->requesting_personnel);
 
         if ($requester && $requester->email) {
             $requester->notify(new RequestAssignedPriority($maintenanceRequest));
         }
 
-        if ($requester && $requester->contact_number) {
-            SmsService::send(
-                $requester->contact_number,
-                "Your maintenance request has been assigned priority number: {$maintenanceRequest->priority_number}. Please wait for scheduling."
-            );
-        }
 
         SystemNotification::create([
-            'user_id'      => $maintenanceRequest->requesting_personnel,
-            'type'         => 'maintenance_request_completely_approved',
-            'message'      => 'Your request completed the approval process and has a priority number now!, please wait for the service.',
-            'is_read'      => false,
+            'user_id' => $maintenanceRequest->requesting_personnel, // requester
+            'type' => 'maintenance_request_completely_approved',
+            'message' => 'Your request completed the approval process and has a priority number now!, please wait for the service.',//notify the user
             'reference_id' => $maintenanceRequest->id,
+            'is_read' => false,
         ]);
 
         return response()->json([
             'message' => 'Priority number assigned successfully.',
-            'data'    => $maintenanceRequest,
+            'data' => $maintenanceRequest,
         ]);
     }
 
-    public function markAsDone($id)
+    public function assignSchedule(Request $request, $id)
     {
-        $maintenanceRequest = MaintenanceRequest::findOrFail($id);
+        $user = Auth::user();
 
-        if (Auth::user()->role_id !== 3) {
-            return response()->json(['message' => 'Unauthorized. Only staff can mark a request as done.'], 403);
+        if (!$user) {
+            return response()->json(['message' => 'Unauthenticated.'], 401);
         }
 
-        if ($maintenanceRequest->status_id === 5) {
-            return response()->json(['message' => 'Already marked as done.'], 400);
+        // Only Staff (role_id = 3) can assign a schedule
+        if ($user->role_id !== 3) {
+            return response()->json(['message' => 'Only Staff can assign a schedule.'], 403);
         }
 
-        if ($maintenanceRequest->status_id !== 10) {
-            return response()->json(['message' => 'Request must be fully approved before it can be marked as done.'], 400);
+        $maintenanceRequest = MaintenanceRequest::find($id);
+
+        if (!$maintenanceRequest) {
+            return response()->json(['message' => 'Maintenance request not found.'], 404);
         }
 
-        $maintenanceRequest->update([
-            'status_id' => 5,
+        // Must be in Approved status (status_id = 2) before scheduling
+        if ($maintenanceRequest->status_id !== 2) {
+            return response()->json(['message' => 'Request must be fully approved before scheduling.'], 422);
+        }
+
+        $request->validate([
+            'scheduled_date' => 'required|date',
+            'scheduled_time' => 'required|date_format:H:i',
+            'assigned_staff' => 'required|exists:users,id',
+            'scheduled_notes' => 'nullable|string|max:1000',
         ]);
 
+        $maintenanceRequest->update([
+            'scheduled_date' => $request->scheduled_date,
+            'scheduled_time' => $request->scheduled_time,
+            'assigned_staff' => $request->assigned_staff,
+            'scheduled_notes' => $request->scheduled_notes,
+            'status_id' => 4, // 4 = Done (TEMPORARY OVERRIDE for immediate feedback)
+        ]);
+
+        // Notify the requester
         SystemNotification::create([
-            'user_id'      => $maintenanceRequest->requesting_personnel,
-            'type'         => 'maintenance_request_done',
-            'message'      => 'Your maintenance request has been marked as done. Please submit your feedback.',
-            'is_read'      => false,
+            'user_id' => $maintenanceRequest->requesting_personnel,
+            'type' => 'maintenance_request_done', // Changed to trigger feedback prompt
+            'message' => 'Your maintenance request has been scheduled and immediately marked as done. Kindly share your feedback to help us improve our service.',
             'reference_id' => $maintenanceRequest->id,
+            'is_read' => false,
         ]);
 
         return response()->json([
-            'message' => 'Request marked as done successfully.',
-            'data'    => $maintenanceRequest,
+            'message' => 'Schedule assigned successfully.',
+            'data' => $maintenanceRequest,
         ], 200);
     }
+
+
+    public function markAsDone($id)
+    {
+        $user = Auth::user();
+
+        if (!$user) {
+            return response()->json(['message' => 'Unauthenticated.'], 401);
+        }
+
+        // Only Staff (role_id = 3) can mark as done
+        if ($user->role_id !== 3) {
+            return response()->json(['message' => 'Only Staff can mark a request as done.'], 403);
+        }
+
+        $request = MaintenanceRequest::find($id);
+
+        if (!$request) {
+            return response()->json(['message' => 'Maintenance request not found.'], 404);
+        }
+
+        // Must be in Scheduled status (status_id = 9) with a scheduled_date
+        if ($request->status_id !== 9 || is_null($request->scheduled_date)) {
+            return response()->json([
+                'message' => 'Request must be scheduled (with a scheduled date) before marking as done.'
+            ], 422);
+        }
+
+        $request->status_id = 4; // 4 = Done
+        $request->save();
+
+        SystemNotification::create([
+            'user_id' => $request->requesting_personnel,
+            'type' => 'maintenance_request_done',
+            'message' => 'Your maintenance request has been completed. Kindly share your feedback to help us improve our service.',
+            'reference_id' => $request->id,
+            'is_read' => false,
+        ]);
+
+        return response()->json([
+            'message' => 'Maintenance request marked as done.',
+            'data' => $request
+        ]);
+    }
+
+
 
     public function generatePriorityNumber($maintenanceTypeId)
     {
@@ -896,25 +1225,23 @@ class MaintenanceRequestController extends Controller
             return response()->json(['message' => 'Maintenance type not found.'], 404);
         }
 
-        $priorityNumber = null;
+        $firstLetter = strtoupper(substr($maintenanceType->type_name, 0, 1));
+        $year = now()->format('y');
+        $month = now()->format('n');
 
-        \DB::transaction(function () use ($maintenanceType, &$priorityNumber) {
-            $firstLetter = strtoupper(substr($maintenanceType->type_name, 0, 1));
-            $year        = now()->format('y');
-            $month       = now()->format('n');
+        $count = MaintenanceRequest::where('maintenance_type_id', $maintenanceType->id)
+            ->whereYear('created_at', now()->year)
+            ->whereMonth('created_at', now()->month)
+            ->whereNotNull('approved_by_2')  // <-- added condition
+            ->whereNotNull('priority_number')
+            ->count();
 
-            $count = MaintenanceRequest::lockForUpdate()
-                ->where('maintenance_type_id', $maintenanceType->id)
-                ->whereYear('created_at', now()->year)
-                ->whereMonth('created_at', now()->month)
-                ->whereNotNull('approved_by_2')
-                ->whereNotNull('priority_number')
-                ->count();
+        $runningNumber = $count + 1;
+        $priorityNumber = "{$firstLetter}-{$year}-{$month}-{$runningNumber}";
 
-            $priorityNumber = "{$firstLetter}-{$year}-{$month}-" . ($count + 1);
-        });
-
-        return response()->json(['priority_number' => $priorityNumber], 200);
+        return response()->json([
+            'priority_number' => $priorityNumber
+        ], 200);
     }
 
     public function getRequestDate($id)
@@ -926,289 +1253,16 @@ class MaintenanceRequestController extends Controller
         }
 
         return response()->json([
+            //'request_id' => $maintenanceRequest->id,
             'request_date' => $maintenanceRequest->date_requested
         ], 200);
     }
 
 
-    public function staffpov($id)
-    {
-        if (Auth::user()->role_id !== 3) {
-            return response()->json(['message' => 'Unauthorized. Staff only.'], 403);
-        }
-
-        $request = MaintenanceRequest::with([
-            'requester', 'position', 'office', 'status',
-            'verifier', 'approver1', 'approver2', 'maintenanceType',
-            'comments.user', 'comments.role'
-        ])->find($id);
-
-        if (!$request) {
-            return response()->json(['message' => 'Maintenance request not found'], 404);
-        }
-
-        $requester = optional($request->requester);
-        $fullName = trim(
-            ($requester->last_name ? $requester->last_name . ', ' : '') .
-            ($requester->first_name ?? '') . ' ' .
-            ($requester->middle_name ?? '') . ' ' .
-            ($requester->suffix ?? '')
-        );
-
-        return response()->json([
-            'request_id'           => $request->id,
-            'date_requested'       => $request->date_requested,
-            'details'              => $request->details,
-            'requester_id'         => $request->requesting_personnel,
-            'requesting_personnel' => $fullName,
-            'position'             => optional($request->position)->name,
-            'requesting_office'    => optional($request->office)->name,
-            'contact_number'       => $request->contact_number,
-            'status'               => optional($request->status)->name,
-            'maintenance_type'     => optional($request->maintenanceType)->type_name,
-            'maintenance_type_id'  => $request->maintenance_type_id,
-            'date_received'        => $request->date_received,
-            'time_received'        => $request->time_received,
-            'remarks'              => $request->remarks,
-            'verified_by'          => optional($request->verifier)->last_name,
-            'approved_by_1'        => optional($request->approver1)->last_name,
-            'approved_by_2'        => optional($request->approver2)->last_name,
-            'created_at'           => $request->created_at,
-            'updated_at'           => $request->updated_at,
-            'comments'             => $request->comments->map(fn($c) => [
-                'id'      => $c->id,
-                'comment' => $c->comment,
-                'user'    => optional($c->user)->first_name . ' ' . optional($c->user)->last_name,
-                'role'    => optional($c->role)->role_name,
-                'date'    => $c->date,
-                'time'    => $c->time,
-            ]),
-        ]);
-    }
-
-    public function headpov($id)
-    {
-        if (Auth::user()->role_id !== 2) {
-            return response()->json(['message' => 'Unauthorized. Head only.'], 403);
-        }
-
-        $request = MaintenanceRequest::with([
-            'requester', 'position', 'office', 'status',
-            'verifier', 'approver1', 'maintenanceType',
-            'comments.user', 'comments.role'
-        ])->find($id);
-
-        if (!$request) {
-            return response()->json(['message' => 'Maintenance request not found'], 404);
-        }
-
-        $requester = optional($request->requester);
-        $fullName = trim(
-            ($requester->last_name ? $requester->last_name . ', ' : '') .
-            ($requester->first_name ?? '') . ' ' .
-            ($requester->middle_name ?? '') . ' ' .
-            ($requester->suffix ?? '')
-        );
-
-        return response()->json([
-            'request_id'           => $request->id,
-            'date_requested'       => $request->date_requested,
-            'details'              => $request->details,
-            'requester_id'         => $request->requesting_personnel,
-            'requesting_personnel' => $fullName,
-            'position'             => optional($request->position)->name,
-            'requesting_office'    => optional($request->office)->name,
-            'contact_number'       => $request->contact_number,
-            'status'               => optional($request->status)->name,
-            'maintenance_type'     => optional($request->maintenanceType)->type_name,
-            'maintenance_type_id'  => $request->maintenance_type_id,
-            'date_received'        => $request->date_received,
-            'time_received'        => $request->time_received,
-            'priority_number'      => $request->priority_number,
-            'remarks'              => $request->remarks,
-            'verified_by'          => optional($request->verifier)->last_name,
-            'approved_by_1'        => optional($request->approver1)->last_name,
-            'created_at'           => $request->created_at,
-            'updated_at'           => $request->updated_at,
-            'comments'             => $request->comments->map(fn($c) => [
-                'id'      => $c->id,
-                'comment' => $c->comment,
-                'user'    => optional($c->user)->first_name . ' ' . optional($c->user)->last_name,
-                'role'    => optional($c->role)->role_name,
-                'date'    => $c->date,
-                'time'    => $c->time,
-            ]),
-        ]);
-    }
-
-    public function directorpov($id)
-    {
-        if (Auth::user()->role_id !== 5) {
-            return response()->json(['message' => 'Unauthorized. Campus Director only.'], 403);
-        }
-
-        $request = MaintenanceRequest::with([
-            'requester', 'position', 'office', 'status',
-            'verifier', 'approver1', 'approver2', 'maintenanceType',
-            'comments.user', 'comments.role'
-        ])->find($id);
-
-        if (!$request) {
-            return response()->json(['message' => 'Maintenance request not found'], 404);
-        }
-
-        $requester = optional($request->requester);
-        $fullName = trim(
-            ($requester->last_name ? $requester->last_name . ', ' : '') .
-            ($requester->first_name ?? '') . ' ' .
-            ($requester->middle_name ?? '') . ' ' .
-            ($requester->suffix ?? '')
-        );
-
-        return response()->json([
-            'request_id'           => $request->id,
-            'date_requested'       => $request->date_requested,
-            'details'              => $request->details,
-            'requester_id'         => $request->requesting_personnel,
-            'requesting_personnel' => $fullName,
-            'position'             => optional($request->position)->name,
-            'requesting_office'    => optional($request->office)->name,
-            'contact_number'       => $request->contact_number,
-            'status'               => optional($request->status)->name,
-            'maintenance_type'     => optional($request->maintenanceType)->type_name,
-            'maintenance_type_id'  => $request->maintenance_type_id,
-            'date_received'        => $request->date_received,
-            'time_received'        => $request->time_received,
-            'priority_number'      => $request->priority_number,
-            'remarks'              => $request->remarks,
-            'verified_by'          => optional($request->verifier)->last_name,
-            'approved_by_1'        => optional($request->approver1)->last_name,
-            'approved_by_2'        => optional($request->approver2)->last_name,
-            'created_at'           => $request->created_at,
-            'updated_at'           => $request->updated_at,
-            'comments'             => $request->comments->map(fn($c) => [
-                'id'      => $c->id,
-                'comment' => $c->comment,
-                'user'    => optional($c->user)->first_name . ' ' . optional($c->user)->last_name,
-                'role'    => optional($c->role)->role_name,
-                'date'    => $c->date,
-                'time'    => $c->time,
-            ]),
-        ]);
-    }
-
-    private function formatRequests($requests)
-    {
-        return $requests->map(function ($request) {
-            $requester = optional($request->requester);
-            $fullName = trim(
-                ($requester->last_name ? $requester->last_name . ', ' : '') .
-                ($requester->first_name ?? '') . ' ' .
-                ($requester->middle_name ?? '') . ' ' .
-                ($requester->suffix ?? '')
-            );
-
-            return [
-                'request_id'           => $request->id,
-                'date_requested'       => $request->date_requested,
-                'details'              => $request->details,
-                'requester_id'         => $request->requesting_personnel,
-                'requesting_personnel' => $fullName,
-                'position'             => optional($request->position)->name,
-                'requesting_office'    => optional($request->office)->name,
-                'contact_number'       => $request->contact_number,
-                'status'               => optional($request->status)->name,
-                'status_id'            => $request->status_id,
-                'date_received'        => $request->date_received,
-                'time_received'        => $request->time_received,
-                'priority_number'      => $request->priority_number,
-                'verified_by'          => optional($request->verifier)->last_name,
-                'approved_by_1'        => optional($request->approver1)->last_name,
-                'approved_by_2'        => optional($request->approver2)->last_name,
-                'maintenance_type'     => optional($request->maintenanceType)->type_name,
-                'maintenance_type_id'  => $request->maintenance_type_id,
-                'created_at'           => $request->created_at,
-                'updated_at'           => $request->updated_at,
-                'comments'             => $request->comments->map(fn($c) => [
-                    'id'      => $c->id,
-                    'comment' => $c->comment,
-                    'user'    => optional($c->user)->first_name . ' ' . optional($c->user)->last_name,
-                    'role'    => optional($c->role)->role_name,
-                    'date'    => $c->date,
-                    'time'    => $c->time,
-                ]),
-            ];
-        });
-    }
-
-    public function getRequestsByStatus(Request $request)
-    {
-        $user = Auth::user();
-        $statusId = $request->query('status_id');
-        
-
-        if (!in_array($user->role_id, [1, 2, 3, 5])) {
-            return response()->json(['message' => 'Unauthorized.'], 403);
-        }
-
-        $query = MaintenanceRequest::with([
-            'requester', 'position', 'office', 'status',
-            'verifier', 'approver1', 'approver2', 'maintenanceType',
-            'comments.user', 'comments.role'
-        ]);
-
-    if ($statusId) {
-            $query->where('status_id', $statusId);
-        }
-
-        $requests = $query->paginate(20);
-
-        $data = $requests->getCollection()->map(function ($req) {
-            $requester = optional($req->requester);
-            $fullName = trim(
-                ($requester->last_name ? $requester->last_name . ', ' : '') .
-                ($requester->first_name ?? '') . ' ' .
-                ($requester->middle_name ?? '') . ' ' .
-                ($requester->suffix ?? '')
-            );
-
-            return [
-                'request_id'           => $req->id,
-                'date_requested'       => $req->date_requested,
-                'details'              => $req->details,
-                'requester_id'         => $req->requesting_personnel,
-                'requesting_personnel' => $fullName,
-                'position'             => optional($req->position)->name,
-                'requesting_office'    => optional($req->office)->name,
-                'contact_number'       => $req->contact_number,
-                'status'               => optional($req->status)->name,
-                'status_id'            => $req->status_id,
-                'date_received'        => $req->date_received,
-                'time_received'        => $req->time_received,
-                'priority_number'      => $req->priority_number,
-                'verified_by'          => optional($req->verifier)->last_name,
-                'approved_by_1'        => optional($req->approver1)->last_name,
-                'approved_by_2'        => optional($req->approver2)->last_name,
-                'maintenance_type'     => optional($req->maintenanceType)->type_name,
-                'maintenance_type_id'  => $req->maintenance_type_id,
-                'created_at'           => $req->created_at,
-                'updated_at'           => $req->updated_at,
-                'comments'             => $req->comments->map(fn($c) => [
-                    'id'      => $c->id,
-                    'comment' => $c->comment,
-                    'user'    => optional($c->user)->first_name . ' ' . optional($c->user)->last_name,
-                    'role'    => optional($c->role)->role_name,
-                    'date'    => $c->date,
-                    'time'    => $c->time,
-                ]),
-            ];
-        });
-
-        return response()->json([
-            'data'         => $data,
-            'current_page' => $requests->currentPage(),
-            'last_page'    => $requests->lastPage(),
-            'total'        => $requests->total(),
-        ]);
-    }
 }
+
+
+
+
+
+

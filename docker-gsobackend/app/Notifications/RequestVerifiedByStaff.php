@@ -2,21 +2,21 @@
 
 namespace App\Notifications;
 
-use Illuminate\Bus\Queueable;              
-use Illuminate\Contracts\Queue\ShouldQueue; 
 use Illuminate\Notifications\Notification;
 use Illuminate\Notifications\Messages\MailMessage;
 use App\Models\MaintenanceRequest;
 
-class RequestVerifiedByStaff extends Notification implements ShouldQueue
+
+//this is for the head
+
+
+class RequestVerifiedByStaff extends Notification
 {
-    use Queueable;
-    
     protected $request;
 
     public function __construct(MaintenanceRequest $request)
     {
-        $this->request = $request->load('requester'); 
+        $this->request = $request;
     }
 
     public function via($notifiable)
@@ -24,39 +24,16 @@ class RequestVerifiedByStaff extends Notification implements ShouldQueue
         return ['mail'];
     }
 
-    public function toMail(object $notifiable): MailMessage
+    public function toMail($notifiable)
     {
-        // ✅ Head's name
-        $headName = trim(
-            ($notifiable->last_name ? $notifiable->last_name . ', ' : '') .
-            ($notifiable->first_name ?? '')
-        );
-
-        // ✅ Requester's name with null safety
-        $requester = $this->request->requester;
-        $requesterName = $requester
-            ? trim(
-                ($requester->last_name ? $requester->last_name . ', ' : '') .
-                ($requester->first_name ?? '')
-              )
-            : 'Unknown';
-
         return (new MailMessage)
-            ->subject('A Maintenance Request Has Been Verified')
-            ->view('emails.gso-notification', [
-                'subject'    => 'A Maintenance Request Has Been Verified',
-                'badgeType'  => 'blue',
-                'badgeLabel' => 'Staff Verified',
-                'greeting'   => 'Dear ' . $headName . ',',
-                'lines'      => [
-                    'A maintenance request submitted by <strong>' . $requesterName . '</strong> has been <strong>verified by staff</strong> and is now awaiting your approval.',
-                    'Please log in to your account to review and take action on the request.',
-                ],
-                'actionUrl'  => 'http://localhost:5173/',
-                'actionText' => 'Review Request',
-                'notices'    => [
-                    '⚠️ If you have any concerns, please contact your Campus Admin.',
-                ],
-            ]);
+            ->subject('Maintenance Request Verified by Staff')
+            ->greeting('Hello ' . $notifiable->first_name . ',')
+            ->line('A maintenance request has been verified by a staff member.')
+            ->line('Request: ' . $this->request->details)
+            ->line('Verified By: ' . optional($this->request->verified_by)->first_name)
+            ->line('Remarks: ' . $this->request->remarks)
+            ->line('Please review the request and proceed with approval.')
+            ->salutation('Regards, GSO SYSTEM');
     }
 }

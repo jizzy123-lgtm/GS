@@ -13,141 +13,245 @@ use App\Http\Controllers\OfficeController;
 use App\Http\Controllers\StatusController;
 use App\Http\Controllers\RoleController;
 use App\Http\Controllers\CommentController;
+use App\Http\Controllers\ScheduleEventController;
+use App\Http\Controllers\PushTokenController;
+use App\Http\Controllers\SystemSettingController;
+use App\Http\Controllers\LoginLocationController;
+use App\Http\Controllers\SmsDeliveryController;
+use App\Http\Controllers\AIAssistantController;
+
 use App\Models\MaintenanceType;
 
-// ============================================================
-// ✅ Public Routes (No Auth Required)
-// ============================================================
+
+
+Route::get('/maintenance-requests/list-with-details', [MaintenanceRequestController::class, 'indexWithDetails']);
+Route::get('/maintenance-types', [MaintenanceTypeController::class, 'index']);
+
+// Public Routes (Authentication)
 Route::post('/register', [UserController::class, 'register']);
-Route::post('/login',    [UserController::class, 'login']);
+Route::post('/login', [UserController::class, 'login']);
+//Route::post('/logout', [UserController::class, 'logout']);
 
-// ============================================================
-// ✅ Protected Routes (auth:sanctum required)
-// ============================================================
+Route::middleware('auth:sanctum')->post('/logout', [UserController::class, 'logout']);
+
+//for test only
+Route::get('/message', function(){
+    return "hehehe";
+});
+Route::get('/test', function () {
+    return response()->json(['message' => 'API is working!']);
+});
+
+Route::post('/test-register', function () {
+    return response()->json(['message' => 'Register route is working!']);
+});
+
+
+//for staffs, head, campus director
+//staff fills up the remaining fields and verifies it
+Route::middleware(['auth:sanctum'])->put('/maintenance-requests/{id}/verify', [MaintenanceRequestController::class, 'verify']);
+
+
+// Route::middleware(['auth:sanctum'])->put('/maintenance-requests/{id}/approve', [MaintenanceRequestController::class, 'approve']);
+
+
+// need approval of head and director
+Route::middleware(['auth:sanctum'])->group(function () {
+    Route::put('/maintenance-requests/{id}/approve-head', [MaintenanceRequestController::class, 'approveByHead']);
+    Route::put('/maintenance-requests/{id}/approve-director', [MaintenanceRequestController::class, 'approveByDirector']);
+});
+//staff assigns a priority
+Route::middleware(['auth:sanctum'])->put('/maintenance-requests/{id}/assign-priority', [MaintenanceRequestController::class, 'assignPriority']);
+
+//staff assigns schedule
+Route::middleware(['auth:sanctum'])->post('/maintenance-requests/{id}/assign-schedule', [MaintenanceRequestController::class, 'assignSchedule']);
+
+
+//dissaproved
+Route::middleware(['auth:sanctum'])->put('/maintenance-requests/{id}/disapprove', [MaintenanceRequestController::class, 'disapprove']);
+
+//staff would get the maintenance request filled by the requester
+Route::middleware(['auth:sanctum'])->get('/staffpov/{id}', [MaintenanceRequestController::class, 'staffpov']);
+//staff would know used numbers for setting priority numbers
+Route::middleware(['auth:sanctum'])->get('/maintenance-requests/priority-numbers', [MaintenanceRequestController::class, 'getUsedPriorityNumbers']);
+// Route::middleware(['auth:sanctum'])->group(function () {
+    Route::get('/maintenance-requests', [MaintenanceRequestController::class, 'index']);
+// });
+
+//denies the request by a staff
+Route::middleware(['auth:sanctum'])->put('/maintenance-requests/{id}/deny', [MaintenanceRequestController::class, 'denyRequest']);
+
+//saves the date and time the moment a staff views a request
+Route::middleware(['auth:sanctum'])->put('/maintenance-requests/{id}/view', [MaintenanceRequestController::class, 'autosaveDateTime']);
+
+
+
+//for schedules
+Route::middleware(['auth:sanctum'])->get('/schedules', [MaintenanceRequestController::class, 'getSchedules']);
+
+//shared schedule events
+Route::middleware(['auth:sanctum'])->group(function () {
+    Route::get('/schedule-events', [ScheduleEventController::class, 'index']);
+    Route::post('/schedule-events', [ScheduleEventController::class, 'store']);
+    Route::put('/schedule-events/{id}', [ScheduleEventController::class, 'update']);
+    Route::delete('/schedule-events/{id}', [ScheduleEventController::class, 'destroy']);
+});
+
+//getfullname
+Route::get('/users/{id}/fullname', [UserController::class, 'getFullName'])
+    ->middleware('auth:sanctum');
+//gets the id and fullname
+Route::get('/users/idfullname', [UserController::class, 'getAuthenticatedUserInfo'])
+    ->middleware('auth:sanctum');
+
+//gets the id,fullname, office, position, contactnumber
+Route::middleware(['auth:sanctum'])->get('/users/reqInfo', [UserController::class, 'getUserDetails']);
+
+Route::middleware(['auth:sanctum'])->get('/users/userWithRole', [UserController::class, 'getUserDetailRole']);
+
+// Mobile App Expo Push Token Registration
+Route::middleware(['auth:sanctum'])->post('/users/push-token', [PushTokenController::class, 'store']);
+
+//head would get the maintenance request filled by the requester and staff
+Route::middleware(['auth:sanctum'])->get('/headpov/{id}', [MaintenanceRequestController::class, 'headpov']);
+Route::middleware(['auth:sanctum'])->get('/directorpov/{id}', [MaintenanceRequestController::class, 'directorpov']);
+
+
+
+
+
+
+//admin approval of account
 Route::middleware('auth:sanctum')->group(function () {
+    //admin approves the account of user
+    Route::put('/users/{id}/updateAccountStatus', [UserController::class, 'updateAccountStatus']);
+    //admin rejects the account of user
+    Route::put('/users/{id}/dissaproveAccountStatus', [UserController::class, 'rejectAccountStatus']);
+    //gets all pending approvals
+    Route::get('/pending-approvals', [UserController::class, 'getPendingApprovals']);
+    Route::get('/uspass', [UserController::class, 'getUsPass']);
+    
+    // Login Locations
+    Route::get('/settings', [SystemSettingController::class, 'getSettings']);
+    Route::post('/settings/toggle-location-tracking', [SystemSettingController::class, 'toggleLoginLocationTracking']);
+    Route::get('/login-locations', [LoginLocationController::class, 'index']);
+    
+    // SMS Deliveries
+    Route::get('/sms-deliveries', [SmsDeliveryController::class, 'index']);
+});
 
-    // ----------------------------------------------------------
-    // Auth
-    // ----------------------------------------------------------
-    Route::post('/logout', [UserController::class, 'logout']);
+//admin adding of maintenance type
+Route::middleware(['auth:sanctum'])->post('/addservice',[MaintenanceTypeController::class, 'store']);
 
-    // ----------------------------------------------------------
-    // Maintenance Requests — specific routes FIRST
-    // (must come before apiResource to avoid route swallowing)
-    // ----------------------------------------------------------
-    Route::get('/maintenance-requests/approved-by-head',     [MaintenanceRequestController::class, 'approvedByHeadRequests']);
-    Route::get('/maintenance-requests/approved-by-director', [MaintenanceRequestController::class, 'approvedByDirectorRequests']);
-    Route::get('/maintenance-requests/by-status',            [MaintenanceRequestController::class, 'getRequestsByStatus']);
-    Route::get('/maintenance-requests/list-with-details',    [MaintenanceRequestController::class, 'indexWithDetails']);
-    Route::get('/maintenance-requests/priority-numbers',     [MaintenanceRequestController::class, 'getUsedPriorityNumbers']);
-    Route::get('/maintenance-requests/{id}/request-date',    [MaintenanceRequestController::class, 'getRequestDate']);
 
-    // ----------------------------------------------------------
-    // Maintenance Requests — apiResource (AFTER specific routes)
-    // ----------------------------------------------------------
+//users feedback
+Route::middleware(['auth:sanctum'])->post('/feedback', [FeedbackController::class, 'store']);
+//get the details of the feedback
+Route::middleware('auth:sanctum')->get('/feedbacks/{id}/details', [FeedbackController::class, 'showFeedbackDetails']);
+Route::get('/feedbacks/{id}', [FeedbackController::class, 'show']);
+Route::get('/feedbacks/request/{maintenance_request_id}', [FeedbackController::class, 'getByRequest']);
+
+Route::middleware('auth:sanctum')->get('/feedbacks', [FeedbackController::class, 'index']);
+
+
+//create maintenancerequestform
+Route::middleware('auth:sanctum')->group(function () {
+    // Maintenance Requests
     Route::apiResource('/maintenance-requests', MaintenanceRequestController::class);
 
-    // ----------------------------------------------------------
-    // Maintenance Request Actions
-    // ----------------------------------------------------------
-    Route::put('/maintenance-requests/{id}/verify',           [MaintenanceRequestController::class, 'verify']);
-    Route::put('/maintenance-requests/{id}/approve-head',     [MaintenanceRequestController::class, 'approveByHead']);
-    Route::put('/maintenance-requests/{id}/approve-director', [MaintenanceRequestController::class, 'approveByDirector']);
-    Route::put('/maintenance-requests/{id}/disapprove',       [MaintenanceRequestController::class, 'disapprove']);
-    Route::put('/maintenance-requests/{id}/deny',             [MaintenanceRequestController::class, 'denyRequest']);
-    Route::put('/maintenance-requests/{id}/view',             [MaintenanceRequestController::class, 'autosaveDateTime']);
-    Route::put('/maintenance-requests/{id}/mark-done',        [MaintenanceRequestController::class, 'markAsDone']);
-    Route::put('/maintenance-requests/{id}/assign-priority',  [MaintenanceRequestController::class, 'assignPriority']);
-    Route::put('/maintenance-requests/{id}/editDetails',      [MaintenanceRequestController::class, 'updateDetails']);
-    Route::put('/maintenance-requests/{id}/cancel',           [MaintenanceRequestController::class, 'cancelRequest']);
-    
-    // ----------------------------------------------------------
-    // POV Routes
-    // ----------------------------------------------------------
-    Route::get('/staffpov/{id}',    [MaintenanceRequestController::class, 'staffpov']);
-    Route::get('/headpov/{id}',     [MaintenanceRequestController::class, 'headpov']);
-    Route::get('/directorpov/{id}', [MaintenanceRequestController::class, 'directorpov']);
-
-    // ----------------------------------------------------------
-    // Schedules & Calendar
-    // ----------------------------------------------------------
-    Route::get('/schedules', [MaintenanceRequestController::class, 'getSchedules']);
-
-    // ----------------------------------------------------------
-    // Priority Number
-    // ----------------------------------------------------------
-    Route::get('/generate-priority-number/{maintenanceTypeId}', [MaintenanceRequestController::class, 'generatePriorityNumber']);
-    Route::get('/forPriority',                                  [MaintenanceRequestController::class, 'forPriorityNumber']);
-
-    // ----------------------------------------------------------
-    // Users
-    // ----------------------------------------------------------
-    Route::get('/users/idfullname',    [UserController::class, 'getAuthenticatedUserInfo']);
-    Route::get('/users/reqInfo',       [UserController::class, 'getUserDetails']);
-    Route::get('/users/userWithRole',  [UserController::class, 'getUserDetailRole']);
-    Route::get('/users/{id}/fullname', [UserController::class, 'getFullName']);
-    Route::get('/users-list',          [UserController::class, 'usersList']);
-    Route::delete('/users/{id}',       [UserController::class, 'destroy']);
-
-    Route::put('/users/{id}/updateAccountStatus',     [UserController::class, 'updateAccountStatus']);
-    Route::put('/users/{id}/dissaproveAccountStatus', [UserController::class, 'rejectAccountStatus']);
-    Route::get('/pending-approvals',                  [UserController::class, 'getPendingApprovals']);
-    Route::get('/uspass',                             [UserController::class, 'getUsPass']);
-
-    // ----------------------------------------------------------
-    // Profile
-    // ----------------------------------------------------------
-    Route::post('/profile/update',           [UserController::class, 'updateProfile']);
-    Route::post('/profile/upload-picture',   [UserController::class, 'uploadProfilePicture']);
-    Route::get('/profile/picture',           [UserController::class, 'getProfilePicture']);
-    Route::get('/profile/userInfos',         [UserController::class, 'userDetails']);
-    Route::delete('/profile/remove-picture', [UserController::class, 'removeProfilePicture']);
-
-    // ----------------------------------------------------------
-    // Feedback
-    // ----------------------------------------------------------
-    Route::post('/feedback',                                      [FeedbackController::class, 'store']);
-    Route::get('/feedbacks/{id}/details',                         [FeedbackController::class, 'showFeedbackDetails']);
-    Route::get('/feedbacks/request/{maintenance_request_id}',     [FeedbackController::class, 'getByRequest']);
-    Route::get('/feedbacks/{id}',                                 [FeedbackController::class, 'show']);
-    Route::get('/feedbacks',                                      [FeedbackController::class, 'index']);
-
-    // ----------------------------------------------------------
-    // Notifications
-    // ----------------------------------------------------------
-    Route::get('/notifications',                 [NotificationController::class, 'index']);
-    Route::get('/notifications/unreadCount',     [NotificationController::class, 'unreadCount']);
-    Route::put('/notifications/markAsRead/{id}', [NotificationController::class, 'markAsRead']);
-    Route::put('/notifications/markAllAsRead',   [NotificationController::class, 'markAllAsRead']);
-
-    // ----------------------------------------------------------
-    // Comments
-    // ----------------------------------------------------------
-    Route::get('/comments',                          [CommentController::class, 'index']);
-    Route::post('/comment',                          [CommentController::class, 'store']);
-    Route::get('/comments/{id}',                     [CommentController::class, 'show']);
-    Route::put('/comments/{id}',                     [CommentController::class, 'update']);
-    Route::delete('/comments/{id}',                  [CommentController::class, 'destroy']);
-    Route::get('/requests/{id}/comments-by-request', [CommentController::class, 'commentsByRequest']);
-
-    // ----------------------------------------------------------
-    // Resources
-    // ----------------------------------------------------------
-    Route::apiResource('roles',             RoleController::class);
-    Route::apiResource('positions',         PositionController::class);
-    Route::apiResource('offices',           OfficeController::class);
-    Route::apiResource('statuses',          StatusController::class);
-    Route::apiResource('maintenance-types', MaintenanceTypeController::class);
-
-    Route::post('/addservice',       [MaintenanceTypeController::class, 'store']);
-    Route::get('/maintenance-types', [MaintenanceTypeController::class, 'index']);
-
-    // ----------------------------------------------------------
-    // Misc / Common Data
-    // ----------------------------------------------------------
-    Route::get('/common-datas',        [UserController::class, 'commonDatas']);
-    Route::get('/accountStatuses',     [StatusController::class, 'accountStatuses']);
-    Route::get('/statusesPovDirector', [StatusController::class, 'statusesPovDirector']);
-    Route::get('/statusesPovHead',     [StatusController::class, 'statusesPovHead']);
-
+    // AI Assistant
+    Route::post('/ai-assist', [AIAssistantController::class, 'assist']);
 });
+
+Route::get('/maintenance-requests/{id}/request-date', [MaintenanceRequestController::class, 'getRequestDate']);
+
+
+
+
+
+
+
+
+
+//this section is for the non functional requirements
+
+
+
+//cancels the request
+Route::put('/maintenance-requests/{id}/cancel', [MaintenanceRequestController::class, 'cancelRequest']);
+
+
+//edit request form
+Route::middleware('auth:sanctum')->put('/maintenance-requests/{id}/editDetails', [MaintenanceRequestController::class, 'updateDetails']);
+
+//edit user info
+Route::middleware('auth:sanctum')->put('/profile/update', [UserController::class, 'updateProfile']);
+
+//return all user's info
+Route::middleware('auth:sanctum')->get('/profile/userInfos', [UserController::class, 'userDetails']);
+
+
+//for notifications
+Route::middleware(['auth:sanctum'])->group(function () {
+    Route::get('/notifications', [NotificationController::class, 'index']);
+    Route::get('/notifications/unreadCount', [NotificationController::class, 'unreadCount']);
+    Route::put('/notifications/markAsRead/{id}', [NotificationController::class, 'markAsRead']);
+    Route::put('/notifications/markAllAsRead', [NotificationController::class, 'markAllAsRead']);
+});
+
+
+//can get, create, edit, delete roles, position, office, status, maintenance-types
+Route::apiResource('roles', RoleController::class);
+Route::apiResource('positions', PositionController::class);
+Route::apiResource('offices', OfficeController::class);
+Route::apiResource('statuses', StatusController::class);
+Route::apiResource('maintenance-types', MaintenanceTypeController::class);
+
+
+Route::middleware('auth:sanctum')->group(function () {
+    Route::put('/maintenance-requests/{id}/mark-urgent', [MaintenanceRequestController::class, 'markAsUrgent']);
+    Route::put('/maintenance-requests/{id}/mark-onhold', [MaintenanceRequestController::class, 'markAsOnHold']);
+    Route::put('/maintenance-requests/{id}/mark-done', [MaintenanceRequestController::class, 'markAsDone']);
+});
+
+
+
+
+
+
+
+
+//translated datas
+
+Route::get('/common-datas', [UserController::class, 'commonDatas']);
+Route::get('/forPriority', [MaintenanceRequestController::class, 'forPriorityNumber']);
+Route::get('/accountStatuses', [StatusController::class, 'accountStatuses']);
+Route::get('/users-list', [UserController::class, 'usersList']);
+
+
+//for comments
+
+Route::middleware('auth:sanctum')->group(function () {
+    Route::get('/comments', [CommentController::class, 'index']);
+    Route::post('/comment', [CommentController::class, 'store']);
+    Route::get('/comments/{id}', [CommentController::class, 'show']);
+    Route::put('/comments/{id}', [CommentController::class, 'update']);
+    Route::delete('/comments/{id}', [CommentController::class, 'destroy']);
+    Route::get('/requests/{id}/comments-by-request', [CommentController::class, 'commentsByRequest']);
+});
+
+Route::get('/statusesPovDirector', [StatusController::class, 'statusesPovDirector']);
+Route::get('/statusesPovHead', [StatusController::class, 'statusesPovHead']);
+
+
+Route::get('/generate-priority-number/{maintenanceTypeId}', [MaintenanceRequestController::class, 'generatePriorityNumber']);
+
+
+
+
+
+
+
+
+
+

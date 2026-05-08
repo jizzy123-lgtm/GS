@@ -35,8 +35,12 @@ return [
         ],
     ],
 
-    'philsms' => [
-        'token'     => env('PHILSMS_TOKEN'),
-        'sender_id' => env('PHILSMS_SENDER_ID', 'ManageIT'),
+    'gemini' => [
+        'key' => env('GEMINI_API_KEY'),
     ],
+
+    'groq' => [
+        'key' => env('GROQ_API_KEY'),
+    ],
+
 ];

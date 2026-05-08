@@ -17,7 +17,6 @@ class Feedback extends Model
         'client_type',
         'service_type',
         'date',
-        'time',
         'sex',
         'region',
         'age',
@@ -27,8 +26,8 @@ class Feedback extends Model
         'sqd0', 'sqd1', 'sqd2', 'sqd3', 'sqd4', 'sqd5', 'sqd6', 'sqd7', 'sqd8',
         'suggestions',
         'email',
-        'feedback',
         'rating',
+        'feedback_comment'
     ];
 
     public function user()
@@ -38,6 +37,8 @@ class Feedback extends Model
 
     public function maintenanceRequest()
     {
-        return $this->belongsTo(MaintenanceRequest::class, 'maintenance_request_id');
+        return $this->belongsTo(MaintenanceRequest::class);
     }
+
+
 }

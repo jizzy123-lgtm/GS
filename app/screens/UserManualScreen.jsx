@@ -1,14 +1,14 @@
+import { Ionicons } from "@expo/vector-icons";
 import { useState } from "react";
 import {
+  Image,
   ScrollView,
   StyleSheet,
   Text,
   TouchableOpacity,
   View,
-  Image,
 } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
-import { normalizeRoleId, ROLE_IDS, getRoleLabel } from "../constants/roles";
+import { getRoleLabel, normalizeRoleId, ROLE_IDS } from "../constants/roles";
 import ScreenHeader from "./ScreenHeader";
 
 const C = {
@@ -26,9 +26,9 @@ const GETTING_STARTED = [
     steps: [
       "Open the ManageIT app on your device.",
       'On the login screen, tap "Sign up now".',
-      "Fill in your Personal Information — First Name, Last Name, Middle Initial, and Suffix (optional).",
-      "Fill in your Account Information — Username, Email Address, and Contact Number.",
-      "Fill in your Work Information — Select Office, Position, and Role.",
+      "Fill in your Personal Information: First Name, Last Name, Middle Initial, and Suffix (optional).",
+      "Fill in your Account Information: Username, Email Address, and Contact Number.",
+      "Fill in your Work Information: Select Office, Position, and Role.",
       "Enter your Password and Confirm Password under the Security section.",
       'Tap "Create Account".',
       'A "Registration Submitted!" screen will appear confirming that your account is pending admin approval.',

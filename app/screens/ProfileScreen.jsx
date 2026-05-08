@@ -1,4 +1,4 @@
-import AsyncStorage from "@react-native-async-storage/async-storage";
+﻿import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useEffect, useState } from "react";
 import {
   ActivityIndicator, KeyboardAvoidingView, Platform,
@@ -7,12 +7,26 @@ import {
   Text, TextInput, TouchableOpacity,
   View,
 } from "react-native";
+import { Ionicons } from "@expo/vector-icons";
 import ScreenHeader from "./ScreenHeader";
 
 import { API_URL } from '../../api';
 import { getRoleLabel, normalizeRoleId } from "../constants/roles";
 
-export default function ProfileScreen({ user, onBack, onUpdateUser }) {
+const resolveProfile = (raw) => ({
+  ...raw,
+  first_name: raw?.first_name || raw?.firstname || "",
+  last_name: raw?.last_name || raw?.lastname || raw?.surname || "",
+  middle_initial: raw?.middle_initial || raw?.middle_name || raw?.middlename || raw?.mi || "",
+  email: raw?.email || "",
+  contact_number: raw?.contact_number || raw?.contact || raw?.phone || raw?.mobile || "",
+  department: raw?.department || raw?.office || raw?.office_name || raw?.department_name || raw?.college || "",
+  username: raw?.username || "",
+  role_id: raw?.role_id,
+});
+
+export default function ProfileScreen({ user, onBack, onUpdateUser, onNavigate }) {
+  const [profileData, setProfileData] = useState(resolveProfile(user));
   const [editing, setEditing] = useState(false);
   const [loading, setLoading] = useState(false);
   const [fetchingProfile, setFetchingProfile] = useState(true);
@@ -30,7 +44,6 @@ export default function ProfileScreen({ user, onBack, onUpdateUser }) {
   });
   const set = (k, v) => setForm(p => ({ ...p, [k]: v }));
 
-  // Fix 3: Fetch fresh profile data and common data on mount
   useEffect(() => {
     const load = async () => {
       try {
@@ -45,7 +58,6 @@ export default function ProfileScreen({ user, onBack, onUpdateUser }) {
         if (profileRes.ok) {
           const data = await profileRes.json();
           const fresh = data?.user || data?.data || data;
-          // Backend may return middle initial under different field names
           const middleInitial = fresh?.middle_initial || fresh?.middle_name || fresh?.middleInitial || fresh?.mi || "";
           setProfile({ ...fresh, middle_initial: middleInitial });
           setForm({
@@ -95,7 +107,6 @@ export default function ProfileScreen({ user, onBack, onUpdateUser }) {
     finally { setLoading(false); }
   };
 
-  // Fix 1 & 2: Resolve office and position names from IDs
   const officeName = offices.find(o => o.id === Number(profile?.office_id))?.name
     || profile?.office?.name || profile?.office_name || "—";
   const positionName = positions.find(p => p.id === Number(profile?.position_id))?.name
@@ -120,7 +131,6 @@ export default function ProfileScreen({ user, onBack, onUpdateUser }) {
       <ScreenHeader title="My Profile" onBack={onBack} />
       <ScrollView style={styles.root} contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
 
-        {/* Avatar section */}
         <View style={styles.avatarSection}>
           <View style={styles.avatar}>
             <Text style={styles.avatarText}>{initials || "?"}</Text>
@@ -180,7 +190,6 @@ export default function ProfileScreen({ user, onBack, onUpdateUser }) {
             </View>
           )}
 
-          {/* Fix 2: Work Information card with resolved office/position */}
           <View style={styles.card}>
             <Text style={styles.cardTitle}>Work Information</Text>
             <InfoRow label="Office" value={officeName} />
@@ -192,6 +201,12 @@ export default function ProfileScreen({ user, onBack, onUpdateUser }) {
             <InfoRow label="Username" value={profile?.username || user?.username} />
             <InfoRow label="Role" value={roleLabel} last />
           </View>
+
+          <TouchableOpacity style={styles.manualBtn} onPress={() => onNavigate && onNavigate('UserManual')} activeOpacity={0.85}>
+            <Ionicons name="book-outline" size={18} color="#fff" style={{ marginRight: 10 }} />
+            <Text style={styles.manualBtnText}>User Manual</Text>
+            <Ionicons name="chevron-forward" size={16} color="#C9A84C" style={{ marginLeft: "auto" }} />
+          </TouchableOpacity>
         </View>
       </ScrollView>
     </KeyboardAvoidingView>
@@ -237,4 +252,6 @@ const styles = StyleSheet.create({
   cancelText: { fontSize: 13, fontWeight: "700", color: "#8A9BB0" },
   saveBtn: { flex: 2, backgroundColor: "#0B1F3A", borderRadius: 10, paddingVertical: 13, alignItems: "center", elevation: 3 },
   saveText: { color: "#fff", fontSize: 13, fontWeight: "800", letterSpacing: 1.5 },
+  manualBtn: { flexDirection: "row", alignItems: "center", backgroundColor: "#0B1F3A", borderRadius: 12, padding: 16, marginBottom: 12, borderWidth: 1, borderColor: "#C9A84C", elevation: 2 },
+  manualBtnText: { color: "#fff", fontSize: 14, fontWeight: "700" },
 });

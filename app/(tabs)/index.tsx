@@ -1,6 +1,8 @@
+import { useLocalSearchParams } from 'expo-router';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { View } from 'react-native';
-import { useLocalSearchParams } from 'expo-router';
+import { getNotificationNavigationTarget } from '../../utils/notificationNavigation';
+import { normalizeRoleId } from "../constants/roles";
 import LoginScreen from '../LoginScreen';
 import AssignScheduleScreen from '../screens/AssignScheduleScreen';
 import DashboardScreen from '../screens/DashboardScreen';
@@ -14,9 +16,8 @@ import ReviewRequestsScreen from '../screens/ReviewRequestsScreen';
 import SignUpScreen from '../screens/SignUpScreen';
 import SubmitRequestScreen from '../screens/SubmitRequestScreen';
 import UserManagementScreen from '../screens/UserManagementScreen';
+import UserManualScreen from '../screens/UserManualScreen';
 import ViewRequestStatusScreen from '../screens/ViewRequestStatusScreen';
-import { normalizeRoleId } from "../constants/roles";
-import { getNotificationNavigationTarget } from '../../utils/notificationNavigation';
 
 type Screen =
   | 'Login' | 'SignUp' | 'Dashboard' | 'SubmitRequest'
@@ -103,10 +104,14 @@ export default function HomeScreen() {
     return <UserManagementScreen user={user} onBack={() => navigate('Dashboard')} />;
   }
   if (screen === 'Profile') {
-    return <ProfileScreen user={user} onBack={() => navigate('Dashboard')} onUpdateUser={(u: any) => setUser(u)} />;
+    return <ProfileScreen user={user} onBack={() => navigate('Dashboard')} onUpdateUser={(u: any) => setUser(u)} onNavigate={navigate} />;
   }
   if (screen === 'AssignSchedule') {
     return <AssignScheduleScreen user={user} requestId={screenParams.requestId} request={screenParams.request} onBack={() => navigate('ReviewRequests')} onSuccess={() => navigate('Dashboard')} />;
   }
+  if (screen === 'UserManual') {
+    return <UserManualScreen user={user} onBack={() => navigate('Dashboard')} />;
+  }
   return <View />;
 }
+

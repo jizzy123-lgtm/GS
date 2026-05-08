@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "948076028104",
+    "project_id": "manageit-f0de1",
+    "storage_bucket": "manageit-f0de1.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:948076028104:android:6045d3c003ae04a63d45fd",
+        "android_client_info": {
+          "package_name": "com.manageit.MyApp"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAhEdwJojHjie7OcmRH13M97BaXB8pSSPE"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

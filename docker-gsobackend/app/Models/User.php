@@ -11,11 +11,6 @@ class User extends Authenticatable
 {
     use HasApiTokens, HasFactory, Notifiable;
 
-    protected $hidden = [
-        'password',
-        'remember_token',
-    ];
-
     protected $fillable = [
         'last_name',
         'first_name',
@@ -24,13 +19,12 @@ class User extends Authenticatable
         'position_id',
         'office_id',
         'status_id',
-        'account_status_id', // ✅
         'role_id',
         'contact_number',
         'email',
         'username',
         'password',
-        'profile_picture',
+        'expo_push_token',
     ];
 
     // Relationships
@@ -38,9 +32,7 @@ class User extends Authenticatable
     public function office() { return $this->belongsTo(Office::class); }
     public function status() { return $this->belongsTo(Status::class); }
     public function role() { return $this->belongsTo(Role::class); }
-
-    // ✅ Fixed — points to AccountStatus::class
-    public function accountStatus() {
-        return $this->belongsTo(AccountStatus::class, 'account_status_id');
-    }
+    public function loginLocations() { return $this->hasMany(LoginLocation::class); }
 }
+
+

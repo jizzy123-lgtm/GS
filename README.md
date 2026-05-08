@@ -1,66 +1,52 @@
-Release 1.9:
--the drop down request type is removed, it is change to manually typing the specific request type,
--there is a red number in the notification tab of the total number of notifications,
--removed priority number when service request is denied,
--implemented the email notification of the request is denied,
--head won’t receive email notification, only the staff,
--there is remarks if head will deny request,
--no need for campus director to receive email after verified, only after approval,
--fix construction of sentence,
--graph that shows when is the peak of service is seen,
--user can feedback after service is done,
--two date in feedback (date for when is the feedback done and date when was the work done)
+# GSU Gateway
 
-Release 1.7
--notifications of staff, head, campus director, and user are all working
+A mobile application for the General Services Office (GSO) of Jose Rizal Memorial State University (JRMSU). Manages the complete lifecycle of facility and equipment maintenance requests.
 
-Release 1.6
--Automated priority no.
--Contact no. Restrict not starting 09 then 11 digit na sya
--There is notif in staff but it can't still be read
--Onhold, Urgent, verified, completed once done feedback (working)
--Feedback
+## Tech Stack
 
-Release 1.4
-backend:
--Api for (facebook or messenger type of red notifs) numbers of notifications:
-/notifications/unreadCount
--Function for deny request sets the priority number to null
--Api to set urgent status:
-/maintenance-requests/{id}/mark-urgent
--Api to set onhold:
-/maintenance-requests/{id}/mark-onhold
--Api to set done:
-/maintenance-requests/{id}/mark-done
+- **Frontend:** React Native 0.81.5, Expo ~54, Expo Router v6
+- **Backend:** Laravel (PHP), MySQL, Laravel Sanctum
+- **Push Notifications:** Expo Notifications + Firebase (FCM)
+- **Networking:** Tailscale (dev), ngrok (remote testing)
+- **Build:** EAS Build
 
-frontend:
--mark as urgent
--mark as onhold
+## Getting Started
 
-Release 1.3
--In user POV, details in request status can be seen in text form instead of the ID
--In Campus Director POV, "API cannot be found" error is fixed
--Fixed email notification details in user, head, staff and admin's POV
--Fixed Bug No. 13
--Fixed Bug No. 15
--Fixed Bug No. 18
--Fixed-Email Notification about Admin who will receive email if there is a new account registering
--Fixed-Email Notification about Requester who will receive email if the account registered is approved
--Fixed-Email Notification about Staff who will receive email if there is service request
--Fixed-Email Notification about Head who will receive email if there is service request
--Fixed-Email Notification about Requester who will receive email if service requested is verified by Staff
--Fixed-Email Notification about Head who will receive email if service requested is verified by Staff
--Fixed-Email Notification about Requester who will receive email if service requested is approved/disapproved by Head
--Fixed-Email Notification about Campus Admin who will receive email if service requested is approved/disapproved by Head
--Fixed-Email Notification about Requester who will receive email if service requested already have priority number, done by staff
--Fixed-Campus Admin can now approve after Head
+1. Install dependencies
 
-Release 1.2
--Fix admin mobile hamburger menu open
--Fixed Bug No. 1
--Fixed Bug No. 3
--Fixed Bug No. 5
--Fixed Bug No. 6
--Fixed Bug No. 7
--Fixed Bug No. 11
--Fixed Bug No. 12
+   ```bash
+   npm install
+   ```
+
+2. Start the app
+
+   ```bash
+   npx expo start
+   ```
+
+## User Roles
+
+| Role | Responsibility |
+|---|---|
+| Requester | Submits maintenance requests |
+| Staff | Verifies requests and assigns schedules |
+| Head | Reviews and approves/disapproves requests |
+| Campus Director | Final approval authority |
+| Admin | Manages user accounts |
+
+## Documentation
+
+- [Mobile App Technical Documentation](https://github.com/jizzy123-lgtm/GS/wiki/GSU-Gateway-Mobile-App-Technical-Documentation)
+- [Setup Guide](docs/setup-guide.md)
+- [User Story](https://github.com/jizzy123-lgtm/GS/wiki/Mobile-App-%E2%80%90-User-Stories)
+- [API Documentation](https://documenter.getpostman.com/view/54234949/2sBXqFPP2G)
+
+## Team
+
+- Cherrylou Urbano
+- April Grace Laranjo
+- Shienna Belle Elopre
+- Christian Vidad
+- Nice Mia Lagas
+
+College of Engineering — Jose Rizal Memorial State University

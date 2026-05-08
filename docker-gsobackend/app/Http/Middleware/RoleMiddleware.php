@@ -12,7 +12,7 @@ class RoleMiddleware
     /**
      * Handle an incoming request.
      */
-    public function handle(Request $request, Closure $next, $roleId): Response
+    public function handle(Request $request, Closure $next, ...$roleIds): Response
     {
         // Ensure the user is authenticated
         if (!Auth::check()) {
@@ -22,8 +22,8 @@ class RoleMiddleware
         // Get the authenticated user
         $user = Auth::user();
 
-        // Check if the authenticated user's role matches the required role ID
-        if ($user->role_id != $roleId) {
+        // Check if the authenticated user's role matches any of the allowed role IDs
+        if (!in_array($user->role_id, $roleIds)) {
             return response()->json(['message' => 'You do not have permission to access this route.'], 403);
         }
 

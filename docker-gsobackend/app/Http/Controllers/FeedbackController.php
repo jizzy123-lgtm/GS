@@ -14,67 +14,66 @@ class FeedbackController extends Controller
     public function store(Request $request)
     {
         $validated = $request->validate([
-            'maintenance_request_id' => 'required|exists:maintenance_requests,id',
-            'client_type'     => 'required|string',
-            'service_type'    => 'required|string',
-            'request_date'    => 'required|date',
-            'date'            => 'required|date',
-            'sex'             => 'required|string',
-            'region'          => 'nullable|string',
-            'age'             => 'required|integer',
-            'office_visited'  => 'required|string',
-            'service_availed' => 'required|string',
-            'cc1'  => 'required|integer',
-            'cc2'  => 'nullable|integer',
-            'cc3'  => 'nullable|integer',
-            'sqd0' => 'required|integer',
-            'sqd1' => 'required|integer',
-            'sqd2' => 'required|integer',
-            'sqd3' => 'required|integer',
-            'sqd4' => 'required|integer',
-            'sqd5' => 'required|integer',
-            'sqd6' => 'required|integer',
-            'sqd7' => 'required|integer',
-            'sqd8' => 'required|integer',
-            'suggestions' => 'nullable|string',
-            'email'       => 'nullable|email',
+            // Accept both field names for compatibility
+            'maintenance_request_id' => 'sometimes|exists:maintenance_requests,id',
+            'request_id'             => 'sometimes|exists:maintenance_requests,id',
+            'rating'                 => 'required|integer|min:1|max:5',
+            'comment'                => 'nullable|string|max:2000',
         ]);
 
-        $maintenance = MaintenanceRequest::find($validated['maintenance_request_id']);
+        // Normalize field name: frontend may send request_id or maintenance_request_id
+        $maintenanceRequestId = $validated['maintenance_request_id']
+            ?? $validated['request_id']
+            ?? null;
 
-        // ✅ Gate 1 — Request must exist
+        if (!$maintenanceRequestId) {
+            return response()->json(['message' => 'A maintenance request ID is required.'], 422);
+        }
+
+        $maintenance = MaintenanceRequest::find($maintenanceRequestId);
+
         if (!$maintenance) {
             return response()->json(['message' => 'Maintenance request not found.'], 404);
         }
 
-        // ✅ Gate 2 — Only the requester can submit feedback
-        if ($maintenance->requesting_personnel !== Auth::id()) {
-            return response()->json(['message' => 'Unauthorized.'], 403);
-        }
-
-        // ✅ Gate 3 — Must be marked as done by staff (status 5)
-        if ($maintenance->status_id !== 5) {
+        // Request must be Done (status_id = 4) before feedback can be submitted
+        if ($maintenance->status_id !== 4) {
             return response()->json([
-                'message' => 'Feedback can only be submitted after the request is marked as done by staff.'
-            ], 403);
+                'message' => 'Feedback can only be submitted for completed (done) requests.'
+            ], 422);
         }
 
-        // ✅ Gate 4 — Prevent duplicate feedback (permanently closed)
-        $existingFeedback = Feedback::where('maintenance_request_id', $validated['maintenance_request_id'])->first();
+        // Prevent duplicate feedback (TC-5-009)
+        $existingFeedback = Feedback::where('maintenance_request_id', $maintenanceRequestId)->first();
         if ($existingFeedback) {
             return response()->json([
-                'message' => 'Feedback has already been submitted for this request and cannot be changed.'
+                'message' => 'Feedback has already been submitted for this request.'
             ], 409);
         }
 
-        $validated['user_id'] = Auth::id();
-        $feedback = Feedback::create($validated);
+        $feedback = Feedback::create([
+            'user_id'                => Auth::id(),
+            'maintenance_request_id' => $maintenanceRequestId,
+            'rating'                 => $validated['rating'],
+            'feedback_comment'       => $validated['comment'] ?? null,
+            // Legacy CSMS columns — filled with neutral defaults to satisfy NOT NULL constraints
+            'client_type'    => 'N/A',
+            'service_type'   => 'N/A',
+            'request_date'   => now()->toDateString(),
+            'date'           => now()->toDateString(),
+            'sex'            => 'N/A',
+            'age'            => 0,
+            'office_visited' => 'N/A',
+            'service_availed'=> 'N/A',
+            'cc1'            => 1,
+            'sqd0' => $validated['rating'], 'sqd1' => $validated['rating'],
+            'sqd2' => $validated['rating'], 'sqd3' => $validated['rating'],
+            'sqd4' => $validated['rating'], 'sqd5' => $validated['rating'],
+            'sqd6' => $validated['rating'], 'sqd7' => $validated['rating'],
+            'sqd8' => $validated['rating'],
+        ]);
 
-        //after the feedback submitted it will save to the completed id , which we can see it in the completed tab
-        $maintenance->status_id = 6;
-        $maintenance->save();
-
-        // ✅ Notify staff and head
+        // Notify staff & head
         $staffUsers = User::whereIn('role_id', [2, 3])
             ->whereNotNull('email')
             ->get();
@@ -85,32 +84,48 @@ class FeedbackController extends Controller
 
         return response()->json([
             'message' => 'Feedback submitted successfully.',
-            'data'    => $feedback
+            'data'    => [
+                'id'                     => $feedback->id,
+                'maintenance_request_id' => $feedback->maintenance_request_id,
+                'rating'                 => $feedback->rating,
+                'comment'                => $feedback->feedback_comment,
+                'created_at'             => $feedback->created_at,
+            ]
         ], 201);
     }
 
+
+
+
+
+    // Show a specific feedback
     public function show($id)
     {
         return response()->json(Feedback::findOrFail($id));
     }
 
-    // ✅ FIXED — update is now completely disabled
-    // Feedback is final once submitted, no edits allowed
+    // Update feedback
     public function update(Request $request, $id)
     {
-        return response()->json([
-            'message' => 'Feedback cannot be edited after submission.'
-        ], 403);
+        $feedback = Feedback::findOrFail($id);
+        $validated = $request->validate([
+            'rating' => 'sometimes|integer|min:1|max:5',
+            'comments' => 'sometimes|string',
+        ]);
+
+        $feedback->update($validated);
+
+        return response()->json($feedback);
     }
 
-    // ✅ FIXED — destroy is now completely disabled
-    // Deleting feedback would allow resubmission, which breaks the one-feedback rule
+    // Delete feedback
     public function destroy($id)
     {
-        return response()->json([
-            'message' => 'Feedback cannot be deleted.'
-        ], 403);
+        Feedback::destroy($id);
+        return response()->json(['message' => 'Feedback deleted']);
     }
+
+
 
     public function showFeedbackDetails($id)
     {
@@ -121,17 +136,22 @@ class FeedbackController extends Controller
         }
 
         return response()->json([
-            'client_type'    => $feedback->client_type,
-            'service_type'   => $feedback->service_type,
-            'date'           => $feedback->date,
-            'sex'            => $feedback->sex,
-            'region'         => $feedback->region,
-            'age'            => $feedback->age,
+            'id' => $feedback->id,
+            'maintenance_request_id' => $feedback->maintenance_request_id,
+            'rating' => $feedback->rating,
+            'comment' => $feedback->feedback_comment,
+            // Keep legacy fields below just in case older app versions still expect them
+            'client_type' => $feedback->client_type,
+            'service_type' => $feedback->service_type,
+            'date'=> $feedback->date,
+            'sex' => $feedback->sex,
+            'region' => $feedback->region,
+            'age' => $feedback->age,
             'office_visited' => $feedback->office_visited,
-            'service_availed'=> $feedback->service_availed,
-            'cc1'  => $feedback->cc1,
-            'cc2'  => $feedback->cc2,
-            'cc3'  => $feedback->cc3,
+            'service_availed' => $feedback->service_availed,
+            'cc1' => $feedback->cc1,
+            'cc2' => $feedback->cc2,
+            'cc3' => $feedback->cc3,
             'sqd0' => $feedback->sqd0,
             'sqd1' => $feedback->sqd1,
             'sqd2' => $feedback->sqd2,
@@ -142,13 +162,37 @@ class FeedbackController extends Controller
             'sqd7' => $feedback->sqd7,
             'sqd8' => $feedback->sqd8,
             'suggestions' => $feedback->suggestions,
-            'email'       => $feedback->email,
+            'email' => $feedback->email,
         ], 200);
     }
 
     public function index()
     {
-        $feedbacks = Feedback::all();
+        $user = Auth::user();
+        
+        if (!$user) {
+            return response()->json(['message' => 'Unauthenticated or invalid token.'], 401);
+        }
+
+        // Only Admin (role_id = 1) can access and review feedback data (TC-5-006)
+        if ($user->role_id !== 1) {
+            return response()->json(['message' => 'Only Admins can view feedback data.'], 403);
+        }
+
+        $feedbacks = Feedback::with('user')->get()->map(function ($feedback) {
+            return [
+                'id' => $feedback->id,
+                'maintenance_request_id' => $feedback->maintenance_request_id,
+                'request_id' => $feedback->maintenance_request_id, // Alias for frontend convenience
+                'rating' => $feedback->rating,
+                'comment' => $feedback->feedback_comment, // Resolves the mismatch here
+                'created_at' => $feedback->created_at,
+                'user' => [
+                    'id' => optional($feedback->user)->id,
+                    'name' => trim(optional($feedback->user)->first_name . ' ' . optional($feedback->user)->last_name)
+                ]
+            ];
+        });
 
         return response()->json([
             'message' => 'All feedbacks retrieved successfully.',
@@ -156,7 +200,7 @@ class FeedbackController extends Controller
         ]);
     }
 
-    public function getByRequest($maintenance_request_id)
+      public function getByRequest($maintenance_request_id)
     {
         $feedback = Feedback::where('maintenance_request_id', $maintenance_request_id)->first();
 
@@ -166,4 +210,6 @@ class FeedbackController extends Controller
 
         return response()->json($feedback);
     }
+
+
 }

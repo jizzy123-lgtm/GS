@@ -2,13 +2,12 @@
 
 namespace App\Notifications;
 
-use Illuminate\Bus\Queueable;              
-use Illuminate\Contracts\Queue\ShouldQueue; 
+use Illuminate\Bus\Queueable;
 use Illuminate\Notifications\Notification;
 use Illuminate\Notifications\Messages\MailMessage;
 use App\Models\MaintenanceRequest;
 
-class RequestApprovedByCampusDirector extends Notification implements ShouldQueue
+class RequestApprovedByCampusDirector extends Notification
 {
     use Queueable;
 
@@ -24,24 +23,15 @@ class RequestApprovedByCampusDirector extends Notification implements ShouldQueu
         return ['mail'];
     }
 
-    public function toMail(object $notifiable): MailMessage
+    public function toMail($notifiable)
     {
+        $requester = $this->maintenanceRequest->requesting_personnel;
         return (new MailMessage)
-            ->subject('Request Approved by Campus Director')
-            ->view('emails.gso-notification', [
-                'subject'    => 'Request Approved by Campus Director',
-                'badgeType'  => 'green',
-                'badgeLabel' => 'Director Approved',
-                'greeting'   => 'Dear ' . $notifiable->first_name . ',',
-                'lines'      => [
-                    'Your request has been <strong>approved by the Campus Director</strong> in the <strong>General Service Office System</strong>.',
-                    'Please log in to your account to view further details.',
-                ],
-                'actionUrl'  => 'http://localhost:5173/',
-                'actionText' => 'View Request',
-                'notices'    => [
-                    '⚠️ If you have any concerns, please contact your Campus Admin.',
-                ],
-            ]);
+            ->subject('Maintenance Request Approved')
+            ->greeting('Hello ' . optional($this->maintenanceRequest->requesting_personnel)->first_name. ' ' .
+                                optional($this->maintenanceRequest->requesting_personnel)->last_name)
+            ->line('Your maintenance request has been approved by the Campus Director.')
+            ->line('Your request status now is Approved!')
+            ->salutation('Regards, GSO SYSTEM');
     }
 }

@@ -12,6 +12,7 @@ import PendingApprovalsScreen from '../screens/PendingApprovalsScreen';
 import ProfileScreen from '../screens/ProfileScreen';
 import ReviewRequestsScreen from '../screens/ReviewRequestsScreen';
 import SignUpScreen from '../screens/SignUpScreen';
+import ForgotPasswordScreen from '../screens/ForgotPasswordScreen';
 import SubmitRequestScreen from '../screens/SubmitRequestScreen';
 import UserManagementScreen from '../screens/UserManagementScreen';
 import ViewRequestStatusScreen from '../screens/ViewRequestStatusScreen';
@@ -19,7 +20,7 @@ import { normalizeRoleId } from "../constants/roles";
 import { getNotificationNavigationTarget } from '../../utils/notificationNavigation';
 
 type Screen =
-  | 'Login' | 'SignUp' | 'Dashboard' | 'SubmitRequest'
+  | 'Login' | 'SignUp' | 'ForgotPassword' | 'Dashboard' | 'SubmitRequest'
   | 'ViewRequestStatus' | 'Feedback' | 'Feedbacks' | 'LoginLocationTracking' | 'Notifications'
   | 'ReviewRequests' | 'PendingApprovals' | 'Profile' | 'AssignSchedule' | 'UserManagement';
 
@@ -67,10 +68,13 @@ export default function HomeScreen() {
   };
 
   if (screen === 'Login') {
-    return <LoginScreen onLoginSuccess={handleLoginSuccess} onSignUp={() => navigate('SignUp')} />;
+    return <LoginScreen onLoginSuccess={handleLoginSuccess} onSignUp={() => navigate('SignUp')} onForgotPassword={() => navigate('ForgotPassword')} />;
   }
   if (screen === 'SignUp') {
     return <SignUpScreen onBack={() => navigate('Login')} />;
+  }
+  if (screen === 'ForgotPassword') {
+    return <ForgotPasswordScreen onBack={() => navigate('Login')} />;
   }
   if (screen === 'Dashboard') {
     return <DashboardScreen user={user} onLogout={handleLogout} onNavigate={navigate} />;

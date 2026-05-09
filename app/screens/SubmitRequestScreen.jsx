@@ -907,7 +907,15 @@ export default function SubmitRequestScreen({ user, onBack, onSuccess }) {
           )}
         </View>
       </ScrollView>
-      {!submitted && <AIAssistantBot formData={{ title: selectedTypeName, location, details: description }} />}
+      {!submitted && (
+        <AIAssistantBot
+          formData={{ title: selectedTypeName, location, details: description }}
+          onApplyDescription={(text) => {
+            setDescription(text);
+            setFieldErrors((prev) => ({ ...prev, description: "" }));
+          }}
+        />
+      )}
     </KeyboardAvoidingView>
   );
 }

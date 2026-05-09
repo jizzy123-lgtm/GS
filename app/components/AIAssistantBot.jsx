@@ -23,9 +23,10 @@ const C = {
   bg: "#F0F2F5",
   border: "#DDE3EC",
   textMute: "#8A9BB0",
+  success: "#1A7A4A",
 };
 
-export default function AIAssistantBot({ formData }) {
+export default function AIAssistantBot({ formData, onApplyDescription }) {
   const [isOpen, setIsOpen] = useState(false);
   const [inputText, setInputText] = useState("");
   const [messages, setMessages] = useState([
@@ -56,6 +57,7 @@ export default function AIAssistantBot({ formData }) {
         body: JSON.stringify({
           message: text,
           form_data: formData || {},
+          mode: "improve_description",
         }),
       });
 
@@ -65,7 +67,11 @@ export default function AIAssistantBot({ formData }) {
         return;
       }
 
-      setMessages((prev) => [...prev, { role: "ai", text: data.reply || "No response received." }]);
+      setMessages((prev) => [...prev, { 
+        role: "ai", 
+        text: data.reply || "No response received.",
+        improved_description: data.improved_description 
+      }]);
     } catch (e) {
       setMessages((prev) => [...prev, { role: "ai", text: "Network error. Please try again." }]);
     } finally {
@@ -109,6 +115,20 @@ export default function AIAssistantBot({ formData }) {
                 return (
                   <View key={idx} style={[styles.messageBubble, isUser ? styles.userBubble : styles.botBubble]}>
                     <Text style={[styles.messageText, isUser ? styles.userText : styles.botText]}>{msg.text}</Text>
+                    {msg.improved_description && (
+                      <TouchableOpacity 
+                        style={styles.applyBtn}
+                        onPress={() => {
+                          if (onApplyDescription) {
+                            onApplyDescription(msg.improved_description);
+                          }
+                        }}
+                        activeOpacity={0.8}
+                      >
+                        <Ionicons name="checkmark-circle" size={16} color="#FFFFFF" />
+                        <Text style={styles.applyBtnText}>Apply to Form</Text>
+                      </TouchableOpacity>
+                    )}
                   </View>
                 );
               })}
@@ -251,5 +271,21 @@ const styles = StyleSheet.create({
     backgroundColor: C.navy,
     alignItems: "center",
     justifyContent: "center",
+  },
+  applyBtn: {
+    marginTop: 10,
+    backgroundColor: C.success,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 8,
+    gap: 6,
+  },
+  applyBtnText: {
+    color: "#FFFFFF",
+    fontSize: 13,
+    fontWeight: "700",
   },
 });

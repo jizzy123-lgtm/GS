@@ -1,4 +1,4 @@
-import AsyncStorage from "@react-native-async-storage/async-storage";
+﻿import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useState } from "react";
 import {
   ActivityIndicator,
@@ -16,13 +16,66 @@ import {
 import { API_URL } from '../api';
 import { normalizeRoleId } from "./constants/roles";
 import { registerForPushNotificationsAsync } from '../hooks/usePushNotifications';
+import { useGoogleAuth } from '../hooks/useGoogleAuth';
+import Svg, { Path } from 'react-native-svg';
+import { Ionicons } from '@expo/vector-icons';
 
-export default function LoginScreen({ onLoginSuccess, onSignUp }) {
+export default function LoginScreen({ onLoginSuccess, onSignUp, onNavigate }) {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
+  const [googleLoading, setGoogleLoading] = useState(false);
+  const { request, signIn, verifyToken } = useGoogleAuth();
+
+  const handleGoogleVerify = async (idToken) => {
+    try {
+      const { status, data } = await verifyToken(idToken);
+      if (status === 200) {
+        if (data.status === 'authenticated') {
+          const normalizedUser = { ...data.user, role_id: normalizeRoleId(data.user?.role_id) };
+          await AsyncStorage.setItem("token", data.token);
+          await AsyncStorage.setItem("authToken", data.token);
+          await AsyncStorage.setItem("user", JSON.stringify(normalizedUser));
+          await registerForPushNotificationsAsync(data.token);
+          onLoginSuccess && onLoginSuccess(normalizedUser);
+        } else if (data.status === 'registration_required') {
+          onNavigate && onNavigate('SignUp', { googleData: data.google_data });
+        } else {
+          setError(data.message || "Google authentication failed.");
+        }
+      } else if (status === 409) {
+        onNavigate && onNavigate('GoogleDuplicate', { accounts: data.accounts, googleData: data.google_data });
+      } else {
+        setError(data.message || "Google authentication failed.");
+      }
+    } catch (_err) {
+      setError("Cannot connect to server. Check your connection.");
+    }
+  };
+
+  const handleGoogleSignIn = async () => {
+    setError("");
+    setGoogleLoading(true);
+    try {
+      const result = await signIn();
+      if (result?.type === 'success') {
+        const idToken = result.params?.id_token || result.authentication?.idToken;
+        if (idToken) {
+          await handleGoogleVerify(idToken);
+        } else {
+          setError("Google Sign-In failed: no token received.");
+        }
+      } else if (result?.type !== 'cancel' && result?.type !== 'dismiss') {
+        setError("Google Sign-In was not completed.");
+      }
+    } catch (_err) {
+      setError("Google Sign-In failed. Please try again.");
+    } finally {
+      setGoogleLoading(false);
+    }
+  };
 
   const handleLogin = async () => {
     setError("");
@@ -46,10 +99,7 @@ export default function LoginScreen({ onLoginSuccess, onSignUp }) {
         await AsyncStorage.setItem("token", data.token);
         await AsyncStorage.setItem("authToken", data.token);
         await AsyncStorage.setItem("user", JSON.stringify(normalizedUser));
-        
-        // Register push token remotely with backend
         await registerForPushNotificationsAsync(data.token);
-        
         onLoginSuccess && onLoginSuccess(normalizedUser);
       } else {
         setError(data.message || "Login failed. Please try again.");
@@ -101,9 +151,7 @@ export default function LoginScreen({ onLoginSuccess, onSignUp }) {
 
             {/* Username field */}
             <View style={styles.field}>
-              <View style={styles.fieldIcon}>
-                <Text style={styles.fieldIconText}>U</Text>
-              </View>
+              <View style={styles.fieldIcon}><Ionicons name="person" size={18} color="#fff" /></View>
               <View style={styles.inputPill}>
                 <TextInput
                   style={styles.input}
@@ -119,9 +167,7 @@ export default function LoginScreen({ onLoginSuccess, onSignUp }) {
 
             {/* Password field */}
             <View style={styles.field}>
-              <View style={styles.fieldIcon}>
-                <Text style={styles.fieldIconText}>P</Text>
-              </View>
+              <View style={styles.fieldIcon}><Ionicons name="lock-closed" size={18} color="#fff" /></View>
               <View style={styles.inputPill}>
                 <TextInput
                   style={styles.input}
@@ -132,11 +178,38 @@ export default function LoginScreen({ onLoginSuccess, onSignUp }) {
                   secureTextEntry={!showPassword}
                   autoCapitalize="none"
                 />
-                <TouchableOpacity onPress={() => setShowPassword(!showPassword)}>
-                  <Text style={styles.eyeText}>{showPassword ? "  " : "👁"}</Text>
-                </TouchableOpacity>
+                <TouchableOpacity onPress={() => setShowPassword(!showPassword)}><Ionicons name={showPassword ? "eye-off" : "eye"} size={20} color="#7aa5b5" /></TouchableOpacity>
               </View>
             </View>
+
+            {/* Divider */}
+            <View style={styles.divider}>
+              <View style={styles.dividerLine} />
+              <Text style={styles.dividerText}>OR</Text>
+              <View style={styles.dividerLine} />
+            </View>
+
+            {/* Google Sign-In Button */}
+            <TouchableOpacity
+              style={[styles.googleBtn, (googleLoading || !request) && { opacity: 0.6 }]}
+              onPress={handleGoogleSignIn}
+              disabled={googleLoading || !request}
+              activeOpacity={0.85}
+            >
+              {googleLoading ? (
+                <ActivityIndicator color="#4285F4" size="small" />
+              ) : (
+                <>
+                  <Svg width="20" height="20" viewBox="0 0 48 48" style={{ marginRight: 10 }}>
+                    <Path fill="#FFC107" d="M43.6 20.1H42V20H24v8h11.3C33.7 32.7 29.3 36 24 36c-6.6 0-12-5.4-12-12s5.4-12 12-12c3.1 0 5.8 1.2 8 3l5.7-5.7C34 6 29.3 4 24 4 12.9 4 4 12.9 4 24s8.9 20 20 20 20-8.9 20-20c0-1.3-.1-2.7-.4-3.9z"/>
+                    <Path fill="#FF3D00" d="M6.3 14.7l6.6 4.8C14.7 15.1 19 12 24 12c3.1 0 5.8 1.2 8 3l5.7-5.7C34 6 29.3 4 24 4 16.3 4 9.7 8.3 6.3 14.7z"/>
+                    <Path fill="#4CAF50" d="M24 44c5.2 0 9.9-2 13.4-5.2l-6.2-5.2C29.2 35.1 26.7 36 24 36c-5.2 0-9.6-3.3-11.3-7.9l-6.5 5C9.5 39.6 16.2 44 24 44z"/>
+                    <Path fill="#1976D2" d="M43.6 20.1H42V20H24v8h11.3c-.8 2.2-2.2 4.2-4.1 5.6l6.2 5.2C37 39.2 44 34 44 24c0-1.3-.1-2.7-.4-3.9z"/>
+                  </Svg>
+                  <Text style={styles.googleBtnText}>Sign in with Google</Text>
+                </>
+              )}
+            </TouchableOpacity>
 
           </View>
 
@@ -214,7 +287,7 @@ const styles = StyleSheet.create({
     shadowColor: NAVY, shadowOffset: { width: 0, height: 6 },
     shadowOpacity: 0.28, shadowRadius: 24, elevation: 8,
   },
-  cardBody: { paddingTop: 68, paddingHorizontal: 24, paddingBottom: 8, alignItems: "center" },
+  cardBody: { paddingTop: 68, paddingHorizontal: 24, paddingBottom: 16, alignItems: "center" },
   cardTitle: { fontSize: 22, fontWeight: "700", color: NAVY_DARK, marginBottom: 20, letterSpacing: 0.5 },
   cardTitleTeal: { color: TEAL },
   errorBox: {
@@ -224,16 +297,26 @@ const styles = StyleSheet.create({
   errorText: { color: "#b91c1c", fontSize: 13, fontWeight: "600" },
   field: { flexDirection: "row", alignItems: "center", marginBottom: 12, width: "100%", gap: 10 },
   fieldIcon: { width: 36, height: 36, borderRadius: 10, backgroundColor: NAVY, alignItems: "center", justifyContent: "center" },
-  fieldIconText: { fontSize: 16, color: "#ffffff", fontWeight: "700" },
   inputPill: {
     flex: 1, flexDirection: "row", alignItems: "center",
     backgroundColor: TEAL_FIELD, borderRadius: 999, paddingHorizontal: 16, paddingVertical: 10,
   },
   input: { flex: 1, fontSize: 15, color: "#1a3050", padding: 0 },
-  eyeText: { fontSize: 16, color: "#7aa5b5" },
+  divider: { flexDirection: "row", alignItems: "center", width: "100%", marginVertical: 14 },
+  dividerLine: { flex: 1, height: 1, backgroundColor: "#e2e8f0" },
+  dividerText: { marginHorizontal: 12, fontSize: 11, color: "#8a99b5", fontWeight: "700", letterSpacing: 1 },
+  googleBtn: {
+    flexDirection: "row", alignItems: "center", justifyContent: "center",
+    backgroundColor: "#fff", borderWidth: 1, borderColor: "#dadce0",
+    borderRadius: 4, paddingVertical: 10, paddingHorizontal: 12,
+    width: "100%",
+    shadowColor: "#000", shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.08, shadowRadius: 2, elevation: 2,
+  },
+  googleBtnText: { color: "#3c4043", fontSize: 14, fontWeight: "500", letterSpacing: 0.25 },
   cardFooter: {
     backgroundColor: NAVY, borderBottomLeftRadius: 28, borderBottomRightRadius: 28,
-    marginTop: 16, padding: 16, overflow: "hidden",
+    marginTop: 0, padding: 16, overflow: "hidden",
   },
   footerAccent: { position: "absolute", top: 0, left: 0, right: 0, height: 3, backgroundColor: GOLD },
   loginBtn: { alignItems: "center", justifyContent: "center", paddingVertical: 4 },
@@ -242,3 +325,6 @@ const styles = StyleSheet.create({
   signupLink: { color: NAVY, fontWeight: "700", fontStyle: "normal", textDecorationLine: "underline" },
   version: { marginTop: 12, fontSize: 10, color: "#b0bdd4", letterSpacing: 1, textAlign: "center" },
 });
+
+
+

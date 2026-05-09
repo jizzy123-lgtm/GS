@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+﻿import { useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator, KeyboardAvoidingView, Platform,
   ScrollView,
@@ -27,20 +27,12 @@ const REQUESTER_ROLE_ID = 4;
 
 function isRoleActive(role) {
   if (!role) return false;
-
-  if (typeof role.is_active !== "undefined") {
-    return role.is_active === true || String(role.is_active) === "1";
-  }
-
-  if (typeof role.active !== "undefined") {
-    return role.active === true || String(role.active) === "1";
-  }
-
+  if (typeof role.is_active !== "undefined") return role.is_active === true || String(role.is_active) === "1";
+  if (typeof role.active !== "undefined") return role.active === true || String(role.active) === "1";
   if (typeof role.status !== "undefined") {
     const status = String(role.status).toLowerCase();
     return status === "active" || status === "1";
   }
-
   return true;
 }
 
@@ -55,32 +47,16 @@ function SectionHeader({ title }) {
 
 function DropdownField({ label, value, options, onSelect, disabled = false }) {
   const [open, setOpen] = useState(false);
-
-  useEffect(() => {
-    if (disabled) setOpen(false);
-  }, [disabled]);
-
+  useEffect(() => { if (disabled) setOpen(false); }, [disabled]);
   return (
     <View style={styles.dropdownWrap}>
       <TouchableOpacity
-        style={[
-          styles.input,
-          styles.dropdownBtn,
-          open && styles.inputFocused,
-          disabled && styles.dropdownBtnDisabled,
-        ]}
+        style={[styles.input, styles.dropdownBtn, open && styles.inputFocused, disabled && styles.dropdownBtnDisabled]}
         onPress={() => { if (!disabled) setOpen(!open); }}
         activeOpacity={0.8}
         disabled={disabled}
       >
-        <Text
-          style={[
-            styles.dropdownText,
-            !value && { color: "#a0aec0" },
-            disabled && styles.dropdownTextDisabled,
-          ]}
-          numberOfLines={1}
-        >
+        <Text style={[styles.dropdownText, !value && { color: "#a0aec0" }, disabled && styles.dropdownTextDisabled]} numberOfLines={1}>
           {value || label}
         </Text>
         <Text style={styles.dropdownArrow}>{open ? "^" : "v"}</Text>
@@ -95,16 +71,10 @@ function DropdownField({ label, value, options, onSelect, disabled = false }) {
             options.map((opt, i) => (
               <TouchableOpacity
                 key={i}
-                style={[
-                  styles.dropdownItem,
-                  value === opt && styles.dropdownItemActive,
-                  i === options.length - 1 && { borderBottomWidth: 0 },
-                ]}
+                style={[styles.dropdownItem, value === opt && styles.dropdownItemActive, i === options.length - 1 && { borderBottomWidth: 0 }]}
                 onPress={() => { onSelect(opt); setOpen(false); }}
               >
-                <Text style={[styles.dropdownItemText, value === opt && styles.dropdownItemTextActive]}>
-                  {opt}
-                </Text>
+                <Text style={[styles.dropdownItemText, value === opt && styles.dropdownItemTextActive]}>{opt}</Text>
               </TouchableOpacity>
             ))
           )}
@@ -114,12 +84,22 @@ function DropdownField({ label, value, options, onSelect, disabled = false }) {
   );
 }
 
-export default function SignUpScreen({ onBack }) {
+export default function SignUpScreen({ onBack, googleData }) {
+  const isGoogleSignUp = !!googleData;
+
   const [form, setForm] = useState({
-    first_name: "", last_name: "", middle_initial: "", suffix: "",
-    username: "", email: "", contact_number: "",
-    office_id: null, position_id: null, role_id: null,
-    password: "", password_confirmation: "",
+    first_name: googleData?.first_name || (googleData?.name ? googleData.name.split(" ")[0] : "") || "",
+    last_name: googleData?.last_name || (googleData?.name ? googleData.name.split(" ").slice(1).join(" ") : "") || "",
+    middle_initial: "",
+    suffix: "",
+    username: "",
+    email: googleData?.email || "",
+    contact_number: "",
+    office_id: null,
+    position_id: null,
+    role_id: null,
+    password: "",
+    password_confirmation: "",
   });
   const [offices, setOffices] = useState([]);
   const [positions, setPositions] = useState([]);
@@ -131,58 +111,37 @@ export default function SignUpScreen({ onBack }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [submitted, setSubmitted] = useState(false);
+  const [usernameStatus, setUsernameStatus] = useState(null);
+  const [usernameTimer, setUsernameTimer] = useState(null);
 
   const set = (key, val) => setForm(prev => ({ ...prev, [key]: val }));
 
-  const selectedOffice = useMemo(
-    () => offices.find(o => o.id === form.office_id),
-    [offices, form.office_id]
-  );
+  const selectedOffice = useMemo(() => offices.find(o => o.id === form.office_id), [offices, form.office_id]);
   const isCollegeOffice = !!selectedOffice?.name?.startsWith("College of");
-
   const activeRoles = useMemo(() => roles.filter(isRoleActive), [roles]);
   const visibleRoles = useMemo(() => {
-    if (isCollegeOffice) {
-      return activeRoles.filter(r => Number(r.id) === REQUESTER_ROLE_ID);
-    }
+    if (isCollegeOffice) return activeRoles.filter(r => Number(r.id) === REQUESTER_ROLE_ID);
     return activeRoles;
   }, [activeRoles, isCollegeOffice]);
-
   const roleLabelById = (id) => roles.find(r => r.id === id)?.role_name || "";
 
   const loadCommonData = async () => {
     setLoadingCommonData(true);
     setCommonDataError("");
-
     try {
-      const res = await fetch(`${API_URL}/common-datas`, {
-        headers: { Accept: "application/json" },
-      });
+      const res = await fetch(`${API_URL}/common-datas`, { headers: { Accept: "application/json" } });
       const data = await res.json();
-
-      if (!res.ok) {
-        throw new Error(data.message || "Failed to load registration options.");
-      }
-
+      if (!res.ok) throw new Error(data.message || "Failed to load registration options.");
       const payload = data?.data || data;
       const mappedOffices = (Array.isArray(payload?.offices) ? payload.offices : [])
         .map(o => ({ id: Number(o.id), name: o.name || o.office_name || "" }))
         .filter(o => Number.isFinite(o.id) && o.name);
-
       const mappedPositions = (Array.isArray(payload?.positions) ? payload.positions : [])
         .map(p => ({ id: Number(p.id), name: p.name || p.position_name || "" }))
         .filter(p => Number.isFinite(p.id) && p.name);
-
       const mappedRoles = (Array.isArray(payload?.roles) ? payload.roles : [])
-        .map(r => ({
-          id: Number(r.id),
-          role_name: r.role_name || r.name || "",
-          is_active: r.is_active,
-          active: r.active,
-          status: r.status,
-        }))
+        .map(r => ({ id: Number(r.id), role_name: r.role_name || r.name || "", is_active: r.is_active, active: r.active, status: r.status }))
         .filter(r => Number.isFinite(r.id) && r.role_name);
-
       setOffices(mappedOffices);
       setPositions(mappedPositions);
       setRoles(mappedRoles);
@@ -193,84 +152,105 @@ export default function SignUpScreen({ onBack }) {
     }
   };
 
-  useEffect(() => {
-    loadCommonData();
-  }, []);
+  useEffect(() => { loadCommonData(); }, []);
 
   useEffect(() => {
-    if (isCollegeOffice && form.role_id !== REQUESTER_ROLE_ID) {
-      set("role_id", REQUESTER_ROLE_ID);
-    }
+    if (isCollegeOffice && form.role_id !== REQUESTER_ROLE_ID) set("role_id", REQUESTER_ROLE_ID);
   }, [isCollegeOffice, form.role_id]);
+
+  const handleUsernameChange = (val) => {
+    set("username", val);
+    setUsernameStatus(null);
+    if (!isGoogleSignUp || !val.trim()) return;
+    if (usernameTimer) clearTimeout(usernameTimer);
+    const timer = setTimeout(async () => {
+      if (!val.trim()) return;
+      setUsernameStatus('checking');
+      try {
+        const res = await fetch(`${API_URL}/auth/check-username?username=${encodeURIComponent(val.trim())}`, {
+          headers: { Accept: "application/json" },
+        });
+        const data = await res.json();
+        setUsernameStatus(data.available ? 'available' : 'taken');
+      } catch (_) {
+        setUsernameStatus(null);
+      }
+    }, 600);
+    setUsernameTimer(timer);
+  };
 
   const handleOfficeSelect = (officeName) => {
     const office = offices.find(o => o.name === officeName);
     const officeId = office?.id || null;
     const officeIsCollege = !!office?.name?.startsWith("College of");
-
     setForm(prev => ({
       ...prev,
       office_id: officeId,
-      role_id: officeIsCollege
-        ? REQUESTER_ROLE_ID
-        : (prev.role_id === REQUESTER_ROLE_ID ? null : prev.role_id),
+      role_id: officeIsCollege ? REQUESTER_ROLE_ID : (prev.role_id === REQUESTER_ROLE_ID ? null : prev.role_id),
     }));
   };
 
   const handleSignUp = async () => {
     setError("");
-
     const trimmedFirst = form.first_name.trim();
     const trimmedLast = form.last_name.trim();
     const trimmedUser = form.username.trim();
-    const trimmedEmail = form.email.trim();
     const trimmedContact = form.contact_number.trim();
     const finalRoleId = isCollegeOffice ? REQUESTER_ROLE_ID : form.role_id;
 
     if (!trimmedFirst) { setError("First name is required."); return; }
     if (!trimmedLast) { setError("Last name is required."); return; }
     if (!trimmedUser) { setError("Username is required."); return; }
+    if (isGoogleSignUp && usernameStatus === 'taken') { setError("That username is already taken. Please choose another."); return; }
     if (!trimmedContact) { setError("Contact number is required."); return; }
-    if (!/^09\d{9}$/.test(trimmedContact)) {
-      setError("Contact number must start with 09 and be exactly 11 digits.");
-      return;
-    }
+    if (!/^09\d{9}$/.test(trimmedContact)) { setError("Contact number must start with 09 and be exactly 11 digits."); return; }
     if (!form.office_id) { setError("Please select an office."); return; }
     if (!form.position_id) { setError("Please select a position."); return; }
     if (!finalRoleId) { setError("Please select a role."); return; }
-    if (!form.password) { setError("Password is required."); return; }
-    if (form.password.length < 8) { setError("Password must be at least 8 characters."); return; }
 
-    const passwordRegex = /^(?=.*[0-9])(?=.*[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]).{8,}$/;
-    if (!passwordRegex.test(form.password)) {
-      setError("Password must contain at least 1 number and 1 special character (e.g. MyPass1!).");
-      return;
+    if (!isGoogleSignUp) {
+      if (!form.password) { setError("Password is required."); return; }
+      if (form.password.length < 8) { setError("Password must be at least 8 characters."); return; }
+      const passwordRegex = /^(?=.*[0-9])(?=.*[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]).{8,}$/;
+      if (!passwordRegex.test(form.password)) { setError("Password must contain at least 1 number and 1 special character (e.g. MyPass1!)."); return; }
+      if (form.password !== form.password_confirmation) { setError("Passwords do not match."); return; }
     }
 
-    if (form.password !== form.password_confirmation) { setError("Passwords do not match."); return; }
+    const payload = isGoogleSignUp
+      ? {
+          google_id: googleData?.google_id,
+          email: googleData?.email,
+          first_name: trimmedFirst,
+          last_name: trimmedLast,
+          middle_name: form.middle_initial.trim() || undefined,
+          suffix: form.suffix || undefined,
+          username: trimmedUser,
+          contact_number: trimmedContact,
+          office_id: form.office_id,
+          position_id: form.position_id,
+          role_id: finalRoleId,
+        }
+      : {
+          last_name: trimmedLast,
+          first_name: trimmedFirst,
+          middle_name: form.middle_initial.trim() || undefined,
+          suffix: form.suffix || undefined,
+          username: trimmedUser,
+          email: form.email.trim() || undefined,
+          position_id: form.position_id,
+          office_id: form.office_id,
+          contact_number: trimmedContact,
+          password: form.password,
+          password_confirmation: form.password_confirmation,
+          role_id: finalRoleId,
+        };
 
-    const payload = {
-      last_name: trimmedLast,
-      first_name: trimmedFirst,
-      middle_name: form.middle_initial.trim(),
-      suffix: form.suffix,
-      username: trimmedUser,
-      email: trimmedEmail,
-      position_id: form.position_id,
-      office_id: form.office_id,
-      contact_number: trimmedContact,
-      password: form.password,
-      password_confirmation: form.password_confirmation,
-      role_id: finalRoleId,
-    };
-
-    if (!payload.middle_name) delete payload.middle_name;
-    if (!payload.suffix) delete payload.suffix;
-    if (!payload.email) delete payload.email;
+    Object.keys(payload).forEach(k => payload[k] === undefined && delete payload[k]);
 
     setLoading(true);
     try {
-      const res = await fetch(`${API_URL}/register`, {
+      const endpoint = isGoogleSignUp ? `${API_URL}/auth/google/register` : `${API_URL}/register`;
+      const res = await fetch(endpoint, {
         method: "POST",
         headers: { "Content-Type": "application/json", Accept: "application/json" },
         body: JSON.stringify(payload),
@@ -279,11 +259,8 @@ export default function SignUpScreen({ onBack }) {
       if (res.ok) {
         setSubmitted(true);
       } else {
-        if (data.errors) {
-          setError(Object.values(data.errors).flat().join("\n"));
-        } else {
-          setError(data.message || "Registration failed. Please try again.");
-        }
+        if (data.errors) setError(Object.values(data.errors).flat().join("\n"));
+        else setError(data.message || "Registration failed. Please try again.");
       }
     } catch (_e) {
       setError("Cannot connect to server. Check your connection.");
@@ -308,12 +285,9 @@ export default function SignUpScreen({ onBack }) {
           <View style={styles.successCard}>
             <Text style={styles.successCardTitle}>What happens next?</Text>
             <Text style={styles.successCardItem}>Waiting for approval...</Text>
-
           </View>
           <View style={styles.noteBox}>
-            <Text style={styles.noteText}>
-              Check your spam folder if you do not receive an email.
-            </Text>
+            <Text style={styles.noteText}>Check your spam folder if you do not receive an email.</Text>
           </View>
           <TouchableOpacity style={styles.submitBtn} onPress={onBack} activeOpacity={0.85}>
             <Text style={styles.submitText}>BACK TO LOGIN</Text>
@@ -323,7 +297,6 @@ export default function SignUpScreen({ onBack }) {
     );
   }
 
-  // ── Form ─────────────────────────────────────────────────────
   return (
     <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === "ios" ? "padding" : "height"}>
       <ScrollView style={styles.root} contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
@@ -339,18 +312,31 @@ export default function SignUpScreen({ onBack }) {
             <Text style={styles.headerSubOrg}>General Services Office Management System</Text>
           </View>
           <View style={styles.headerTitleBox}>
-            <Text style={styles.headerTitle}>Create Account</Text>
-            <Text style={styles.headerTitleSub}>Fill in your details below</Text>
+            <Text style={styles.headerTitle}>{isGoogleSignUp ? "Complete Your Profile" : "Create Account"}</Text>
+            <Text style={styles.headerTitleSub}>
+              {isGoogleSignUp ? `Signing up with ${googleData?.email || "Google"}` : "Fill in your details below"}
+            </Text>
           </View>
         </View>
 
         <View style={styles.body}>
 
           {error ? (
-            <View style={styles.errorBox}>
-              <Text style={styles.errorText}>{error}</Text>
-            </View>
+            <View style={styles.errorBox}><Text style={styles.errorText}>{error}</Text></View>
           ) : null}
+
+          {/* Google info banner */}
+          {isGoogleSignUp && (
+            <View style={styles.googleBanner}>
+              <View style={styles.googleIconCircle}>
+                <Text style={styles.googleIconText}>G</Text>
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.googleBannerTitle}>Google Account</Text>
+                <Text style={styles.googleBannerEmail}>{googleData?.email}</Text>
+              </View>
+            </View>
+          )}
 
           {/* Personal Information */}
           <SectionHeader title="Personal Information" />
@@ -370,24 +356,57 @@ export default function SignUpScreen({ onBack }) {
                 value={form.middle_initial} onChangeText={v => set("middle_initial", v)} maxLength={2} />
             </View>
             <View style={styles.half}>
-              <DropdownField label="Suffix (Optional)" value={form.suffix}
-                options={SUFFIXES} onSelect={v => set("suffix", v)} />
+              <DropdownField label="Suffix (Optional)" value={form.suffix} options={SUFFIXES} onSelect={v => set("suffix", v)} />
             </View>
           </View>
 
           {/* Account Information */}
           <SectionHeader title="Account Information" />
-          <View style={styles.row}>
-            <View style={styles.half}>
-              <TextInput style={styles.input} placeholder="Username *" placeholderTextColor="#a0aec0"
-                value={form.username} onChangeText={v => set("username", v)} autoCapitalize="none" />
+
+          {isGoogleSignUp ? (
+            <>
+              {/* Username with real-time availability check */}
+              <TextInput
+                style={[
+                  styles.input,
+                  usernameStatus === 'taken' && { borderColor: C.danger },
+                  usernameStatus === 'available' && { borderColor: "#1A7A4A" },
+                ]}
+                placeholder="Username *"
+                placeholderTextColor="#a0aec0"
+                value={form.username}
+                onChangeText={handleUsernameChange}
+                autoCapitalize="none"
+              />
+              {usernameStatus === 'checking' && (
+                <Text style={styles.usernameHint}>Checking availability...</Text>
+              )}
+              {usernameStatus === 'available' && (
+                <Text style={[styles.usernameHint, { color: "#1A7A4A" }]}>Username is available</Text>
+              )}
+              {usernameStatus === 'taken' && (
+                <Text style={[styles.usernameHint, { color: C.danger }]}>Username is already taken</Text>
+              )}
+              {/* Locked Gmail display */}
+              <View style={[styles.input, styles.lockedEmail]}>
+                <Text style={styles.lockedEmailText}>{googleData?.email}</Text>
+                <View style={styles.lockedBadge}><Text style={styles.lockedBadgeText}>Gmail</Text></View>
+              </View>
+            </>
+          ) : (
+            <View style={styles.row}>
+              <View style={styles.half}>
+                <TextInput style={styles.input} placeholder="Username *" placeholderTextColor="#a0aec0"
+                  value={form.username} onChangeText={v => set("username", v)} autoCapitalize="none" />
+              </View>
+              <View style={styles.half}>
+                <TextInput style={styles.input} placeholder="Email Address" placeholderTextColor="#a0aec0"
+                  value={form.email} onChangeText={v => set("email", v)}
+                  keyboardType="email-address" autoCapitalize="none" />
+              </View>
             </View>
-            <View style={styles.half}>
-              <TextInput style={styles.input} placeholder="Email Address" placeholderTextColor="#a0aec0"
-                value={form.email} onChangeText={v => set("email", v)}
-                keyboardType="email-address" autoCapitalize="none" />
-            </View>
-          </View>
+          )}
+
           <TextInput style={styles.input} placeholder="Contact Number *" placeholderTextColor="#a0aec0"
             value={form.contact_number} onChangeText={v => set("contact_number", v)} keyboardType="phone-pad" maxLength={11} />
 
@@ -407,18 +426,10 @@ export default function SignUpScreen({ onBack }) {
             <ActivityIndicator color={C.steel} style={{ marginVertical: 12 }} />
           ) : (
             <>
-              <DropdownField
-                label="Select Office"
-                value={selectedOffice?.name || ""}
-                options={offices.map(o => o.name)}
-                onSelect={handleOfficeSelect}
-              />
-              <DropdownField
-                label="Select Position"
-                value={positions.find(p => p.id === form.position_id)?.name || ""}
-                options={positions.map(p => p.name)}
-                onSelect={v => set("position_id", positions.find(p => p.name === v)?.id)}
-              />
+              <DropdownField label="Select Office" value={selectedOffice?.name || ""}
+                options={offices.map(o => o.name)} onSelect={handleOfficeSelect} />
+              <DropdownField label="Select Position" value={positions.find(p => p.id === form.position_id)?.name || ""}
+                options={positions.map(p => p.name)} onSelect={v => set("position_id", positions.find(p => p.name === v)?.id)} />
               <DropdownField
                 label={isCollegeOffice ? "Role locked to Requester" : "Select Role"}
                 value={roleLabelById(form.role_id) || (isCollegeOffice && form.role_id === REQUESTER_ROLE_ID ? "Requester" : "")}
@@ -429,44 +440,49 @@ export default function SignUpScreen({ onBack }) {
             </>
           )}
 
-          {/* Security */}
-          <SectionHeader title="Security" />
-
-          {/* Password hint */}
-          <View style={styles.hintBox}>
-            <Text style={styles.hintText}>
-              Password must be at least 8 characters and include a number and a special character (e.g. MyPass1!)
-            </Text>
-          </View>
-
-          <View style={styles.row}>
-            <View style={styles.half}>
-              <View style={styles.passwordRow}>
-                <TextInput style={[styles.input, { flex: 1, marginBottom: 0 }]}
-                  placeholder="Password *" placeholderTextColor="#a0aec0"
-                  value={form.password} onChangeText={v => set("password", v)}
-                  secureTextEntry={!showPassword} autoCapitalize="none" />
-                <TouchableOpacity style={styles.eyeBtn} onPress={() => setShowPassword(!showPassword)}>
-                  <Text style={styles.eyeText}>{showPassword ? "  " : "👁"}</Text>
-                </TouchableOpacity>
+          {/* Security — hidden for Google sign-up */}
+          {!isGoogleSignUp && (
+            <>
+              <SectionHeader title="Security" />
+              <View style={styles.hintBox}>
+                <Text style={styles.hintText}>
+                  Password must be at least 8 characters and include a number and a special character (e.g. MyPass1!)
+                </Text>
               </View>
-            </View>
-            <View style={styles.half}>
-              <View style={styles.passwordRow}>
-                <TextInput style={[styles.input, { flex: 1, marginBottom: 0 }]}
-                  placeholder="Confirm Password *" placeholderTextColor="#a0aec0"
-                  value={form.password_confirmation} onChangeText={v => set("password_confirmation", v)}
-                  secureTextEntry={!showConfirm} autoCapitalize="none" />
-                <TouchableOpacity style={styles.eyeBtn} onPress={() => setShowConfirm(!showConfirm)}>
-                  <Text style={styles.eyeText}>{showConfirm ? "  " : "👁"}</Text>
-                </TouchableOpacity>
+              <View style={styles.row}>
+                <View style={styles.half}>
+                  <View style={styles.passwordRow}>
+                    <TextInput style={[styles.input, { flex: 1, marginBottom: 0 }]}
+                      placeholder="Password *" placeholderTextColor="#a0aec0"
+                      value={form.password} onChangeText={v => set("password", v)}
+                      secureTextEntry={!showPassword} autoCapitalize="none" />
+                    <TouchableOpacity style={styles.eyeBtn} onPress={() => setShowPassword(!showPassword)}>
+                      <Text style={styles.eyeText}>{showPassword ? "  " : "👁"}</Text>
+                    </TouchableOpacity>
+                  </View>
+                </View>
+                <View style={styles.half}>
+                  <View style={styles.passwordRow}>
+                    <TextInput style={[styles.input, { flex: 1, marginBottom: 0 }]}
+                      placeholder="Confirm Password *" placeholderTextColor="#a0aec0"
+                      value={form.password_confirmation} onChangeText={v => set("password_confirmation", v)}
+                      secureTextEntry={!showConfirm} autoCapitalize="none" />
+                    <TouchableOpacity style={styles.eyeBtn} onPress={() => setShowConfirm(!showConfirm)}>
+                      <Text style={styles.eyeText}>{showConfirm ? "  " : "👁"}</Text>
+                    </TouchableOpacity>
+                  </View>
+                </View>
               </View>
-            </View>
-          </View>
+            </>
+          )}
 
           {/* Submit */}
-          <TouchableOpacity style={[styles.submitBtn, (loading || loadingCommonData) && { opacity: 0.7 }]}
-            onPress={handleSignUp} disabled={loading || loadingCommonData} activeOpacity={0.85}>
+          <TouchableOpacity
+            style={[styles.submitBtn, (loading || loadingCommonData) && { opacity: 0.7 }]}
+            onPress={handleSignUp}
+            disabled={loading || loadingCommonData}
+            activeOpacity={0.85}
+          >
             {loading ? <ActivityIndicator color="#fff" /> : <Text style={styles.submitText}>CREATE ACCOUNT</Text>}
           </TouchableOpacity>
 
@@ -506,6 +522,12 @@ const styles = StyleSheet.create({
   retryBtn: { alignSelf: "flex-start", backgroundColor: C.steel, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 8 },
   retryBtnText: { color: "#fff", fontSize: 12, fontWeight: "700" },
 
+  googleBanner: { flexDirection: "row", alignItems: "center", gap: 12, backgroundColor: "#EEF2FF", borderRadius: 10, padding: 12, marginBottom: 10, borderWidth: 1.5, borderColor: C.steel },
+  googleIconCircle: { width: 32, height: 32, borderRadius: 16, backgroundColor: "#4285F4", alignItems: "center", justifyContent: "center" },
+  googleIconText: { color: "#fff", fontWeight: "900", fontSize: 16 },
+  googleBannerTitle: { fontSize: 11, fontWeight: "800", color: C.steel, textTransform: "uppercase", letterSpacing: 0.8 },
+  googleBannerEmail: { fontSize: 13, color: C.navy, fontWeight: "600", marginTop: 2 },
+
   sectionHeader: { flexDirection: "row", alignItems: "center", gap: 8, marginTop: 18, marginBottom: 10 },
   sectionAccent: { width: 4, height: 16, backgroundColor: C.gold, borderRadius: 2 },
   sectionTitle: { fontSize: 12, fontWeight: "800", color: C.navy, textTransform: "uppercase", letterSpacing: 1 },
@@ -518,6 +540,13 @@ const styles = StyleSheet.create({
     fontSize: 13, color: C.navy, borderWidth: 1.5, borderColor: C.border, marginBottom: 10,
   },
   inputFocused: { borderColor: C.steel },
+
+  usernameHint: { fontSize: 11, color: C.textMute, marginTop: -6, marginBottom: 8, marginLeft: 4 },
+
+  lockedEmail: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", backgroundColor: "#F7F9FC", borderColor: "#CBD5E1" },
+  lockedEmailText: { fontSize: 13, color: "#64748B", flex: 1 },
+  lockedBadge: { backgroundColor: "#4285F4", borderRadius: 6, paddingHorizontal: 8, paddingVertical: 2 },
+  lockedBadgeText: { color: "#fff", fontSize: 10, fontWeight: "700" },
 
   dropdownWrap: { marginBottom: 10 },
   dropdownBtn: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 0 },
@@ -558,4 +587,3 @@ const styles = StyleSheet.create({
   successCardTitle: { fontSize: 11, fontWeight: "800", color: C.textMute, textTransform: "uppercase", letterSpacing: 1, marginBottom: 12 },
   successCardItem: { fontSize: 13, color: C.navy, lineHeight: 22, fontWeight: "600" },
 });
-

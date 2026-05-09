@@ -4,6 +4,7 @@ import LoginScreen from '../LoginScreen';
 import AssignScheduleScreen from '../screens/AssignScheduleScreen';
 import DashboardScreen from '../screens/DashboardScreen';
 import FeedbackScreen from '../screens/FeedbackScreen';
+import GoogleDuplicateScreen from '../screens/GoogleDuplicateScreen';
 import NotificationsScreen from '../screens/NotificationsScreen';
 import PendingApprovalsScreen from '../screens/PendingApprovalsScreen';
 import ProfileScreen from '../screens/ProfileScreen';
@@ -19,7 +20,7 @@ type Screen =
   | 'Login' | 'SignUp' | 'Dashboard' | 'SubmitRequest'
   | 'ViewRequestStatus' | 'Feedback' | 'Notifications'
   | 'ReviewRequests' | 'PendingApprovals' | 'Profile' | 'AssignSchedule' | 'UserManagement'
-  | 'UserManual';
+  | 'UserManual' | 'GoogleDuplicate';
 
 export default function HomeScreen() {
   const [user, setUser] = useState<any>(null);
@@ -42,10 +43,10 @@ export default function HomeScreen() {
   };
 
   if (screen === 'Login') {
-    return <LoginScreen onLoginSuccess={handleLoginSuccess} onSignUp={() => navigate('SignUp')} />;
+    return <LoginScreen onLoginSuccess={handleLoginSuccess} onSignUp={() => navigate('SignUp')} onNavigate={navigate} />;
   }
   if (screen === 'SignUp') {
-    return <SignUpScreen onBack={() => navigate('Login')} />;
+    return <SignUpScreen onBack={() => navigate('Login')} googleData={screenParams.googleData} />;
   }
   if (screen === 'Dashboard') {
     return <DashboardScreen user={user} onLogout={handleLogout} onNavigate={navigate} />;
@@ -80,6 +81,8 @@ export default function HomeScreen() {
   if (screen === 'UserManual') {
     return <UserManualScreen user={user} onBack={() => navigate('Dashboard')} />;
   }
+  if (screen === 'GoogleDuplicate') {
+    return <GoogleDuplicateScreen accounts={screenParams.accounts} googleData={screenParams.googleData} onBack={() => navigate('Login')} onLoginSuccess={handleLoginSuccess} />;
+  }
   return <View />;
 }
-

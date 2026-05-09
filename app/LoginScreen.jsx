@@ -18,7 +18,7 @@ import { normalizeRoleId } from "./constants/roles";
 import { registerForPushNotificationsAsync } from '../hooks/usePushNotifications';
 import { getLoginLocationPayload } from "../utils/loginLocation";
 
-export default function LoginScreen({ onLoginSuccess, onSignUp }) {
+export default function LoginScreen({ onLoginSuccess, onSignUp, onForgotPassword }) {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
@@ -140,6 +140,11 @@ export default function LoginScreen({ onLoginSuccess, onSignUp }) {
               </View>
             </View>
 
+            {/* Forgot Password link */}
+            <TouchableOpacity style={styles.forgotPasswordWrap} onPress={onForgotPassword}>
+              <Text style={styles.forgotPasswordText}>Forgot Password?</Text>
+            </TouchableOpacity>
+
           </View>
 
           {/* Footer button */}
@@ -243,4 +248,14 @@ const styles = StyleSheet.create({
   signupText: { marginTop: 20, fontSize: 13, color: "#7a8aaa", fontStyle: "italic", textAlign: "center" },
   signupLink: { color: NAVY, fontWeight: "700", fontStyle: "normal", textDecorationLine: "underline" },
   version: { marginTop: 12, fontSize: 10, color: "#b0bdd4", letterSpacing: 1, textAlign: "center" },
+  forgotPasswordWrap: {
+    alignSelf: "flex-end",
+    marginBottom: 16,
+    marginTop: -4,
+  },
+  forgotPasswordText: {
+    fontSize: 12,
+    color: TEAL,
+    fontWeight: "700",
+  },
 });

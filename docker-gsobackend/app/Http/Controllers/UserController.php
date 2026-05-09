@@ -402,9 +402,20 @@ class UserController extends Controller
     }
 
     //allows editing of account
-    public function updateProfile(Request $request)
+    public function updateProfile(Request $request, $id = null)
     {
-        $user = Auth::user();
+        // If ID is provided, find that user; otherwise, use the authenticated user
+        $user = $id ? User::find($id) : Auth::user();
+
+        if (!$user) {
+            return response()->json(['message' => 'User not found.'], 404);
+        }
+
+        // Authorization check: User can update own profile, or Admin can update anyone
+        $authUser = Auth::user();
+        if ($authUser->id !== $user->id && $authUser->role_id !== 1) {
+            return response()->json(['message' => 'Unauthorized.'], 403);
+        }
 
         $request->validate([
             'last_name' => 'sometimes|string|max:255',
@@ -438,6 +449,8 @@ class UserController extends Controller
             'user' => $user,
         ], 200);
     }
+
+
 
 
     public function commonDatas(): JsonResponse
@@ -528,6 +541,27 @@ class UserController extends Controller
         ];
 
         return response()->json($data, 200);
+    }
+
+    public function destroy($id)
+    {
+        $admin = Auth::user();
+        if (!$admin || $admin->role_id !== 1) {
+            return response()->json(['message' => 'Only admins can delete users.'], 403);
+        }
+
+        $user = User::find($id);
+        if (!$user) {
+            return response()->json(['message' => 'User not found.'], 404);
+        }
+
+        // Prevent self-deletion
+        if ($user->id === $admin->id) {
+            return response()->json(['message' => 'You cannot delete your own account.'], 400);
+        }
+
+        $user->delete();
+        return response()->json(['message' => 'User deleted successfully.'], 200);
     }
 
 }

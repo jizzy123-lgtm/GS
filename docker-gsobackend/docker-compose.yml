@@ -1,0 +1,36 @@
+services:
+  app:
+    build:
+      context: .
+      dockerfile: backend.dockerfile
+    image: gso-backend
+    container_name: gso-backend-app
+    restart: unless-stopped
+    ports:
+      - "8000:80"
+    volumes:
+      - .:/var/www/html
+    depends_on:
+      - db
+    environment:
+      - DB_HOST=db
+      - DB_DATABASE=gso_database
+      - DB_USERNAME=gso_user
+      - DB_PASSWORD=gso_password
+
+  db:
+    image: mysql:8.0
+    container_name: gso-backend-db
+    restart: unless-stopped
+    environment:
+      MYSQL_DATABASE: gso_database
+      MYSQL_USER: gso_user
+      MYSQL_PASSWORD: gso_password
+      MYSQL_ROOT_PASSWORD: root_password
+    ports:
+      - "3306:3306"
+    volumes:
+      - gso-db-data:/var/lib/mysql
+
+volumes:
+  gso-db-data:

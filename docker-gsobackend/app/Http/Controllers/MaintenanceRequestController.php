@@ -78,13 +78,13 @@ class MaintenanceRequestController extends Controller
         //$maintenanceRequest = MaintenanceRequest::create($request->all());
 
         // Notify all heads and staff (role_id 2 = head, role_id 3 = staff)
+        /* 
         $submitter = Auth::user();
         if ($submitter && $submitter->role_id !== 2) {
             $usersToNotify = User::whereIn('role_id', [2])->get();
-
-            // Use Notification facade to send notifications in bulk
             Notification::send($usersToNotify, new MaintenanceRequestCreated($submitter->last_name));
         }
+        */
 
         $staffUsers = User::where('role_id', 3)->get();
 
@@ -226,9 +226,11 @@ class MaintenanceRequestController extends Controller
             // Notify the requester by email after final approval
             $requester = User::where('id', $maintenanceRequest->requesting_personnel)->first();
 
+            /*
             if ($requester && $requester->email) {
                 $requester->notify(new MaintenanceRequestApproved($maintenanceRequest));
             }
+            */
         } else {
             return response()->json(['message' => 'Request is already fully approved'], 400);
         }
@@ -290,9 +292,11 @@ class MaintenanceRequestController extends Controller
 
         // Notify the campus director
         $campusDirectors = User::where('role_id', 5)->where('status_id', 2)->get(); // assuming role_id 5 = Campus Director
+        /*
         foreach ($campusDirectors as $director) {
             $director->notify(new RequestApprovedByHead($maintenanceRequest));
         }
+        */
 
         SystemNotification::create([
             'user_id' => $maintenanceRequest->requesting_personnel, // requester
@@ -372,9 +376,11 @@ class MaintenanceRequestController extends Controller
 
         // Notify Staff
         $staffMembers = User::where('role_id', 3)->where('status_id', 2)->get(); // Assuming role_id = 3 is staff
+        /*
         foreach ($staffMembers as $staff) {
             $staff->notify(new AssignPriorityToRequest($maintenanceRequest));
         }
+        */
 
         SystemNotification::create([
             'user_id' => $maintenanceRequest->requesting_personnel, // requester
@@ -1098,9 +1104,11 @@ class MaintenanceRequestController extends Controller
         // Notify the requester
         $requester = User::find($maintenanceRequest->requesting_personnel);
 
+        /*
         if ($requester && $requester->email) {
             $requester->notify(new RequestAssignedPriority($maintenanceRequest));
         }
+        */
 
 
         SystemNotification::create([

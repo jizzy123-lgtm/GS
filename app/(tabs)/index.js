@@ -19,22 +19,14 @@ import ViewRequestStatusScreen from '../screens/ViewRequestStatusScreen';
 import { normalizeRoleId } from "../constants/roles";
 import { getNotificationNavigationTarget } from '../../utils/notificationNavigation';
 
-type Screen =
-  | 'Login' | 'SignUp' | 'ForgotPassword' | 'Dashboard' | 'SubmitRequest'
-  | 'ViewRequestStatus' | 'Feedback' | 'Feedbacks' | 'LoginLocationTracking' | 'Notifications'
-  | 'ReviewRequests' | 'PendingApprovals' | 'Profile' | 'AssignSchedule' | 'UserManagement';
-
 export default function HomeScreen() {
-  const [user, setUser] = useState<any>(null);
-  const [screen, setScreen] = useState<Screen>('Login');
-  const [screenParams, setScreenParams] = useState<any>({});
-  const searchParams = useLocalSearchParams<{
-    notifRequestId?: string;
-    notifRoleId?: string;
-  }>();
+  const [user, setUser] = useState(null);
+  const [screen, setScreen] = useState('Login');
+  const [screenParams, setScreenParams] = useState({});
+  const searchParams = useLocalSearchParams();
   const handledNotificationKeyRef = useRef("");
 
-  const navigate = useCallback((screenName: Screen, params: any = {}) => {
+  const navigate = useCallback((screenName, params = {}) => {
     setScreenParams(params);
     setScreen(screenName);
   }, []);
@@ -54,10 +46,10 @@ export default function HomeScreen() {
     if (!user) return;
 
     handledNotificationKeyRef.current = key;
-    navigate(target.screen as Screen, target.params);
+    navigate(target.screen, target.params);
   }, [navigate, searchParams?.notifRequestId, searchParams?.notifRoleId, user, user?.role_id]);
 
-  const handleLoginSuccess = (userData: any) => {
+  const handleLoginSuccess = (userData) => {
     setUser({ ...userData, role_id: normalizeRoleId(userData?.role_id) });
     setScreen('Dashboard');
   };
@@ -107,7 +99,7 @@ export default function HomeScreen() {
     return <UserManagementScreen user={user} onBack={() => navigate('Dashboard')} />;
   }
   if (screen === 'Profile') {
-    return <ProfileScreen user={user} onBack={() => navigate('Dashboard')} onUpdateUser={(u: any) => setUser(u)} />;
+    return <ProfileScreen user={user} onBack={() => navigate('Dashboard')} onUpdateUser={(u) => setUser(u)} />;
   }
   if (screen === 'AssignSchedule') {
     return <AssignScheduleScreen user={user} requestId={screenParams.requestId} request={screenParams.request} onBack={() => navigate('ReviewRequests')} onSuccess={() => navigate('Dashboard')} />;

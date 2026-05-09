@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { ROLE_IDS } from "../constants/roles";
 import {
   ActivityIndicator, KeyboardAvoidingView, Platform,
   ScrollView,
@@ -23,7 +24,7 @@ const C = {
 };
 
 const SUFFIXES = ["Jr.", "Sr.", "III", "IV", "V"];
-const REQUESTER_ROLE_ID = 4;
+const REQUESTER_ROLE_ID = ROLE_IDS.REQUESTER;
 
 function isRoleActive(role) {
   if (!role) return false;

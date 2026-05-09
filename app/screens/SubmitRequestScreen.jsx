@@ -71,7 +71,7 @@ const R = {
   warnBg: "#FEF3E2",
 };
 
-const INTERNAL_ROLE_IDS = [];
+const INTERNAL_ROLE_IDS = [ROLE_IDS.ADMIN, ROLE_IDS.HEAD, ROLE_IDS.STAFF, ROLE_IDS.CAMPUS_DIRECTOR];
 
 const firstNonEmpty = (...values) => {
   for (const value of values) {

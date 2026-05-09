@@ -8,15 +8,45 @@ import * as Notifications from 'expo-notifications';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { extractNotificationRequestId, extractNotificationRoleId } from '../utils/notificationNavigation';
 
-Notifications.setNotificationHandler({
-  handleNotification: async () => ({
-    shouldShowAlert: true,
-    shouldShowBanner: true,
-    shouldShowList: true,
-    shouldPlaySound: true,
-    shouldSetBadge: true,
-  }),
-});
+import { Platform, LogBox } from 'react-native';
+
+// Suppress known warnings on web
+if (Platform.OS === 'web') {
+  const ignoreMessages = [
+    'shadow*',
+    'pointerEvents',
+    '[expo-notifications]',
+    'Password field is not contained in a form',
+    'Unexpected reserved word',
+    'boxShadow'
+  ];
+
+  const originalWarn = console.warn;
+  console.warn = (...args) => {
+    if (args[0] && typeof args[0] === 'string' && ignoreMessages.some(m => args[0].includes(m))) return;
+    originalWarn(...args);
+  };
+
+  const originalError = console.error;
+  console.error = (...args) => {
+    if (args[0] && typeof args[0] === 'string' && ignoreMessages.some(m => args[0].includes(m))) return;
+    originalError(...args);
+  };
+  
+  LogBox.ignoreAllLogs();
+}
+
+if (Platform.OS !== 'web') {
+  Notifications.setNotificationHandler({
+    handleNotification: async () => ({
+      shouldShowAlert: true,
+      shouldShowBanner: true,
+      shouldShowList: true,
+      shouldPlaySound: true,
+      shouldSetBadge: true,
+    }),
+  });
+}
 
 export const unstable_settings = {
   anchor: '(tabs)',
@@ -26,14 +56,14 @@ export default function RootLayout() {
   const colorScheme = useColorScheme();
   const router = useRouter();
 
-  const routeFromNotificationResponse = useCallback((response: Notifications.NotificationResponse | null) => {
+  const routeFromNotificationResponse = useCallback((response) => {
     if (!response) return;
 
     const requestId = extractNotificationRequestId(response);
     if (!requestId) return;
 
     const roleId = extractNotificationRoleId(response);
-    const params: Record<string, string> = { notifRequestId: String(requestId) };
+    const params = { notifRequestId: String(requestId) };
     if (roleId) params.notifRoleId = String(roleId);
 
     router.push({ pathname: '/(tabs)', params });

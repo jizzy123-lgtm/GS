@@ -21,7 +21,7 @@ const CREAM = "#f5f7fa";
 
 export default function ResetPasswordScreen() {
   const router = useRouter();
-  const { token } = useLocalSearchParams<{ token: string }>();
+  const { token } = useLocalSearchParams();
 
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");

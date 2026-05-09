@@ -7,6 +7,17 @@ import { IconSymbol } from '@/components/ui/icon-symbol';
 import { Colors } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 
+import { LogBox, Platform } from 'react-native';
+
+if (Platform.OS === 'web') {
+  LogBox.ignoreLogs([
+    'shadow*',
+    'pointerEvents',
+    '[expo-notifications]',
+    'Password field is not contained in a form'
+  ]);
+}
+
 export default function TabLayout() {
   const colorScheme = useColorScheme();
 

@@ -31,7 +31,7 @@ export default function NotificationsScreen({ user, onBack, onNavigate }) {
 
   const fetch_ = async () => {
     try {
-      const token = await AsyncStorage.getItem("token");
+      const token = await AsyncStorage.getItem("authToken") || await AsyncStorage.getItem("token");
       const res = await fetch(`${API_URL}/notifications`, { headers: { Authorization: `Bearer ${token}`, Accept: "application/json" } });
       const data = await res.json();
       setNotifications(Array.isArray(data) ? data : data.data || []);
@@ -41,7 +41,7 @@ export default function NotificationsScreen({ user, onBack, onNavigate }) {
 
   const markAllRead = async () => {
     try {
-      const token = await AsyncStorage.getItem("token");
+      const token = await AsyncStorage.getItem("authToken") || await AsyncStorage.getItem("token");
       await fetch(`${API_URL}/notifications/read-all`, { method: "POST", headers: { Authorization: `Bearer ${token}`, Accept: "application/json" } });
       setNotifications(prev => prev.map(n => ({ ...n, read_at: new Date().toISOString() })));
     } catch (_e) { }
@@ -49,7 +49,7 @@ export default function NotificationsScreen({ user, onBack, onNavigate }) {
 
   const markRead = async (id) => {
     try {
-      const token = await AsyncStorage.getItem("token");
+      const token = await AsyncStorage.getItem("authToken") || await AsyncStorage.getItem("token");
       await fetch(`${API_URL}/notifications/${id}/read`, { method: "POST", headers: { Authorization: `Bearer ${token}`, Accept: "application/json" } });
       setNotifications(prev => prev.map(n => n.id === id ? { ...n, read_at: new Date().toISOString() } : n));
     } catch (_e) { }
@@ -124,7 +124,7 @@ export default function NotificationsScreen({ user, onBack, onNavigate }) {
               <Text style={styles.emptyText}>You are all caught up!</Text>
             </View>
           ) : notifications.map((n, i) => (
-            <TouchableOpacity key={n.id || i} style={[styles.card, !n.read_at && styles.cardUnread]} onPress={() => handleTap(n)} activeOpacity={0.8}>
+            <TouchableOpacity key={n.id ? String(n.id) : `notif-${i}`} style={[styles.card, !n.read_at && styles.cardUnread]} onPress={() => handleTap(n)} activeOpacity={0.8}>
               <View style={[styles.iconBox, !n.read_at && styles.iconBoxUnread]}>
                 <Ionicons name={getIcon(n)} size={18} color={!n.read_at ? C.navy : C.textMute} />
               </View>

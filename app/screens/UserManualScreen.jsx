@@ -24,7 +24,7 @@ const GETTING_STARTED = [
     title: "Registering an Account",
     icon: "person-add-outline",
     steps: [
-      "Open the ManageIT app on your device.",
+      "Open the GSU Gateway app on your device.",
       'On the login screen, tap "Sign up now".',
       "Fill in your Personal Information: First Name, Last Name, Middle Initial, and Suffix (optional).",
       "Fill in your Account Information: Username, Email Address, and Contact Number.",
@@ -35,23 +35,23 @@ const GETTING_STARTED = [
     ],
     note: "Your account will remain inactive until approved by the System Admin. You will be notified via email once approved.",
     images: [
-      require("../../assets/images/screenshots/loginScreen.png"),
-      require("../../assets/images/screenshots/SignUp.png"),
-      require("../../assets/images/screenshots/SignUp2.png"),
-      require("../../assets/images/screenshots/registrationSubmitted.png"),
+      // // require("../../assets/images/screenshots/loginScreen.png"),
+      // // require("../../assets/images/screenshots/SignUp.png"),
+      // // require("../../assets/images/screenshots/SignUp2.png"),
+      // // require("../../assets/images/screenshots/registrationSubmitted.png"),
     ],
   },
   {
     title: "Logging In",
     icon: "log-in-outline",
     steps: [
-      "Open the ManageIT app.",
+      "Open the GSU Gateway app.",
       "Enter your Username and Password.",
       'Tap "Login".',
       "You will be redirected to your dashboard upon success.",
     ],
     images: [
-      require("../../assets/images/screenshots/loginScreen.png"),
+      // require("../../assets/images/screenshots/loginScreen.png"),
     ],
   },
   {
@@ -70,16 +70,16 @@ const TROUBLESHOOTING = [
   { problem: "Cannot log in", solution: "Double-check your username and password. Contact the System Admin if you forgot your password." },
   { problem: "Account not yet active", solution: "Wait for the System Admin to approve your account." },
   { problem: "App cannot connect to server", solution: "Contact your System Admin to check if the backend server is running." },
-  { problem: "Push notifications not received", solution: "Go to device Settings → Apps → ManageIT → Notifications and enable them." },
+  { problem: "Push notifications not received", solution: "Go to device Settings → Apps → GSU Gateway → Notifications and enable them." },
   { problem: "App is loading for too long", solution: "Check your internet connection and try again." },
   { problem: "APK won't install", solution: "Go to Settings → Security → Enable Install from Unknown Sources." },
 ];
 
 const FAQ = [
-  { q: "Can I use ManageIT on an iPhone?", a: "The app is primarily designed for Android devices. iOS support may be added in a future version." },
+  { q: "Can I use GSU Gateway on an iPhone?", a: "The app is primarily designed for Android devices. iOS support may be added in a future version." },
   { q: "Do I need internet to use the app?", a: "Yes. The app requires an active internet connection for all features." },
   { q: "What should I do if I forgot my password?", a: "Contact your System Admin to reset your password." },
-  { q: "Why am I not receiving push notifications?", a: "Make sure notifications are enabled for ManageIT in your device settings and that you have an active internet connection." },
+  { q: "Why am I not receiving push notifications?", a: "Make sure notifications are enabled for GSU Gateway in your device settings and that you have an active internet connection." },
 ];
 
 // ─── Role-specific guide content ────────────────────────────────────────────
@@ -395,7 +395,7 @@ export default function UserManualScreen({ user, onBack }) {
           <View>
             <SectionHeader title="Getting Started" />
             <Text style={styles.introText}>
-              These steps apply to all users. Follow them to register, log in, and log out of ManageIT.
+              These steps apply to all users. Follow them to register, log in, and log out of GSU Gateway.
             </Text>
             {GETTING_STARTED.map((item, i) => <GuideCard key={i} item={item} />)}
           </View>

@@ -86,82 +86,87 @@ export default function DashboardScreen({ user, onLogout, onNavigate }) {
     try {
       const token = await AsyncStorage.getItem("authToken") || await AsyncStorage.getItem("token");
       const headers = { Authorization: `Bearer ${token}`, Accept: "application/json" };
-
-      if (roleId === ROLE_IDS.SYSTEM_ADMIN) {
-        const usersRes = await fetch(`${API_URL}/users-list`, { headers });
-        const usersData = await usersRes.json();
-        const users = Array.isArray(usersData) ? usersData : usersData.data || [];
-        const getAccountStatus = (u) => (u?.account_status || u?.status || "pending").toLowerCase();
-        setStats({
-          total: users.length,
-          pending: users.filter(u => getAccountStatus(u) === "pending").length,
-          approved: users.filter(u => getAccountStatus(u) === "approved").length,
-          disapproved: users.filter(u => ["disapproved", "rejected"].includes(getAccountStatus(u))).length,
-          completed: 0,
-          cancelled: 0,
-        });
-        const sorted = [...users].sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0));
-        setRecentUsers(sorted.slice(0, 4));
-        return;
-      }
-
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 45000);
-      let res;
+      const timeoutId = setTimeout(() => controller.abort(), 10000); // 10s timeout
+
       try {
-        res = await fetch(`${API_URL}/maintenance-requests`, { headers, signal: controller.signal });
+        if (roleId === ROLE_IDS.SYSTEM_ADMIN) {
+          const usersRes = await fetch(`${API_URL}/users-list`, { headers, signal: controller.signal });
+          const usersData = await usersRes.json();
+          const users = Array.isArray(usersData) ? usersData : usersData.data || [];
+          
+          const getAccountStatus = (u) => {
+            const st = u?.status_id === 1 ? "pending" : 
+                       u?.status_id === 2 ? "approved" : 
+                       (u?.status?.name || u?.account_status || u?.status || "pending");
+            return String(st).toLowerCase();
+          };
+
+          setStats({
+            total: users.length,
+            pending: users.filter(u => u.status_id === 1 || getAccountStatus(u).includes("pending")).length,
+            approved: users.filter(u => u.status_id === 2 || getAccountStatus(u).includes("approved")).length,
+            disapproved: users.filter(u => u.status_id === 3 || ["disapproved", "rejected"].some(s => getAccountStatus(u).includes(s))).length,
+            completed: 0,
+            cancelled: 0,
+          });
+          const sorted = [...users].sort((a, b) => {
+            const dateA = a.created_at ? new Date(a.created_at).getTime() : 0;
+            const dateB = b.created_at ? new Date(b.created_at).getTime() : 0;
+            return dateB - dateA;
+          });
+          setRecentUsers(sorted.slice(0, 4));
+        } else {
+          const res = await fetch(`${API_URL}/maintenance-requests`, { headers, signal: controller.signal });
+          const data = await res.json();
+          const reqList = Array.isArray(data) ? data : data.data || [];
+
+          let currentTypes = types;
+          if (Object.keys(currentTypes).length === 0) {
+            const tRes = await fetch(`${API_URL}/maintenance-types`, { headers: { Authorization: `Bearer ${token}` }, signal: controller.signal });
+            const tData = await tRes.json();
+            const tList = Array.isArray(tData) ? tData : tData.data || [];
+            const tMap = {};
+            tList.forEach(t => tMap[t.id] = getMaintenanceTypeLabel(t));
+            setTypes(tMap);
+            currentTypes = tMap;
+          }
+
+          const reqs = reqList.map((requestItem) => {
+            const normalizedId = getRequestId(requestItem);
+            if (!normalizedId) return null;
+            return {
+              ...requestItem,
+              id: normalizedId,
+              status: normalizeMaintenanceStatus(requestItem.status, requestItem.status_id),
+              maintenance_type_name: currentTypes[requestItem.maintenance_type_id] || getMaintenanceTypeLabel(requestItem.maintenance_type) || "Maintenance Request",
+            };
+          }).filter(Boolean);
+
+          const filtered = roleId === ROLE_IDS.REQUESTER ? reqs.filter(r => isRequestOwnedByUser(r, user)) : reqs;
+          setRecentRequests(filtered.slice(0, 4));
+          setStats({
+            total: filtered.length,
+            pending: filtered.filter(r => r.status === MAINTENANCE_STATUS.PENDING).length,
+            approved: filtered.filter(r => r.status === MAINTENANCE_STATUS.APPROVED).length,
+            completed: filtered.filter(r => r.status === MAINTENANCE_STATUS.DONE).length,
+            disapproved: filtered.filter(r => r.status === MAINTENANCE_STATUS.DISAPPROVED).length,
+            cancelled: filtered.filter(r => r.status === MAINTENANCE_STATUS.CANCELLED).length,
+          });
+        }
+      } catch (err) {
+        console.error("Dashboard Fetch Error:", err);
+        if (!stats) setStats({ total: 0, pending: 0, approved: 0, completed: 0, disapproved: 0, cancelled: 0 });
       } finally {
         clearTimeout(timeoutId);
+        setLoading(false);
+        setRefreshing(false);
       }
-      const data = await res.json();
-      const reqList = Array.isArray(data) ? data : data.data || [];
-
-      let currentTypes = types;
-      if (Object.keys(currentTypes).length === 0) {
-        const tRes = await fetch(`${API_URL}/maintenance-types`, { headers: { Authorization: `Bearer ${token}` } });
-        const tData = await tRes.json();
-        const tList = Array.isArray(tData) ? tData : tData.data || [];
-        const tMap = {};
-        tList.forEach(t => tMap[t.id] = getMaintenanceTypeLabel(t));
-        setTypes(tMap);
-        currentTypes = tMap;
-      }
-
-      const reqs = reqList
-        .map((requestItem) => {
-          const normalizedId = getRequestId(requestItem);
-          if (!normalizedId) return null;
-
-          return {
-            ...requestItem,
-            id: normalizedId,
-            request_id: normalizedId,
-            status: normalizeMaintenanceStatus(requestItem.status, requestItem.status_id),
-            maintenance_type_name:
-              currentTypes[requestItem.maintenance_type_id] ||
-              getMaintenanceTypeLabel(requestItem.maintenance_type) ||
-              requestItem.maintenance_type ||
-              requestItem.type,
-          };
-        })
-        .filter(Boolean);
-      const requesterScopedReqs = roleId === ROLE_IDS.REQUESTER
-        ? reqs.filter(r => isRequestOwnedByUser(r, user))
-        : reqs;
-
-      setRecentRequests(requesterScopedReqs.slice(0, 4));
-      const statsSource = roleId === ROLE_IDS.REQUESTER ? requesterScopedReqs : reqs;
-      setStats({
-        total: statsSource.length,
-        pending: statsSource.filter(r => r.status === MAINTENANCE_STATUS.PENDING).length,
-        approved: statsSource.filter(r => r.status === MAINTENANCE_STATUS.APPROVED).length,
-        completed: statsSource.filter(r => r.status === MAINTENANCE_STATUS.DONE).length,
-        disapproved: statsSource.filter(r => r.status === MAINTENANCE_STATUS.DISAPPROVED).length,
-        cancelled: statsSource.filter(r => r.status === MAINTENANCE_STATUS.CANCELLED).length,
-      });
-    } catch (_e) { setStats({ total: 0, pending: 0, approved: 0, completed: 0, disapproved: 0, cancelled: 0 }); }
-    finally { setLoading(false); setRefreshing(false); }
-  }, [roleId, types, user]);
+    } catch (outerErr) {
+      console.error("Async Storage Error:", outerErr);
+      setLoading(false);
+    }
+  }, [roleId, user]);
 
   useEffect(() => { fetchDashboard(); }, [fetchDashboard]);
   const onRefresh = () => { setRefreshing(true); fetchDashboard(); };

@@ -89,20 +89,28 @@ export default function PendingApprovalsScreen({ user, onBack }) {
             const token = await AsyncStorage.getItem("authToken") || await AsyncStorage.getItem("token");
             const endpoint = action === "approve"
                 ? `${API_URL}/users/${id}/updateAccountStatus`
-                : `${API_URL}/users/${id}/dissaproveAccountStatus`;
-            // Send status_id as required by the backend API, plus rejection_reason if rejecting
+                : `${API_URL}/users/${id}/disapproveAccountStatus`;
             const body = { status_id: action === "approve" ? 2 : 3 };
-            if (action === "reject") {
-                body.rejection_reason = reason;
-            }
+            if (action === "reject") body.rejection_reason = reason;
+
             const res = await fetch(endpoint, {
                 method: "PUT",
                 headers: { Authorization: `Bearer ${token}`, Accept: "application/json", "Content-Type": "application/json" },
                 body: JSON.stringify(body),
             });
+
             if (res.ok) {
-                setSuccessMsg(action === "approve" ? "Account approved successfully." : "Account rejected successfully.");
-                await fetchAccounts();
+                const msg = action === "approve" ? "Account approved successfully." : "Account rejected successfully.";
+                setSuccessMsg(msg);
+                
+                // Update local state immediately so UI reflects the change
+                const newStatus = action === "approve" ? "approved" : "disapproved";
+                if (selected) {
+                    setSelected({ ...selected, account_status: newStatus, status: newStatus });
+                }
+                setAccounts(prev => prev.map(a => (a.id === id || a.user_id === id) ? { ...a, account_status: newStatus, status: newStatus } : a));
+
+                await fetchAccounts(); // Background refresh
                 setTimeout(() => {
                     setSuccessMsg("");
                     setSelected(null);

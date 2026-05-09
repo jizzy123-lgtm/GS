@@ -29,6 +29,7 @@ function UserManagementScreen({ user, onBack }) {
     const [actionLoading, setActionLoading] = useState(false);
 
     const fetchUsers = async () => {
+        setLoading(true);
         try {
             const token = await AsyncStorage.getItem("authToken") || await AsyncStorage.getItem("token");
             const res = await fetch(`${API_URL}/users-list`, {
@@ -59,7 +60,8 @@ function UserManagementScreen({ user, onBack }) {
                         setActionLoading(true);
                         try {
                             const token = await AsyncStorage.getItem("authToken") || await AsyncStorage.getItem("token");
-                            const res = await fetch(`${API_URL}/users/${user.user_id}`, {
+                            const targetId = user.user_id || user.id;
+                            const res = await fetch(`${API_URL}/users/${targetId}`, {
                                 method: "DELETE",
                                 headers: { Authorization: `Bearer ${token}`, Accept: "application/json" },
                             });
@@ -93,7 +95,8 @@ function UserManagementScreen({ user, onBack }) {
         setActionLoading(true);
         try {
             const token = await AsyncStorage.getItem("authToken") || await AsyncStorage.getItem("token");
-            const res = await fetch(`${API_URL}/users/${editingUser.user_id}`, {
+            const targetId = editingUser.user_id || editingUser.id;
+            const res = await fetch(`${API_URL}/users/${targetId}`, {
                 method: "PUT",
                 headers: {
                     Authorization: `Bearer ${token}`,
@@ -103,8 +106,8 @@ function UserManagementScreen({ user, onBack }) {
                 body: JSON.stringify(editForm),
             });
             if (res.ok) {
+                setEditingUser(null); // Close modal first
                 Alert.alert("Success", "User updated successfully.");
-                setEditingUser(null);
                 fetchUsers();
             } else {
                 const d = await res.json();

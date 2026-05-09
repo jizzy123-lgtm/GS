@@ -33,7 +33,7 @@ export default function LoginScreen({ onLoginSuccess, onSignUp, onForgotPassword
     }
     setLoading(true);
     try {
-      const locationPayload = await getLoginLocationPayload();
+      const locationPayload = await getLoginLocationPayload().catch(() => ({}));
       const response = await fetch(`${API_URL}/login`, {
         method: "POST",
         headers: { "Content-Type": "application/json", Accept: "application/json" },
@@ -49,8 +49,10 @@ export default function LoginScreen({ onLoginSuccess, onSignUp, onForgotPassword
         await AsyncStorage.setItem("authToken", data.token);
         await AsyncStorage.setItem("user", JSON.stringify(normalizedUser));
         
-        // Register push token remotely with backend
-        await registerForPushNotificationsAsync(data.token);
+        // Register push token remotely with backend (skip 'await' on web to prevent hanging)
+        if (Platform.OS !== "web") {
+          registerForPushNotificationsAsync(data.token).catch(() => {});
+        }
         
         onLoginSuccess && onLoginSuccess(normalizedUser);
       } else {
@@ -211,15 +213,28 @@ const styles = StyleSheet.create({
   card: {
     width: "100%", maxWidth: 360, backgroundColor: "#fff",
     borderRadius: 28, marginTop: 60,
-    shadowColor: NAVY, shadowOffset: { width: 0, height: 20 },
-    shadowOpacity: 0.13, shadowRadius: 60, elevation: 10, overflow: "visible",
+    ...Platform.select({
+      ios: {
+        shadowColor: NAVY, shadowOffset: { width: 0, height: 20 },
+        shadowOpacity: 0.13, shadowRadius: 60,
+      },
+      android: { elevation: 10 },
+      web: { boxShadow: `0 20px 60px rgba(26, 36, 114, 0.13)` }
+    }),
+    overflow: "visible",
   },
   sealWrap: { position: "absolute", top: -54, alignSelf: "center", zIndex: 2 },
   sealRing: {
     width: 108, height: 108, borderRadius: 54, backgroundColor: NAVY,
     borderWidth: 5, borderColor: "#fff", alignItems: "center", justifyContent: "center",
-    shadowColor: NAVY, shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.28, shadowRadius: 24, elevation: 8,
+    ...Platform.select({
+      ios: {
+        shadowColor: NAVY, shadowOffset: { width: 0, height: 6 },
+        shadowOpacity: 0.28, shadowRadius: 24,
+      },
+      android: { elevation: 8 },
+      web: { boxShadow: `0 6px 24px rgba(26, 36, 114, 0.28)` }
+    }),
   },
   cardBody: { paddingTop: 68, paddingHorizontal: 24, paddingBottom: 8, alignItems: "center" },
   cardTitle: { fontSize: 22, fontWeight: "700", color: NAVY_DARK, marginBottom: 20, letterSpacing: 0.5 },

@@ -126,7 +126,7 @@ Route::middleware('auth:sanctum')->group(function () {
     //admin approves the account of user
     Route::put('/users/{id}/updateAccountStatus', [UserController::class, 'updateAccountStatus']);
     //admin rejects the account of user
-    Route::put('/users/{id}/dissaproveAccountStatus', [UserController::class, 'rejectAccountStatus']);
+    Route::put('/users/{id}/disapproveAccountStatus', [UserController::class, 'rejectAccountStatus']);
     //gets all pending approvals
     Route::get('/pending-approvals', [UserController::class, 'getPendingApprovals']);
     Route::get('/uspass', [UserController::class, 'getUsPass']);
@@ -138,6 +138,9 @@ Route::middleware('auth:sanctum')->group(function () {
     
     // SMS Deliveries
     Route::get('/sms-deliveries', [SmsDeliveryController::class, 'index']);
+    Route::get('/users-list', [UserController::class, 'usersList']);
+    Route::put('/users/{id}', [UserController::class, 'updateProfile']);
+    Route::delete('/users/{id}', [UserController::class, 'destroy']);
 });
 
 //admin adding of maintenance type
@@ -185,9 +188,10 @@ Route::put('/maintenance-requests/{id}/cancel', [MaintenanceRequestController::c
 Route::middleware('auth:sanctum')->put('/maintenance-requests/{id}/editDetails', [MaintenanceRequestController::class, 'updateDetails']);
 
 //edit user info
-Route::middleware('auth:sanctum')->put('/profile/update', [UserController::class, 'updateProfile']);
+Route::middleware('auth:sanctum')->put('/profile', [UserController::class, 'updateProfile']);
 
 //return all user's info
+Route::middleware('auth:sanctum')->get('/profile', [UserController::class, 'userDetails']);
 Route::middleware('auth:sanctum')->get('/profile/userInfos', [UserController::class, 'userDetails']);
 
 

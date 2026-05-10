@@ -23,8 +23,39 @@ class MaintenanceRequestController extends Controller
 {
     public function index()
     {
-        return response()->json(MaintenanceRequest::all());
+        // PERFORMANCE BOOST: Select only columns needed for the main dashboard list
+        $requests = MaintenanceRequest::with(['requester:id,username,last_name,first_name'])
+            ->select('id', 'date_requested', 'details', 'requesting_personnel', 'status_id', 'maintenance_type_id', 'created_at', 'updated_at')
+            ->orderBy('id', 'desc')
+            ->get();
+
+        $data = $requests->map(function ($r) {
+            $requester = optional($r->requester);
+            return [
+                'id'                    => $r->id,
+                'request_id'            => $r->id,
+                'date_requested'        => $r->date_requested,
+                'details'               => $r->details,
+                'requesting_personnel'  => $r->requesting_personnel,
+                'requester_id'          => $r->requesting_personnel,
+                'user_id'               => $r->requesting_personnel,
+                'username'              => $requester->username,
+                'status'                => $r->status_id,
+                'status_id'             => $r->status_id,
+                'maintenance_type_id'   => $r->maintenance_type_id,
+                'requesting_office'     => $r->requesting_office,
+                'contact_number'        => $r->contact_number,
+                'priority_number'       => $r->priority_number,
+                'scheduled_date'        => $r->scheduled_date,
+                'scheduled_time'        => $r->scheduled_time,
+                'created_at'            => $r->created_at,
+                'updated_at'            => $r->updated_at,
+            ];
+        });
+
+        return response()->json($data);
     }
+
 
     public function store(Request $request)
     {
@@ -280,7 +311,7 @@ class MaintenanceRequestController extends Controller
             ]);
         }
         $maintenanceRequest->approved_by_1 = $user->id;
-        // $maintenanceRequest->status_id = 9;
+        // Status stays Pending until Director approves
         $maintenanceRequest->save();
 
         // Notify the requester by email after final approval
@@ -365,7 +396,7 @@ class MaintenanceRequestController extends Controller
         }
 
         $maintenanceRequest->approved_by_2 = $user->id;
-        // $maintenanceRequest->status_id = 10;
+        $maintenanceRequest->status_id = 2; // 2 = Approved
         $maintenanceRequest->save();
 
         // Notify Requester
@@ -996,19 +1027,23 @@ class MaintenanceRequestController extends Controller
 
     public function indexWithDetails()
     {
+        // PERFORMANCE BOOST: Select specific columns from relationships to reduce payload size
         $requests = MaintenanceRequest::with([
-            'requester',
-            'position',
-            'office',
-            'status',
-            'verifier',
-            'approver1',
-            'approver2',
-            'maintenanceType',
-            'comments.user',     // include comment user
-            'comments.role',     // if you want to show role name too
+            'requester:id,username,last_name,first_name,middle_name,suffix,role_id',
+            'position:id,name',
+            'office:id,name',
+            'status:id,name',
+            'verifier:id,last_name,first_name',
+            'approver1:id,last_name,first_name',
+            'approver2:id,last_name,first_name',
+            'maintenanceType:id,type_name',
+            'comments.user:id,first_name,last_name',
+            'comments.role:id,role_name',
             'feedback'
-        ])->get();
+        ])
+        ->select('id', 'date_requested', 'details', 'location', 'requesting_personnel', 'status_id', 'maintenance_type_id', 'position_id', 'requesting_office', 'contact_number', 'priority_number', 'verified_by', 'approved_by_1', 'approved_by_2', 'scheduled_date', 'scheduled_time', 'assigned_staff', 'created_at', 'updated_at')
+        ->orderBy('id', 'desc')
+        ->get();
 
         $data = $requests->map(function ($request) {
 
@@ -1021,24 +1056,33 @@ class MaintenanceRequestController extends Controller
             );
 
             return [
+                'id' => $request->id,
                 'request_id' => $request->id,
                 'date_requested' => $request->date_requested,
                 'details' => $request->details,
+                'location' => $request->location,
                 'requester_id' => $request->requesting_personnel,
+                'user_id' => $request->requesting_personnel,
+                'requesting_personnel' => $request->requesting_personnel,
                 'requester_role_id' => optional($requester)->role_id,
-                'requesting_personnel' => $fullName,
+                'requester_name' => $fullName,
+                'username' => $requester->username,
                 'position' => optional($request->position)->name,
                 'requesting_office' => optional($request->office)->name,
                 'contact_number' => $request->contact_number,
                 'status' => optional($request->status)->name,
+                'status_id' => $request->status_id,
                 'date_received' => $request->date_received,
                 'time_received' => $request->time_received,
                 'priority_number' => $request->priority_number,
-                // 'remarks' => $request->remarks,
-                'verified_by' => optional($request->verifier)->last_name,
-                'approved_by_1' => optional($request->approver1)->last_name,
-                'approved_by_2' => optional($request->approver2)->last_name,
-                'maintenance_type' => optional($request->maintenanceType)->type_name,
+                'verified_by' => $request->verified_by,
+                'verified_by_name' => optional($request->verifier)->last_name,
+                'approved_by_1' => $request->approved_by_1,
+                'approved_by_2' => $request->approved_by_2,
+                'approver1' => $request->approved_by_1 ? ['last_name' => optional($request->approver1)->last_name] : null,
+                'approver2' => $request->approved_by_2 ? ['last_name' => optional($request->approver2)->last_name] : null,
+                'maintenance_type_id' => $request->maintenance_type_id,
+                'maintenance_type_name' => optional($request->maintenanceType)->type_name,
                 'scheduled_date' => $request->scheduled_date,
                 'scheduled_time' => $request->scheduled_time,
                 'assigned_staff_id' => $request->assigned_staff,

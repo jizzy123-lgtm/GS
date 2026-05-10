@@ -39,6 +39,7 @@ class MaintenanceRequest extends Model
         'scheduled_time',
         'assigned_staff',
         'scheduled_notes',
+        'location',
     ];
 
     public function requester()

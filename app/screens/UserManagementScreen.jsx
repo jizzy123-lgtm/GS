@@ -142,9 +142,9 @@ function UserManagementScreen({ user, onBack }) {
                                     <Text style={styles.name}>{u.first_name} {u.last_name}</Text>
                                     <Text style={styles.username}>@{u.username}</Text>
                                 </View>
-                                <View style={[styles.statusPill, { backgroundColor: u.status_id === 2 ? C.successBg : C.warnBg }]}>
-                                    <Text style={[styles.statusText, { color: u.status_id === 2 ? C.success : C.warn }]}>
-                                        {u.status || "Pending"}
+                                <View style={[styles.statusPill, { backgroundColor: u.status_id === 2 ? C.successBg : u.status_id === 3 ? C.dangerBg : C.warnBg }]}>
+                                    <Text style={[styles.statusText, { color: u.status_id === 2 ? C.success : u.status_id === 3 ? C.danger : C.warn }]}>
+                                        {u.status_id === 1 ? "Pending" : u.status_id === 2 ? "Approved" : u.status_id === 3 ? "Disapproved" : (u.status || u.account_status || "Pending")}
                                     </Text>
                                 </View>
                             </View>

@@ -34,7 +34,13 @@ const STATUS = {
 const FILTERS = ["All", "Pending", "Approved", "Disapproved"];
 
 function getStatus(user) {
-    const s = user?.account_status?.toLowerCase() || user?.status?.toLowerCase() || "pending";
+    let s = "pending";
+    if (user?.status_id === 1) s = "pending";
+    else if (user?.status_id === 2) s = "approved";
+    else if (user?.status_id === 3) s = "disapproved";
+    else {
+        s = String(user?.account_status || user?.status || "pending").toLowerCase();
+    }
     return STATUS[s] || STATUS.pending;
 }
 
@@ -72,8 +78,7 @@ export default function PendingApprovalsScreen({ user, onBack }) {
     const filtered = [...(filter === "All"
         ? accounts
         : accounts.filter(a => {
-            const s = a?.account_status?.toLowerCase() || a?.status?.toLowerCase() || "pending";
-            return s === filter.toLowerCase();
+            return getStatus(a).label.toLowerCase() === filter.toLowerCase();
         }))].sort((a, b) => {
             const timeA = Date.parse(a?.created_at || "");
             const timeB = Date.parse(b?.created_at || "");
@@ -105,10 +110,11 @@ export default function PendingApprovalsScreen({ user, onBack }) {
                 
                 // Update local state immediately so UI reflects the change
                 const newStatus = action === "approve" ? "approved" : "disapproved";
+                const newStatusId = action === "approve" ? 2 : 3;
                 if (selected) {
-                    setSelected({ ...selected, account_status: newStatus, status: newStatus });
+                    setSelected({ ...selected, account_status: newStatus, status: newStatus, status_id: newStatusId });
                 }
-                setAccounts(prev => prev.map(a => (a.id === id || a.user_id === id) ? { ...a, account_status: newStatus, status: newStatus } : a));
+                setAccounts(prev => prev.map(a => (a.id === id || a.user_id === id) ? { ...a, account_status: newStatus, status: newStatus, status_id: newStatusId } : a));
 
                 await fetchAccounts(); // Background refresh
                 setTimeout(() => {
@@ -129,8 +135,7 @@ export default function PendingApprovalsScreen({ user, onBack }) {
     // ── Detail View ──────────────────────────────────────────────
     if (selected) {
         const s = getStatus(selected);
-        const st = selected?.account_status?.toLowerCase() || selected?.status?.toLowerCase() || "pending";
-        const isPending = st === "pending";
+        const isPending = s.label.toLowerCase() === "pending";
         const initials = (selected?.first_name?.[0] || selected?.name?.[0] || "?").toUpperCase()
             + (selected?.last_name?.[0] || "").toUpperCase();
         const fullName = selected?.first_name

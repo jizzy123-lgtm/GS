@@ -131,7 +131,7 @@ class UserController extends Controller
             }
         }
 
-        return response()->json(['token' => $token, 'user' => $user], 200);
+        return response()->json(['token' => $token, 'user' => array_merge($user->toArray(), ['user_id' => $user->id])], 200);
 
     }
 

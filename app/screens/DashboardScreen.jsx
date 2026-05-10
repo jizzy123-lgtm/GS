@@ -87,7 +87,7 @@ export default function DashboardScreen({ user, onLogout, onNavigate }) {
       const token = await AsyncStorage.getItem("authToken") || await AsyncStorage.getItem("token");
       const headers = { Authorization: `Bearer ${token}`, Accept: "application/json" };
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 10000); // 10s timeout
+      const timeoutId = setTimeout(() => controller.abort(), 45000); // 45s timeout
 
       try {
         if (roleId === ROLE_IDS.SYSTEM_ADMIN) {
@@ -275,7 +275,15 @@ export default function DashboardScreen({ user, onLogout, onNavigate }) {
                         <Text style={[styles.thCell, { flex: 1.2, textAlign: "right" }]}>Status</Text>
                       </View>
                       {recentUsers.map((u, i) => {
-                        const st = (u?.account_status || u?.status || "pending").toLowerCase();
+                        let st = "pending";
+                        if (u?.status_id === 1) st = "pending";
+                        else if (u?.status_id === 2) st = "approved";
+                        else if (u?.status_id === 3) st = "disapproved";
+                        else {
+                          const rawStatus = u?.account_status || u?.status || "pending";
+                          st = String(rawStatus).toLowerCase();
+                        }
+                        
                         const sm = {
                           pending: { c: C.warn, bg: C.warnBg, l: "Pending" },
                           approved: { c: C.success, bg: C.successBg, l: "Approved" },

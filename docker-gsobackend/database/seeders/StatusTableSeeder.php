@@ -10,14 +10,15 @@ class StatusTableSeeder extends Seeder
     public function run()
     {
         Status::insert([
-            ['name' => 'Pending'],
-            ['name' => 'Approved'],
-            ['name' => 'Disapproved'],
-            ['name' => 'Done'],
-            ['name' => 'Canceled'],
-            ['name' => 'Urgent'],
-            ['name' => 'Onhold'],
-            ['name' => 'Completed'],
+            ['name' => 'Pending'],       // ID 1
+            ['name' => 'Approved'],       // ID 2
+            ['name' => 'Disapproved'],    // ID 3
+            ['name' => 'Done'],           // ID 4
+            ['name' => 'Canceled'],       // ID 5
+            ['name' => 'Urgent'],         // ID 6
+            ['name' => 'Onhold'],         // ID 7
+            ['name' => 'Completed'],      // ID 8
+            ['name' => 'Scheduled'],      // ID 9
         ]);
     }
 }

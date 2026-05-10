@@ -1,29 +1,17 @@
 ﻿import * as WebBrowser from "expo-web-browser";
-import { useAuthRequest, makeRedirectUri } from "expo-auth-session/providers/google";
+import { Alert } from "react-native";
 import { API_URL } from "../api";
 
 WebBrowser.maybeCompleteAuthSession();
 
-const CLIENT_ID = "1741820025-aesska7294cigjhu9m3dcnac31k7ocit.apps.googleusercontent.com";
-
 export function useGoogleAuth() {
-  const redirectUri = makeRedirectUri({
-    scheme: "myapp",
-    path: "redirect",
-  });
-
-  const [request, response, promptAsync] = useAuthRequest({
-    clientId: CLIENT_ID,
-    scopes: ["openid", "profile", "email"],
-    redirectUri,
-  });
-
-  if (request) {
-    console.log("[GoogleAuth] redirectUri:", request.redirectUri);
-  }
-
   const signIn = async () => {
-    return await promptAsync();
+    Alert.alert(
+      "Google Sign-In",
+      "Google Sign-In is only available in the production build. Please test using the web version (localhost:8081).",
+      [{ text: "OK" }]
+    );
+    return { type: "cancel" };
   };
 
   const verifyToken = async (idToken) => {
@@ -36,5 +24,5 @@ export function useGoogleAuth() {
     return { status: res.status, data };
   };
 
-  return { request, response, signIn, verifyToken };
+  return { request: true, response: null, signIn, verifyToken };
 }

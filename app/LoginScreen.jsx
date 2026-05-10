@@ -193,7 +193,7 @@ export default function LoginScreen({ onLoginSuccess, onSignUp, onNavigate }) {
             <TouchableOpacity
               style={[styles.googleBtn, (googleLoading || !request) && { opacity: 0.6 }]}
               onPress={handleGoogleSignIn}
-              disabled={googleLoading || !request}
+              disabled={googleLoading}
               activeOpacity={0.85}
             >
               {googleLoading ? (
@@ -325,6 +325,7 @@ const styles = StyleSheet.create({
   signupLink: { color: NAVY, fontWeight: "700", fontStyle: "normal", textDecorationLine: "underline" },
   version: { marginTop: 12, fontSize: 10, color: "#b0bdd4", letterSpacing: 1, textAlign: "center" },
 });
+
 
 
 

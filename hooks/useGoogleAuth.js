@@ -24,5 +24,5 @@ export function useGoogleAuth() {
     return { status: res.status, data };
   };
 
-  return { request: true, response: null, signIn, verifyToken };
+  return { request, response, signIn, verifyToken };
 }

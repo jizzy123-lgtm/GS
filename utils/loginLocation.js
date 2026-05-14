@@ -1,6 +1,6 @@
 import * as Location from "expo-location";
 
-const DEFAULT_TIMEOUT_MS = 5000; // Increased to 5s to accommodate retries
+const DEFAULT_TIMEOUT_MS = 2000; // Reduced to 2s for faster login experience
 
 const withTimeout = (promise, timeoutMs) =>
   Promise.race([

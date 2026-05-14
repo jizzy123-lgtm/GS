@@ -24,6 +24,8 @@ class User extends Authenticatable
         'email',
         'username',
         'password',
+        'google_id',
+        'rejection_reason',
         'expo_push_token',
     ];
 

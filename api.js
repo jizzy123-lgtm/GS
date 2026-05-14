@@ -1,3 +1,3 @@
-export const API_URL = "http://100.82.99.76:8000/api";
+export const API_URL = "http://10.108.223.65:8000/api";
 
 //ALISDI ANG IP ADDRESS OG PORT KUNG KINSA NAG UP SA BACKEND SERVER

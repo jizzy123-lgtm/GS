@@ -21,7 +21,12 @@
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false,
       "package": "com.manageit.MyApp",
-      "googleServicesFile": "./google-services.json"
+      "googleServicesFile": "./google-services.json",
+      "permissions": [
+        "android.permission.RECORD_AUDIO",
+        "android.permission.ACCESS_COARSE_LOCATION",
+        "android.permission.ACCESS_FINE_LOCATION"
+      ]
     },
     "web": {
       "output": "static",
@@ -62,7 +67,7 @@
     "extra": {
       "router": {},
       "eas": {
-        "projectId": "7cd345e3-4dd3-4fb4-b032-5e2134cc5f18"
+        "projectId": "431691ee-3607-4615-aa2c-06838281cc8d"
       }
     }
   }

@@ -30,6 +30,9 @@ Route::get('/maintenance-types', [MaintenanceTypeController::class, 'index']);
 // Public Routes (Authentication)
 Route::post('/register', [UserController::class, 'register']);
 Route::post('/login', [UserController::class, 'login']);
+Route::get('/auth/check-username', [UserController::class, 'checkUsername']);
+Route::post('/auth/google/verify', [UserController::class, 'verifyGoogleToken']);
+Route::post('/auth/google/register', [UserController::class, 'registerGoogleUser']);
 //Route::post('/logout', [UserController::class, 'logout']);
 
 Route::middleware('auth:sanctum')->post('/logout', [UserController::class, 'logout']);

@@ -194,6 +194,7 @@ export default function SignUpScreen({ onBack, googleData }) {
     setError("");
     const trimmedFirst = form.first_name.trim();
     const trimmedLast = form.last_name.trim();
+    const trimmedEmail = form.email.trim();
     const trimmedUser = form.username.trim();
     const trimmedContact = form.contact_number.trim();
     const finalRoleId = isCollegeOffice ? REQUESTER_ROLE_ID : form.role_id;

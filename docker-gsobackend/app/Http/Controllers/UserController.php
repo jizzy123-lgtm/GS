@@ -18,10 +18,119 @@ use App\Notifications\AccountApproved;
 use App\Models\Notification as SystemNotification;
 use App\Models\SystemSetting;
 use App\Models\LoginLocation;
-
+use Illuminate\Support\Facades\Http;
 
 class UserController extends Controller
 {
+    /**
+     * Check if a username is available.
+     */
+    public function checkUsername(Request $request)
+    {
+        $username = $request->query('username');
+        if (!$username) {
+            return response()->json(['available' => false]);
+        }
+        $exists = User::where('username', $username)->exists();
+        return response()->json(['available' => !$exists]);
+    }
+
+    /**
+     * Verify Google ID Token and login/register the user.
+     */
+    public function verifyGoogleToken(Request $request)
+    {
+        $request->validate([
+            'id_token' => 'required|string',
+        ]);
+
+        $idToken = $request->id_token;
+
+        // Verify token with Google API
+        $response = Http::get("https://oauth2.googleapis.com/tokeninfo?id_token={$idToken}");
+
+        if ($response->failed()) {
+            return response()->json(['message' => 'Invalid Google token'], 401);
+        }
+
+        $googleData = $response->json();
+        $email = $googleData['email'];
+
+        // Check if user exists
+        $user = User::where('email', $email)->first();
+
+        if ($user) {
+            // User exists, log them in
+            $token = $user->createToken('authToken')->plainTextToken;
+            return response()->json([
+                'status' => 'authenticated',
+                'token' => $token,
+                'user' => $user
+            ], 200);
+        }
+
+        // User does not exist, return data for registration
+        return response()->json([
+            'status' => 'registration_required',
+            'google_data' => [
+                'email' => $email,
+                'first_name' => $googleData['given_name'] ?? '',
+                'last_name' => $googleData['family_name'] ?? '',
+                'google_id' => $googleData['sub'],
+            ]
+        ], 200);
+    }
+
+    /**
+     * Register a new user using Google data.
+     */
+    public function registerGoogleUser(Request $request)
+    {
+        $request->validate([
+            'last_name'       => 'required|string',
+            'first_name'      => 'required|string',
+            'middle_name'     => 'nullable|string|max:1',
+            'suffix'          => 'nullable|string|max:10',
+            'username'        => 'required|string|unique:users,username',
+            'email'           => 'required|email|unique:users,email',
+            'position_id'     => 'required|exists:positions,id',
+            'office_id'       => 'required|exists:offices,id',
+            'contact_number'  => 'required|string',
+            'role_id'         => 'required|exists:roles,id',
+            'google_id'       => 'required|string|unique:users,google_id',
+        ]);
+
+        $user = User::create([
+            'last_name'       => $request->last_name,
+            'first_name'      => $request->first_name,
+            'middle_name'     => $request->middle_name,
+            'suffix'          => $request->suffix,
+            'username'        => $request->username,
+            'email'           => $request->email,
+            'position_id'     => $request->position_id,
+            'office_id'       => $request->office_id,
+            'contact_number'  => $request->contact_number,
+            'google_id'       => $request->google_id,
+            'password'        => Hash::make(\Illuminate\Support\Str::random(16)), 
+            'role_id'         => $request->role_id,
+            'status_id'       => 1, // Pending
+        ]);
+
+        // Notify Admins
+        $adminUsers = User::where('role_id', 1)->get();
+        foreach ($adminUsers as $admin) {
+            SystemNotification::create([
+                'user_id' => $admin->id,
+                'reference_id' => $user->id,
+                'type' => 'account_request_created',
+                'message' =>  $user->first_name . ' ' . $user->last_name  . ' registered via Google and is waiting for approval.',
+                'is_read' => false,
+            ]);
+        }
+
+        return response()->json(['message' => 'User registered via Google successfully'], 201);
+    }
+
     // Register a new user
     public function register(Request $request)
     {

@@ -1,4 +1,4 @@
-﻿import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator, KeyboardAvoidingView, Platform,
   ScrollView,
@@ -197,6 +197,11 @@ export default function SignUpScreen({ onBack, googleData }) {
     const trimmedUser = form.username.trim();
     const trimmedContact = form.contact_number.trim();
     const finalRoleId = isCollegeOffice ? REQUESTER_ROLE_ID : form.role_id;
+
+    if (trimmedEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmedEmail)) {
+      setError("Please enter a valid email address.");
+      return;
+    }
 
     if (!trimmedFirst) { setError("First name is required."); return; }
     if (!trimmedLast) { setError("Last name is required."); return; }
@@ -406,6 +411,12 @@ export default function SignUpScreen({ onBack, googleData }) {
               </View>
             </View>
           )}
+
+          <View style={[styles.hintBox, { marginBottom: 16 }]}>
+            <Text style={styles.hintText}>
+              Your email will be used to receive important updates about your maintenance requests.
+            </Text>
+          </View>
 
           <TextInput style={styles.input} placeholder="Contact Number *" placeholderTextColor="#a0aec0"
             value={form.contact_number} onChangeText={v => set("contact_number", v)} keyboardType="phone-pad" maxLength={11} />

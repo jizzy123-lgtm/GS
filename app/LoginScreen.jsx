@@ -1,4 +1,4 @@
-﻿import AsyncStorage from "@react-native-async-storage/async-storage";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useState } from "react";
 import {
   ActivityIndicator,
@@ -19,8 +19,9 @@ import { registerForPushNotificationsAsync } from '../hooks/usePushNotifications
 import { useGoogleAuth } from '../hooks/useGoogleAuth';
 import Svg, { Path } from 'react-native-svg';
 import { Ionicons } from '@expo/vector-icons';
+import { getLoginLocationPayload } from "../utils/loginLocation";
 
-export default function LoginScreen({ onLoginSuccess, onSignUp, onNavigate }) {
+export default function LoginScreen({ onLoginSuccess, onSignUp, onForgotPassword, onNavigate }) {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
@@ -85,10 +86,11 @@ export default function LoginScreen({ onLoginSuccess, onSignUp, onNavigate }) {
     }
     setLoading(true);
     try {
+      const locationPayload = await getLoginLocationPayload();
       const response = await fetch(`${API_URL}/login`, {
         method: "POST",
         headers: { "Content-Type": "application/json", Accept: "application/json" },
-        body: JSON.stringify({ username, password }),
+        body: JSON.stringify({ username, password, ...locationPayload }),
       });
       const data = await response.json();
       if (response.ok) {
@@ -181,6 +183,11 @@ export default function LoginScreen({ onLoginSuccess, onSignUp, onNavigate }) {
                 <TouchableOpacity onPress={() => setShowPassword(!showPassword)}><Ionicons name={showPassword ? "eye-off" : "eye"} size={20} color="#7aa5b5" /></TouchableOpacity>
               </View>
             </View>
+
+            {/* Forgot Password link */}
+            <TouchableOpacity style={styles.forgotPasswordWrap} onPress={onForgotPassword}>
+              <Text style={styles.forgotPasswordText}>Forgot Password?</Text>
+            </TouchableOpacity>
 
             {/* Divider */}
             <View style={styles.divider}>
@@ -324,6 +331,16 @@ const styles = StyleSheet.create({
   signupText: { marginTop: 20, fontSize: 13, color: "#7a8aaa", fontStyle: "italic", textAlign: "center" },
   signupLink: { color: NAVY, fontWeight: "700", fontStyle: "normal", textDecorationLine: "underline" },
   version: { marginTop: 12, fontSize: 10, color: "#b0bdd4", letterSpacing: 1, textAlign: "center" },
+  forgotPasswordWrap: {
+    alignSelf: "flex-end",
+    marginBottom: 16,
+    marginTop: -4,
+  },
+  forgotPasswordText: {
+    fontSize: 12,
+    color: TEAL,
+    fontWeight: "700",
+  },
 });
 
 

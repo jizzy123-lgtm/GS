@@ -42,7 +42,6 @@ A mobile application for the General Services Office (GSO) of Jose Rizal Memoria
 
 ## Team
 
-##COLORUM                        
 - Cherrylou Urbano
 - April Grace Laranjo
 - Shienna Belle Elopre

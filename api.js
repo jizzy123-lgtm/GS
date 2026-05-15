@@ -1,3 +1,3 @@
-export const API_URL = "http://192.168.43.166:8000/api";
+export const API_URL = "https://hot-readers-poke.loca.lt/api";
 
 //ALISDI ANG IP ADDRESS OG PORT KUNG KINSA NAG UP SA BACKEND SERVER

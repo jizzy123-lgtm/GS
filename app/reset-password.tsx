@@ -15,7 +15,6 @@ import { Ionicons } from "@expo/vector-icons";
 import { API_URL } from "../api";
 
 const NAVY = "#1a2472";
-const TEAL = "#1a5c72";
 const TEAL_FIELD = "#d4eaf0";
 const CREAM = "#f5f7fa";
 
@@ -85,7 +84,7 @@ export default function ResetPasswordScreen() {
           <View style={styles.cardBody}>
             <Text style={styles.cardTitle}>Create New Password</Text>
             <Text style={styles.cardDesc}>
-              Please enter your new password below. Make sure it's at least 8 characters long.
+              Please enter your new password below. Make sure it&apos;s at least 8 characters long.
             </Text>
 
             {error ? (

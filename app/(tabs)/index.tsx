@@ -119,7 +119,7 @@ export default function HomeScreen() {
     return <UserManualScreen user={user} onBack={() => navigate('Dashboard')} />;
   }
   if (screen === 'GoogleDuplicate') {
-    return <GoogleDuplicateScreen accounts={screenParams.accounts} googleData={screenParams.googleData} onBack={() => navigate('Login')} onLoginSuccess={handleLoginSuccess} />;
+    return <GoogleDuplicateScreen accounts={screenParams.accounts} googleData={screenParams.googleData} onBack={() => navigate('Login')} />;
   }
   return <View />;
 }

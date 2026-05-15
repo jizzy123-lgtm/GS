@@ -1,11 +1,19 @@
 import { Platform } from 'react-native';
 import * as Device from 'expo-device';
-import * as Notifications from 'expo-notifications';
 import Constants from 'expo-constants';
 import { API_URL } from '../api';
 
+let Notifications = null;
+if (Constants.appOwnership !== 'expo') {
+  try {
+    Notifications = require('expo-notifications');
+  } catch (e) {
+    console.log('Push notifications not supported in this environment');
+  }
+}
+
 export async function registerForPushNotificationsAsync(authToken) {
-  if (Platform.OS === 'web') return null;
+  if (Platform.OS === 'web' || !Notifications) return null;
 
   let token;
 

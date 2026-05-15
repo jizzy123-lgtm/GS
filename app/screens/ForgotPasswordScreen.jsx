@@ -14,7 +14,6 @@ import { Ionicons } from "@expo/vector-icons";
 import { API_URL } from "../../api";
 
 const NAVY = "#1a2472";
-const TEAL = "#1a5c72";
 const TEAL_FIELD = "#d4eaf0";
 const CREAM = "#f5f7fa";
 

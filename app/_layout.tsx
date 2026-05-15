@@ -3,20 +3,27 @@ import { Stack, useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useCallback, useEffect } from 'react';
 import 'react-native-reanimated';
-import * as Notifications from 'expo-notifications';
-
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { extractNotificationRequestId, extractNotificationRoleId } from '../utils/notificationNavigation';
+import Constants from 'expo-constants';
 
-Notifications.setNotificationHandler({
-  handleNotification: async () => ({
-    shouldShowAlert: true,
-    shouldShowBanner: true,
-    shouldShowList: true,
-    shouldPlaySound: true,
-    shouldSetBadge: true,
-  }),
-});
+let Notifications: any = null;
+if (Constants.appOwnership !== 'expo') {
+  try {
+    Notifications = require('expo-notifications');
+    Notifications.setNotificationHandler({
+      handleNotification: async () => ({
+        shouldShowAlert: true,
+        shouldShowBanner: true,
+        shouldShowList: true,
+        shouldPlaySound: true,
+        shouldSetBadge: true,
+      }),
+    });
+  } catch (e) {
+    console.log('Push notifications not supported in this environment');
+  }
+}
 
 export const unstable_settings = {
   anchor: '(tabs)',
@@ -26,7 +33,7 @@ export default function RootLayout() {
   const colorScheme = useColorScheme();
   const router = useRouter();
 
-  const routeFromNotificationResponse = useCallback((response: Notifications.NotificationResponse | null) => {
+  const routeFromNotificationResponse = useCallback((response: any) => {
     if (!response) return;
 
     const requestId = extractNotificationRequestId(response);
@@ -40,12 +47,14 @@ export default function RootLayout() {
   }, [router]);
 
   useEffect(() => {
-    const subscription = Notifications.addNotificationResponseReceivedListener((response) => {
+    if (!Notifications) return;
+    
+    const subscription = Notifications.addNotificationResponseReceivedListener((response: any) => {
       routeFromNotificationResponse(response);
     });
 
     Notifications.getLastNotificationResponseAsync()
-      .then((response) => routeFromNotificationResponse(response))
+      .then((response: any) => routeFromNotificationResponse(response))
       .catch(() => {});
 
     return () => {

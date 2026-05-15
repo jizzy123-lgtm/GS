@@ -13,20 +13,8 @@ import ScreenHeader from "./ScreenHeader";
 import { API_URL } from '../../api';
 import { getRoleLabel, normalizeRoleId } from "../constants/roles";
 
-const resolveProfile = (raw) => ({
-  ...raw,
-  first_name: raw?.first_name || raw?.firstname || "",
-  last_name: raw?.last_name || raw?.lastname || raw?.surname || "",
-  middle_initial: raw?.middle_initial || raw?.middle_name || raw?.middlename || raw?.mi || "",
-  email: raw?.email || "",
-  contact_number: raw?.contact_number || raw?.contact || raw?.phone || raw?.mobile || "",
-  department: raw?.department || raw?.office || raw?.office_name || raw?.department_name || raw?.college || "",
-  username: raw?.username || "",
-  role_id: raw?.role_id,
-});
 
 export default function ProfileScreen({ user, onBack, onUpdateUser, onNavigate }) {
-  const [profileData, setProfileData] = useState(resolveProfile(user));
   const [editing, setEditing] = useState(false);
   const [loading, setLoading] = useState(false);
   const [fetchingProfile, setFetchingProfile] = useState(true);
@@ -108,14 +96,14 @@ export default function ProfileScreen({ user, onBack, onUpdateUser, onNavigate }
   };
 
   const officeName = offices.find(o => o.id === Number(profile?.office_id))?.name
-    || profile?.office?.name || profile?.office_name || "—";
+    || profile?.office?.name || profile?.office_name || "â€”";
   const positionName = positions.find(p => p.id === Number(profile?.position_id))?.name
-    || profile?.position?.name || profile?.position_name || "—";
+    || profile?.position?.name || profile?.position_name || "â€”";
 
   const initials = ((profile?.first_name || user?.first_name || "")?.[0] || "") +
     ((profile?.last_name || user?.last_name || "")?.[0] || "");
   const roleLabel = getRoleLabel(normalizeRoleId(profile?.role_id || user?.role_id));
-  const fullName = `${profile?.first_name || ""} ${profile?.last_name || ""}`.trim() || "—";
+  const fullName = `${profile?.first_name || ""} ${profile?.last_name || ""}`.trim() || "â€”";
 
   if (fetchingProfile) {
     return (
@@ -139,7 +127,7 @@ export default function ProfileScreen({ user, onBack, onUpdateUser, onNavigate }
           <View style={styles.rolePill}>
             <Text style={styles.rolePillText}>{roleLabel}</Text>
           </View>
-          <Text style={styles.username}>@{profile?.username || user?.username || "—"}</Text>
+          <Text style={styles.username}>@{profile?.username || user?.username || "â€”"}</Text>
         </View>
 
         <View style={styles.body}>
@@ -217,7 +205,7 @@ function InfoRow({ label, value, last }) {
   return (
     <View style={[styles.infoRow, last && { borderBottomWidth: 0 }]}>
       <Text style={styles.infoLabel}>{label}</Text>
-      <Text style={styles.infoValue}>{value || "—"}</Text>
+      <Text style={styles.infoValue}>{value || "â€”"}</Text>
     </View>
   );
 }

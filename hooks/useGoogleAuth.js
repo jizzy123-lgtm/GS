@@ -1,17 +1,23 @@
-import * as WebBrowser from "expo-web-browser";
-import * as Google from "expo-auth-session/providers/google";
+import { GoogleSignin, statusCodes } from "@react-native-google-signin/google-signin";
 import { API_URL } from "../api";
 
-WebBrowser.maybeCompleteAuthSession();
+GoogleSignin.configure({
+  webClientId: "587332616051-4dgdole77al8f8b0j95ve6fba838ithe.apps.googleusercontent.com",
+});
 
 export function useGoogleAuth() {
-  const [request, response, promptAsync] = Google.useAuthRequest({
-    androidClientId: "1059104622372-mmnfjrd4v7rfhu8qnatic7rjarpl4vme.apps.googleusercontent.com", 
-    webClientId: "1059104622372-mmnfjrd4v7rfhu8qnatic7rjarpl4vme.apps.googleusercontent.com",
-  });
-
   const signIn = async () => {
-    return await promptAsync();
+    try {
+      await GoogleSignin.hasPlayServices();
+      const userInfo = await GoogleSignin.signIn();
+      const idToken = userInfo?.data?.idToken || userInfo?.idToken;
+      return { type: "success", data: { idToken } };
+    } catch (error) {
+      if (error.code === statusCodes.SIGN_IN_CANCELLED) {
+        return { type: "cancelled" };
+      }
+      return { type: "error", error };
+    }
   };
 
   const verifyToken = async (idToken) => {
@@ -24,5 +30,5 @@ export function useGoogleAuth() {
     return { status: res.status, data };
   };
 
-  return { request, response, signIn, verifyToken };
+  return { signIn, verifyToken };
 }

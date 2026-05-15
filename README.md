@@ -1,4 +1,4 @@
-<img width="960" height="540" alt="image" src="https://github.com/user-attachments/assets/2581fd3d-ebd6-4d18-aa06-3239351437d1" /># GSU Gateway
+# GSU Gateway
 
 A mobile application for the General Services Office (GSO) of Jose Rizal Memorial State University (JRMSU). Manages the complete lifecycle of facility and equipment maintenance requests.
 

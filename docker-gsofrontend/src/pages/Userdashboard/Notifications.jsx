@@ -76,11 +76,6 @@ const DashboardContent = memo(() => {
   const [filter, setFilter] = useState('All');
 
   useEffect(() => {
-    fetch(`${API_BASE_URL}/notifications/markAllAsRead`, {
-      method: 'PUT',
-      headers: authHeaders(),
-    }).catch(() => {});
-
     fetch(`${API_BASE_URL}/notifications`, { headers: authHeaders() })
       .then((r) => r.json())
       .then((data) => {

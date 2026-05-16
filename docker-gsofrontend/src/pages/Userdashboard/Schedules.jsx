@@ -218,8 +218,10 @@ const DashboardContent = memo(() => {
       const reqData = await reqResponse.json();
       if (reqResponse.ok) {
         const requests = Array.isArray(reqData) ? reqData : (reqData.data || []);
+        const currentUserStr = localStorage.getItem('user') || sessionStorage.getItem('user');
+        const currentUser = currentUserStr ? JSON.parse(currentUserStr) : {};
         const scheduledRequests = requests
-          .filter(req => req.status === "Scheduled" && req.scheduled_date && req.scheduled_time)
+          .filter(req => req.status === "Scheduled" && req.scheduled_date && req.scheduled_time && req.requester_id == currentUser.id)
           .map(req => ({
             id: `req-${req.request_id}`,
             title: `Maintenance: ${req.maintenance_type}`,
@@ -364,23 +366,7 @@ const DashboardContent = memo(() => {
         <h2 className="text-2xl md:text-3xl lg:text-4xl font-extrabold text-gray-900">
           Schedules
         </h2>
-        <button 
-          onClick={() => setShowForm(!showForm)}
-          className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg text-sm md:text-base font-medium transition-colors flex items-center gap-2"
-        >
-          <Icon path="M12 6v6m0 0v6m0-6h6m-6 0H6" className="w-5 h-5" />
-          Add Event
-        </button>
       </div>
-
-      {showForm && (
-        <EventForm 
-          newEvent={newEvent} 
-          setNewEvent={setNewEvent} 
-          handleAddEvent={handleAddEvent}
-          closeForm={() => setShowForm(false)}
-        />
-      )}
 
       <div className="bg-white rounded-lg shadow-sm md:shadow-lg border border-gray-200 mb-4">
         <CalendarHeader 

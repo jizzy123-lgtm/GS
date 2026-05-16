@@ -244,7 +244,7 @@ const StaffViewMaintenanceRequestForm = () => {
                   {/* Actions Area */}
                   <div className="mt-12 pt-8 border-t-2 border-slate-50 flex flex-wrap gap-4 justify-end">
                     {/* Priority Assignment Button (Director Approved but no Priority yet) */}
-                    {requestDetails.status === "Pending" && requestDetails.approved_by_2 && !requestDetails.priority_number && (
+                    {requestDetails.status === "Approved" && requestDetails.approved_by_2 && !requestDetails.priority_number && (
                       <button 
                         onClick={() => setShowPriorityModal(true)}
                         className="bg-orange-500 hover:bg-orange-600 text-white font-black px-8 py-4 rounded-2xl transition-all active:scale-95 shadow-lg flex items-center gap-2"
@@ -254,8 +254,8 @@ const StaffViewMaintenanceRequestForm = () => {
                       </button>
                     )}
 
-                    {/* Scheduling Button (Approved requests) */}
-                    {requestDetails.status === "Approved" && (
+                    {/* Scheduling Button (Approved requests with priority number) */}
+                    {requestDetails.status === "Approved" && requestDetails.priority_number && (
                       <button 
                         onClick={() => setShowScheduleModal(true)}
                         className="bg-blue-600 hover:bg-blue-700 text-white font-black px-8 py-4 rounded-2xl transition-all active:scale-95 shadow-lg flex items-center gap-2"

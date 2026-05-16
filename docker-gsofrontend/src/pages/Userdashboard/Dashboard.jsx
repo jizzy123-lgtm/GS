@@ -56,7 +56,8 @@ const CARD_ICONS = {
 };
 
 const DASHBOARD_CARDS = [
-  { text: 'Corrective Maintenance', icon: CARD_ICONS.Maintenance, isDropdown: true }
+  { text: 'Corrective Maintenance', icon: CARD_ICONS.Maintenance, isDropdown: true },
+  { text: 'Request Status', icon: CARD_ICONS.Reservation, isDropdown: false, to: '/requeststatus' }
 ];
 
 // Dropdown Menu Component
@@ -318,6 +319,8 @@ const Dashboard = () => {
   const handleNavigation = useCallback((item) => {
     if (item.text === 'Corrective Maintenance') {
       dispatch({ type: 'TOGGLE_MAINTENANCE_DROPDOWN' });
+    } else if (item.to) {
+      navigate(item.to);
     } else if (item.text) {
       navigate(`/${item.text.toLowerCase()}`);
     }

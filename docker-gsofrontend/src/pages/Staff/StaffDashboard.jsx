@@ -60,9 +60,7 @@ const CORRECTIVE_MAINTENANCE_CARDS = [
 ];
 
 const DASHBOARD_CARDS = [
-  { text: 'Corrective Maintenance', icon: CARD_ICONS.Maintenance, isDropdown: true },
-  //{ text: 'Transportation', icon: CARD_ICONS.Transportation },
-  //{ text: 'Reservation', icon: CARD_ICONS.Reservation }
+  { text: 'Corrective Maintenance', icon: CARD_ICONS.Maintenance, isDropdown: true }
 ];
 
 // Dropdown Menu Component
@@ -263,6 +261,7 @@ const DashboardContent = memo(({
   onCardClick, 
   isMaintenanceDropdownOpen, 
   onToggleMaintenanceDropdown,
+  maintenanceServices,
   onMaintenanceItemClick 
 }) => (
   <main className="flex-1 p-4 overflow-hidden bg-white/95 backdrop-blur-sm
@@ -278,7 +277,7 @@ const DashboardContent = memo(({
           onClick={() => onCardClick(item)}
           isDropdownOpen={item.isDropdown ? isMaintenanceDropdownOpen : false}
           onToggleDropdown={item.isDropdown ? onToggleMaintenanceDropdown : undefined}
-          dropdownItems={item.isDropdown ? CORRECTIVE_MAINTENANCE_CARDS : undefined}
+          dropdownItems={item.isDropdown ? maintenanceServices : undefined}
           onDropdownItemClick={item.isDropdown ? onMaintenanceItemClick : undefined}
         />
       ))}
@@ -294,13 +293,44 @@ const StaffDashboard = () => {
     isMobileMenuOpen: false,
     isMaintenanceDropdownOpen: false
   });
+  const [maintenanceServices, setMaintenanceServices] = useState([]);
+
+  const fetchServices = useCallback(async () => {
+    try {
+      const token = localStorage.getItem("authToken") || sessionStorage.getItem("authToken");
+      const res = await fetch(`${API_BASE_URL}/maintenance-types`, {
+        headers: { Authorization: `Bearer ${token}`, Accept: 'application/json' }
+      });
+      if (res.ok) {
+        const data = await res.json();
+        const list = Array.isArray(data) ? data : data.data || [];
+        const mapped = list.map(s => {
+          let iconKey = "Default";
+          const name = s.type_name.toLowerCase();
+          if (name.includes("janitorial")) iconKey = "Janitorial";
+          else if (name.includes("carpentry")) iconKey = "Carpentry";
+          else if (name.includes("electrical")) iconKey = "Electrical";
+          else if (name.includes("conditioning")) iconKey = "AirConditioning";
+          
+          return {
+            id: s.id,
+            text: s.type_name,
+            icon: CARD_ICONS[iconKey] || CARD_ICONS.Maintenance
+          };
+        });
+        setMaintenanceServices(mapped);
+      }
+    } catch (err) { console.error(err); }
+  }, []);
 
   useEffect(() => {
     const token = localStorage.getItem("authToken") || sessionStorage.getItem("authToken");
     if (!token) {
       navigate("/loginpage", { replace: true });
+    } else {
+      fetchServices();
     }
-  }, [navigate]);
+  }, [navigate, fetchServices]);
 
   const handleLogout = async () => {
     try {
@@ -310,8 +340,6 @@ const StaffDashboard = () => {
         throw new Error("No token found");
       }
 
-      console.log("Calling logout API with token:", token);
-
       const response = await fetch(`${API_BASE_URL}/logout`, {
         method: "POST",
         headers: {
@@ -320,10 +348,6 @@ const StaffDashboard = () => {
         },
         mode: "cors",
       });
-
-      if (!response.ok) {
-        throw new Error("Failed to log out");
-      }
 
       localStorage.removeItem("authToken");
       localStorage.removeItem("user");
@@ -339,7 +363,6 @@ const StaffDashboard = () => {
   const handleNavigation = useCallback((item) => {
     switch (item.text) {
       case 'Corrective Maintenance':
-        // Toggle dropdown open/close
         dispatch({ type: 'TOGGLE_MAINTENANCE_DROPDOWN' });
         break;
       case 'Transportation':
@@ -354,26 +377,15 @@ const StaffDashboard = () => {
   }, [navigate]);
 
   const handleMaintenanceItemClick = useCallback((item) => {
-    // Close the dropdown first
     dispatch({ type: 'CLOSE_MAINTENANCE_DROPDOWN' });
     
-    // Navigate based on the maintenance type - using staff routes
-    switch (item.text) {
-      case 'Janitorial':
-        navigate('/staffjanitorial');
-        break;
-      case 'Carpentry':
-        navigate('/staffcarpentry');
-        break;
-      case 'Electrical':
-        navigate('/staffelectrical');
-        break;
-      case 'Air-Conditioning':
-        navigate('/staffairconditioning');
-        break;
-      default:
-        break;
-    }
+    // For staff, we usually want to see the list of requests for that type
+    const name = item.text.toLowerCase();
+    if (name.includes('janitorial')) navigate('/staffjanitorial');
+    else if (name.includes('carpentry')) navigate('/staffcarpentry');
+    else if (name.includes('electrical')) navigate('/staffelectrical');
+    else if (name.includes('air-conditioning') || name.includes('airconditioning')) navigate('/staffairconditioning');
+    else navigate('/user-requests'); // Fallback for new types
   }, [navigate]);
 
   return (
@@ -397,6 +409,7 @@ const StaffDashboard = () => {
           onCardClick={handleNavigation}
           isMaintenanceDropdownOpen={state.isMaintenanceDropdownOpen}
           onToggleMaintenanceDropdown={() => dispatch({ type: 'TOGGLE_MAINTENANCE_DROPDOWN' })}
+          maintenanceServices={maintenanceServices}
           onMaintenanceItemClick={handleMaintenanceItemClick}
         />
       </div>

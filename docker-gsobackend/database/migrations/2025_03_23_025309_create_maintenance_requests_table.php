@@ -26,6 +26,7 @@ return new class extends Migration {
             $table->foreignId('maintenance_type_id')->constrained('maintenance_types')->onDelete('cascade');
             $table->date('scheduled_date')->nullable();
             $table->time('scheduled_time')->nullable();
+            $table->text('scheduled_notes')->nullable();
             $table->unsignedBigInteger('assigned_staff_id')->nullable();
             $table->foreign('assigned_staff_id')->references('id')->on('users');
             

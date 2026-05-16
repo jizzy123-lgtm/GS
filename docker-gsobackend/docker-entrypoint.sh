@@ -1,4 +1,9 @@
 #!/bin/sh
 php artisan storage:link || true
-exec "$@"
+
+if [ $# -eq 0 ]; then
+    exec apache2-foreground
+else
+    exec "$@"
+fi
 

@@ -262,7 +262,11 @@ const StaffRequestStatus = () => {
   }, [token, navigate]);
 
   const filtered = requests
-    .filter((r) => r.status?.trim().toLowerCase() === selectedTab.toLowerCase())
+    .filter((r) => {
+      const s = r.status?.trim().toLowerCase();
+      if (selectedTab === "Pending") return s === "pending" || s === "verified";
+      return s === selectedTab.toLowerCase();
+    })
     .sort((a, b) => new Date(b.created_at) - new Date(a.created_at)); // ✅ LIFO by created_at
   // --- Loading and Error UI (copied/adapted from ViewMaintenanceRequestForm) ---
   if (loading) {
@@ -315,23 +319,23 @@ const StaffRequestStatus = () => {
             Staff Request Status
           </h2>
           {/* Tabs */}
-          <div className="flex space-x-4 mb-6">
-            {["Pending", "Approved", "Disapproved", "Done", "Completed"].map((tab) => (
+          <div className="flex space-x-4 mb-6 flex-wrap gap-y-2">
+            {["Pending", "Scheduled", "Approved", "Disapproved", "Completed"].map((tab) => (
               <button
                 key={tab}
                 onClick={() => setSelectedTab(tab)}
-                className={`px-4 py-2 font-semibold rounded-md ${
+                className={`px-4 py-2 font-semibold rounded-md transition-all ${
                   selectedTab === tab
-                    ? tab === "Pending"
-                      ? "bg-yellow-500 text-white"
-                      : tab === "Approved"
-                      ? "bg-green-500 text-white"
+                    ? tab === "Scheduled"
+                      ? "bg-blue-600 text-white shadow-lg shadow-blue-200"
+                      : tab === "Pending"
+                      ? "bg-yellow-500 text-white shadow-lg shadow-yellow-200"
+                      : tab === "Approved" || tab === "Completed"
+                      ? "bg-green-600 text-white shadow-lg shadow-green-200"
                       : tab === "Disapproved"
-                      ? "bg-red-500 text-white"
-                      : tab === "Completed"
-                      ? "bg-blue-700 text-white"
-                      : "bg-gray-700 text-white"
-                    : "bg-transparent text-gray-700"
+                      ? "bg-red-600 text-white shadow-lg shadow-red-200"
+                      : "bg-gray-800 text-white"
+                    : "bg-gray-100 text-gray-600 hover:bg-gray-200"
                 }`}
               >
                 {tab}

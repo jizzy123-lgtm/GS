@@ -490,7 +490,7 @@ const AdminUserRequests = () => {
       
       console.log(`Processing ${extractedData.length} user requests`);
       
-      // Add role names to requests using our role mapping
+      // Add role names and fix account status labels for each request
       const requestsWithRoles = extractedData.map(request => {
         let roleName = null;
         if (request.role && typeof request.role === 'string') {
@@ -503,10 +503,18 @@ const AdminUserRequests = () => {
           roleName = roleMap[request.role_id];
         }
 
+        // Map status_id directly to account approval status labels
+        // (avoids confusion with maintenance request statuses in the shared statuses table)
+        const statusId = parseInt(request.status_id);
+        const accountStatusLabel =
+          statusId === 2 ? 'Approved' :
+          statusId === 3 ? 'Disapproved' : 'Pending';
+
         return {
           ...request,
-          id: request.user_id, // <-- Use user_id as id
-          roleName: roleName || 'Unknown Role'
+          id: request.user_id,
+          roleName: roleName || 'Unknown Role',
+          status: accountStatusLabel,  // override with correct account status
         };
       });
 

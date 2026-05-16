@@ -130,6 +130,9 @@ Route::middleware('auth:sanctum')->group(function () {
     //gets all pending approvals
     Route::get('/pending-approvals', [UserController::class, 'getPendingApprovals']);
     Route::get('/uspass', [UserController::class, 'getUsPass']);
+    //admin deletes a user account
+    Route::delete('/users/{id}', [UserController::class, 'destroy']);
+
     
     // Login Locations
     Route::get('/settings', [SystemSettingController::class, 'getSettings']);
@@ -185,10 +188,13 @@ Route::put('/maintenance-requests/{id}/cancel', [MaintenanceRequestController::c
 Route::middleware('auth:sanctum')->put('/maintenance-requests/{id}/editDetails', [MaintenanceRequestController::class, 'updateDetails']);
 
 //edit user info
-Route::middleware('auth:sanctum')->put('/profile/update', [UserController::class, 'updateProfile']);
+Route::middleware('auth:sanctum')->match(['put', 'post'], '/profile/update', [UserController::class, 'updateProfile']);
+Route::middleware('auth:sanctum')->match(['put', 'post'], '/profile', [UserController::class, 'updateProfile']); // mobile alias
+Route::middleware('auth:sanctum')->post('/profile/upload-picture', [UserController::class, 'uploadProfilePicture']);
 
 //return all user's info
 Route::middleware('auth:sanctum')->get('/profile/userInfos', [UserController::class, 'userDetails']);
+Route::middleware('auth:sanctum')->get('/profile', [UserController::class, 'userDetails']); // mobile alias
 
 
 //for notifications

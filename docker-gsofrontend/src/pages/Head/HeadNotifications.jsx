@@ -195,19 +195,12 @@ const DashboardContent = memo(() => {
 
   return (
     <main className="flex-1 p-4 md:p-6 lg:p-8 bg-white/95 backdrop-blur-sm overflow-y-auto">
-
-      {/* Title row */}
       <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-3 border-b border-gray-200 mb-6 pb-4">
-        <h2 className="text-2xl md:text-3xl font-extrabold text-gray-900">Notifications</h2>
-        {!loading && unreadCount > 0 && (
-          <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold bg-red-50 text-red-600 border border-red-100">
-            <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse" />
-            {unreadCount} unread
-          </span>
-        )}
+        <h2 className="text-2xl md:text-3xl lg:text-4xl font-extrabold text-gray-900">
+          Notifications
+        </h2>
       </div>
 
-      {/* Search bar + Filter Toggle */}
       <div className="flex items-center gap-2 mb-4">
         <div className="relative flex-1">
           <svg
@@ -226,55 +219,45 @@ const DashboardContent = memo(() => {
               focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent
               placeholder:text-gray-400 transition"
           />
-          {search && (
-            <button
-              onClick={() => setSearch('')}
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition"
-              aria-label="Clear search"
-            >
-              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-              </svg>
-            </button>
-          )}
         </div>
         <FilterToggle active={filter} onChange={setFilter} />
       </div>
 
-      {/* Notification list */}
-      <div className="bg-white rounded-lg shadow border border-gray-200">
+      <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
         {loading ? (
-          <div className="p-6 text-center text-gray-500">Loading…</div>
+          <div className="p-10 flex flex-col items-center gap-3 text-gray-400 text-center">
+            <div className="w-8 h-8 border-4 border-gray-200 border-t-blue-500 rounded-full animate-spin" />
+            <span className="text-sm">Loading notifications…</span>
+          </div>
         ) : filteredNotifications.length === 0 ? (
-          <div className="p-6 text-center text-gray-500">
-            {search || filter !== 'All' ? 'No notifications match your filters.' : 'No notifications found.'}
+          <div className="p-10 flex flex-col items-center gap-3 text-gray-400 text-center">
+             <Icon path="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" className="w-12 h-12 text-gray-200" />
+            <p className="font-medium text-sm">No notifications found.</p>
           </div>
         ) : (
           <ul className="divide-y divide-gray-100">
             {filteredNotifications.map((notif) => (
               <li
-                key={notif.id}
+                key={`notif-${notif.id}`}
                 onClick={() => handleClick(notif)}
-                className={[
-                  'p-4 flex flex-col md:flex-row md:items-center md:justify-between',
-                  'cursor-pointer transition-colors hover:bg-gray-50',
-                  !notif.is_read ? 'bg-blue-50' : '',
-                  processingId === notif.id ? 'opacity-50 pointer-events-none' : '',
-                ].join(' ')}
+                className={`p-4 flex flex-col md:flex-row md:items-center md:justify-between cursor-pointer transition-colors
+                  ${!notif.is_read ? 'bg-blue-50' : ''}
+                  hover:bg-gray-50
+                  ${processingId === notif.id ? 'opacity-50 pointer-events-none' : ''}
+                `}
               >
                 <div>
                   <div className="font-semibold text-gray-800">{notif.message}</div>
-                  <div className="text-xs text-gray-500 mt-1">{fmtDate(notif.created_at)}</div>
+                  <div className="text-xs text-gray-500 mt-1">
+                    {fmtDate(notif.created_at)}
+                  </div>
                 </div>
-                <div className="mt-2 md:mt-0 flex items-center gap-2 flex-shrink-0">
+                <div className="mt-2 md:mt-0 flex items-center gap-2">
                   <span className={`inline-block px-3 py-1 text-xs rounded-full font-medium ${
                     notif.is_read ? 'bg-green-500 text-white' : 'bg-yellow-500 text-white'
                   }`}>
                     {notif.is_read ? 'Read' : 'Unread'}
                   </span>
-                  {processingId === notif.id && (
-                    <span className="text-xs text-gray-400">Loading…</span>
-                  )}
                 </div>
               </li>
             ))}
@@ -305,12 +288,25 @@ const HeadNotifications = () => {
           isSidebarCollapsed={state.isSidebarCollapsed}
           onToggleSidebar={() => dispatch({ type: 'TOGGLE_SIDEBAR' })}
           menuItems={HEAD_MENU_ITEMS}
-          onLogout={() => {
-            localStorage.removeItem("authToken");
-            localStorage.removeItem("user");
-            sessionStorage.removeItem("authToken");
-            sessionStorage.removeItem("user");
-            navigate("/loginpage", { replace: true });
+          onLogout={async () => {
+            try {
+              const token = localStorage.getItem("authToken") || sessionStorage.getItem("authToken");
+              if (token) {
+                await fetch(`${API_BASE_URL}/logout`, {
+                  method: "POST",
+                  headers: {
+                    "Accept": "application/json",
+                    "Authorization": `Bearer ${token}`,
+                  },
+                });
+              }
+            } catch (err) {
+              console.error(err);
+            } finally {
+              localStorage.clear();
+              sessionStorage.clear();
+              navigate("/loginpage", { replace: true });
+            }
           }}
         />
         <DashboardContent />

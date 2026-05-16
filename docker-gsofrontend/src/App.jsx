@@ -1,64 +1,37 @@
 import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
 import Loginpage from "./pages/LoginScreen/Loginpage";
 import Dashboard from "./pages/Userdashboard/Dashboard";
-import Maintenace from "./pages/Maintenance/Maintenance";
-import Carpentry from "./pages/Maintenance/Carpentry";
-import Janitorial from "./pages/Maintenance/Janitorial";
-import Electrical from "./pages/Maintenance/Electrical";
-import AirConditioning from "./pages/Maintenance/AirConditioning";
 import Notifications from "./pages/Userdashboard/Notifications";
 import Schedules from "./pages/Userdashboard/Schedules";
 import AdminDashboard from "./pages/Admin/AdminDashboard";
-import AdminProfile from './pages/admin/AdminProfile';
+import AdminProfile from './pages/Admin/AdminProfile';
 import Signuppage from "./pages/SignupScreen/Signuppage";
 import Adminnotifications from "./pages/Admin/Adminnotifications";
 import AdminSchedules from "./pages/Admin/AdminSchedules";
-import AdminMaintenance from "./pages/Admin/AdminMaintenance";
-import Requests from "./pages/Admin/Requests";
-import AdminJanitorial from "./pages/Admin/adminMaintenance/AdminJanitorial";
-import AdminElectrical from "./pages/Admin/adminMaintenance/AdminElectrical";
-import AdminCarpentry from "./pages/Admin/adminMaintenance/AdminCarpentry";
-import AdminAirconditioning from "./pages/Admin/adminMaintenance/AdminAirconditioning";
-import AdminCarpentryform from "./pages/Admin/AdminCarpentryform";
 import StaffDashboard from "./pages/Staff/StaffDashboard.jsx";
 import StaffProfile from './pages/Staff/StaffProfile.jsx'; 
-import StaffSlipRequests from "./pages/Staff/StaffSlipRequests.jsx";
-import UserRequests from "./pages/Staff/UserRequests.jsx";
-import StaffViewMaintenanceRequestForm from "./pages/Staff/StaffViewMaintenanceRequestForm.jsx";
 import AdminUserRequests from "./pages/Admin/AdminUserRequests.jsx";
 import AdminUserRequestsForm from "./pages/Admin/AdminUserRequestsForm.jsx";
-import StaffMaintenanceRequestForm from "./pages/Staff/StaffMaintenanceRequestForm.jsx";
 import HeadDashboard from "./pages/Head/HeadDashboard.jsx";
 import HeadProfile from './pages/Head/HeadProfile.jsx';
-import HeadMaintenance from "./pages/Head/headmaintenance/HeadMaintenance.jsx";
-import HeadJanitorial from "./pages/Head/headmaintenance/HeadJanitorial.jsx";
-import HeadCarpentry from "./pages/Head/headmaintenance/HeadCarpentry.jsx";
-import HeadElectrical from "./pages/Head/headmaintenance/HeadElectrical.jsx";
-import HeadAirconditioning from "./pages/Head/headmaintenance/HeadAirconditioning.jsx";
-import HeadServiceRequest from "./pages/Head/headmaintenance/HeadServiceRequest";
-import StaffMaintenance from "./pages/Staff/StaffMaintenance/StaffMaintenance.jsx";
-import StaffJanitorial from "./pages/Staff/StaffMaintenance/StaffJanitorial.jsx";
-import StaffElectrical from "./pages/Staff/StaffMaintenance/StaffElectrical.jsx";
-import StaffCarpentry from "./pages/Staff/StaffMaintenance/StaffCarpentry.jsx";
-import StaffAirconditioning from "./pages/Staff/StaffMaintenance/StaffAirconditioning.jsx";
-import HeadRequests from "./pages/Head/HeadRequests.jsx";
-import HeadMaintenanceRequestForm from "./pages/Head/HeadMaintenanceRequestForm.jsx";
 import RequestStatus from "./pages/Userdashboard/RequestStatus.jsx";
-import ViewMaintenanceRequestForm from "./pages/Userdashboard/ViewMaintenanceRequestForm.jsx";
 import UserFeedback from "./pages/Userdashboard/UserFeedback.jsx";
 import Profile from "./pages/Userdashboard/Profile.jsx";
 import UserChangePass from "./pages/Userdashboard/UserChangePass.jsx";
 import Report from "./pages/Staff/Report.jsx";
 import CampusDirectorDashboard from "./pages/CampusDirector/CampusDirectorDashboard.jsx";
 import CampusDirectorProfile from './pages/CampusDirector/CampusDirectorProfile.jsx'; 
-import CampusDirectorRequests from "./pages/CampusDirector/CampusDirectorRequests.jsx";
-import CampusDirectorMaintenanceRequestForm from "./pages/CampusDirector/CampusDirectorMaintenanceRequestForm.jsx";
 import ViewUserRequestForm from "./pages/Staff/ViewUserRequestForm.jsx";
 import StaffNotifications from "./pages/Staff/StaffNotifications.jsx";
 import StaffSchedules from "./pages/Staff/sched.jsx";
 import HeadNotifications from "./pages/Head/HeadNotifications.jsx";
 import HeadSchedules from "./pages/Head/headsched.jsx";
+import HeadServices from "./pages/Head/HeadServices.jsx";
+import HeadMaintenance from "./pages/Head/headmaintenance/HeadMaintenance.jsx";
 import CampusDirectorNotifications from "./pages/CampusDirector/CampusDirectorNotifications.jsx";
+import CampusDirectorSchedules from "./pages/CampusDirector/CampusDirectorSchedules.jsx";
+import ViewMaintenanceRequestForm from "./pages/Userdashboard/ViewMaintenanceRequestForm.jsx";
+
 import { StaffNotificationProvider } from "./components/StaffSidebar";
 import { AdminNotificationProvider } from "./components/AdminSidebar.jsx";
 import { UserNotificationProvider } from "./components/Sidebar.jsx";
@@ -67,6 +40,20 @@ import { CampusDirectorNotificationProvider } from "./components/CampusDirectorS
 import StaffRequestStatus from "./pages/Staff/StaffRequestStatus";
 import StaffFeedback from "./pages/Staff/StaffFeedback.jsx";
 import FeedbackReview from "./pages/Staff/FeedbackReview.jsx";
+import StaffSlipRequests from "./pages/Staff/StaffSlipRequests.jsx";
+import StaffMaintenanceRequestForm from "./pages/Staff/StaffMaintenanceRequestForm.jsx";
+import StaffMaintenance from "./pages/Staff/StaffMaintenance/StaffMaintenance.jsx";
+import StaffJanitorial from "./pages/Staff/StaffMaintenance/StaffJanitorial.jsx";
+import StaffElectrical from "./pages/Staff/StaffMaintenance/StaffElectrical.jsx";
+import StaffCarpentry from "./pages/Staff/StaffMaintenance/StaffCarpentry.jsx";
+import StaffAirconditioning from "./pages/Staff/StaffMaintenance/StaffAirconditioning.jsx";
+import StaffViewMaintenanceRequestForm from "./pages/Staff/StaffViewMaintenanceRequestForm.jsx";
+import UserRequests from "./pages/Staff/UserRequests.jsx";
+import HeadRequests from "./pages/Head/HeadRequests.jsx";
+import HeadMaintenanceRequestForm from "./pages/Head/HeadMaintenanceRequestForm.jsx";
+import HeadViewMaintenanceRequestForm from "./pages/Head/HeadViewMaintenanceRequestForm.jsx";
+import CampusDirectorRequests from "./pages/CampusDirector/CampusDirectorRequests.jsx";
+import CampusDirectorMaintenanceRequestForm from "./pages/CampusDirector/CampusDirectorMaintenanceRequestForm.jsx";
 
 
 function App() {
@@ -114,18 +101,18 @@ function App() {
           }
         />
         <Route
-          path="/viewmaintenancerequestform/:id"
-          element={
-            <UserNotificationProvider>
-              <ViewMaintenanceRequestForm />
-            </UserNotificationProvider>
-          }
-        />
-        <Route
           path="/userfeedback/:id"
           element={
             <UserNotificationProvider>
               <UserFeedback token={token} />
+            </UserNotificationProvider>
+          }
+        />
+        <Route
+          path="/viewmaintenancerequestform/:id"
+          element={
+            <UserNotificationProvider>
+              <ViewMaintenanceRequestForm />
             </UserNotificationProvider>
           }
         />
@@ -142,48 +129,6 @@ function App() {
           element={
             <UserNotificationProvider>
               <UserChangePass />
-            </UserNotificationProvider>
-          }
-        />
-
-        {/* Maintenance Routes - wrapped with UserNotificationProvider */}
-        <Route
-          path="/maintenance"
-          element={
-            <UserNotificationProvider>
-              <Maintenace />
-            </UserNotificationProvider>
-          }
-        />
-        <Route
-          path="/janitorial"
-          element={
-            <UserNotificationProvider>
-              <Janitorial token={token} />
-            </UserNotificationProvider>
-          }
-        />
-        <Route
-          path="/carpentry"
-          element={
-            <UserNotificationProvider>
-              <Carpentry />
-            </UserNotificationProvider>
-          }
-        />
-        <Route
-          path="/electrical"
-          element={
-            <UserNotificationProvider>
-              <Electrical />
-            </UserNotificationProvider>
-          }
-        />
-        <Route
-          path="/airconditioning"
-          element={
-            <UserNotificationProvider>
-              <AirConditioning />
             </UserNotificationProvider>
           }
         />
@@ -211,62 +156,6 @@ function App() {
           element={
             <AdminNotificationProvider>
               <AdminSchedules />
-            </AdminNotificationProvider>
-          }
-        />
-        <Route
-          path="/adminmaintenance"
-          element={
-            <AdminNotificationProvider>
-              <AdminMaintenance />
-            </AdminNotificationProvider>
-          }
-        />
-        <Route
-          path="/requests"
-          element={
-            <AdminNotificationProvider>
-              <Requests token={token} />
-            </AdminNotificationProvider>
-          }
-        />
-        <Route
-          path="/adminjanitorial"
-          element={
-            <AdminNotificationProvider>
-              <AdminJanitorial token={token} />
-            </AdminNotificationProvider>
-          }
-        />
-        <Route
-          path="/adminelectrical"
-          element={
-            <AdminNotificationProvider>
-              <AdminElectrical token={token} />
-            </AdminNotificationProvider>
-          }
-        />
-        <Route
-          path="/admincarpentry"
-          element={
-            <AdminNotificationProvider>
-              <AdminCarpentry token={token} />
-            </AdminNotificationProvider>
-          }
-        />
-        <Route
-          path="/adminairconditioning"
-          element={
-            <AdminNotificationProvider>
-              <AdminAirconditioning token={token} />
-            </AdminNotificationProvider>
-          }
-        />
-        <Route
-          path="/admincarpentryform/:id"
-          element={
-            <AdminNotificationProvider>
-              <AdminCarpentryform token={token} />
             </AdminNotificationProvider>
           }
         />
@@ -308,8 +197,7 @@ function App() {
             </StaffNotificationProvider>
           }
         />
-
-         <Route
+        <Route
           path="/stafffeedback/:id"
           element={
             <StaffNotificationProvider>
@@ -317,20 +205,11 @@ function App() {
             </StaffNotificationProvider>
           }
         />
-
         <Route
           path="/staffsliprequests"
           element={
             <StaffNotificationProvider>
               <StaffSlipRequests token={token} />
-            </StaffNotificationProvider>
-          }
-        />
-        <Route
-          path="/userrequests"
-          element={
-            <StaffNotificationProvider>
-              <UserRequests />
             </StaffNotificationProvider>
           }
         />
@@ -383,14 +262,6 @@ function App() {
           }
         />
         <Route
-          path="/report"
-          element={
-            <StaffNotificationProvider>
-              <Report token={token} />
-            </StaffNotificationProvider>
-          }
-        />
-        <Route
           path="/staffviewmaintenancerequestform/:id"
           element={
             <StaffNotificationProvider>
@@ -398,7 +269,6 @@ function App() {
             </StaffNotificationProvider>
           }
         />
-
         <Route
           path="/feedbackreview/:id"
           element={
@@ -407,7 +277,14 @@ function App() {
             </StaffNotificationProvider>
           }
         />
-
+        <Route
+          path="/userrequests"
+          element={
+            <StaffNotificationProvider>
+              <UserRequests />
+            </StaffNotificationProvider>
+          }
+        />
         <Route
           path="/viewuserrequestform/:user_id"
           element={
@@ -432,6 +309,14 @@ function App() {
             </StaffNotificationProvider>
           }
         />
+        <Route
+          path="/report"
+          element={
+            <StaffNotificationProvider>
+              <Report />
+            </StaffNotificationProvider>
+          }
+        />
 
         {/* Head Routes - wrapped with HeadNotificationProvider */}
         <Route
@@ -449,48 +334,13 @@ function App() {
           }
         />
         <Route
-          path="/headmaintenance"
+          path="/headschedules"
           element={
             <HeadNotificationProvider>
-              <HeadMaintenance token={token} />
+              <HeadSchedules token={token} />
             </HeadNotificationProvider>
           }
         />
-        <Route
-          path="/headjanitorial"
-          element={
-            <HeadNotificationProvider>
-              <HeadJanitorial token={token} />
-            </HeadNotificationProvider>
-          }
-        />
-        <Route
-          path="/headcarpentry"
-          element={
-            <HeadNotificationProvider>
-              <HeadCarpentry token={token} />
-            </HeadNotificationProvider>
-          }
-        />
-        <Route
-          path="/headelectrical"
-          element={
-            <HeadNotificationProvider>
-              <HeadElectrical token={token} />
-            </HeadNotificationProvider>
-          }
-
-        />
-        <Route
-          path="/headelectrical"
-          element={
-            <HeadNotificationProvider>
-              <HeadElectrical token={token} />
-            </HeadNotificationProvider>
-          }
-
-        />
-        <Route path="/head-service/:serviceName" element={<HeadServiceRequest />} />
         <Route
           path="/headnotifications"
           element={
@@ -499,7 +349,22 @@ function App() {
             </HeadNotificationProvider>
           }
         />
-
+        <Route
+          path="/headservices"
+          element={
+            <HeadNotificationProvider>
+              <HeadServices token={token} />
+            </HeadNotificationProvider>
+          }
+        />
+        <Route
+          path="/headmaintenance"
+          element={
+            <HeadNotificationProvider>
+              <HeadMaintenance token={token} />
+            </HeadNotificationProvider>
+          }
+        />
         <Route
           path="/headrequests"
           element={
@@ -508,7 +373,6 @@ function App() {
             </HeadNotificationProvider>
           }
         />
-        
         <Route 
           path="/headmaintenancerequestform/:id" 
           element={
@@ -518,10 +382,10 @@ function App() {
         }
         />
         <Route
-          path="/headschedules"
+          path="/headviewmaintenancerequestform/:id"
           element={
             <HeadNotificationProvider>
-              <HeadSchedules token={token} />
+              <HeadViewMaintenanceRequestForm token={token} />
             </HeadNotificationProvider>
           }
         />
@@ -541,6 +405,22 @@ function App() {
           } 
         />
         <Route
+          path="/campusdirectornotifications"
+          element={
+            <CampusDirectorNotificationProvider>
+              <CampusDirectorNotifications token={token} />
+            </CampusDirectorNotificationProvider>
+          }
+        />
+        <Route
+          path="/campusdirectorschedules"
+          element={
+            <CampusDirectorNotificationProvider>
+              <CampusDirectorSchedules />
+            </CampusDirectorNotificationProvider>
+          }
+        />
+        <Route
           path="/campusdirectorrequests"
           element={
             <CampusDirectorNotificationProvider>
@@ -553,14 +433,6 @@ function App() {
           element={
             <CampusDirectorNotificationProvider>
               <CampusDirectorMaintenanceRequestForm token={token} />
-            </CampusDirectorNotificationProvider>
-          }
-        />
-        <Route
-          path="/campusdirectornotifications"
-          element={
-            <CampusDirectorNotificationProvider>
-              <CampusDirectorNotifications token={token} />
             </CampusDirectorNotificationProvider>
           }
         />

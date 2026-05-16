@@ -16,7 +16,7 @@ const CampusDirectorMaintenanceRequestForm = () => {
   const { id } = useParams();
 
   const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
-  const DIRECTOR_ID = 10;
+  // Director ID is dynamically set from the logged-in user (fetched via API)
 
   const [currentUser, setCurrentUser] = useState({
     id: "",
@@ -195,7 +195,7 @@ const CampusDirectorMaintenanceRequestForm = () => {
         ...(action === "deny" && { status: "denied" }),
       };
 
-      if (approvedById === DIRECTOR_ID && approvedBy1) {
+      if (approvedBy1) {
         payload.verified_by_director = approvedById;
       }
 
@@ -220,8 +220,10 @@ const CampusDirectorMaintenanceRequestForm = () => {
     }
   };
 
-  const isDirectorVerified = Boolean(requestDetails.verified_by_director);
-  const alreadyApproved = approvedById === DIRECTOR_ID && isDirectorVerified;
+  // approved_by_2 is the field the backend returns when the Campus Director has approved
+  const isDirectorVerified = Boolean(requestDetails.approved_by_2);
+  // Use currentUser.id (dynamically fetched) instead of a hardcoded DIRECTOR_ID
+  const alreadyApproved = isDirectorVerified;
 
   const buttonText = alreadyApproved
     ? "Already Approved"

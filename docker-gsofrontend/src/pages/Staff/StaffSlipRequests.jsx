@@ -47,12 +47,16 @@ const RequestsTable = ({ onRowClick, requests, showActions }) => (
                 <td className="p-3">{request.office_name || "Unknown Office"}</td>
                 <td className="p-3">{request.maintenance_type_name || "Unknown Type"}</td>
                 <td className="p-3">
-                  <span className={`px-3 py-1 rounded-full text-sm ${
-                    request.status_name === "Pending" || request.status_id === 1
-                      ? "bg-yellow-100 text-yellow-800"
-                      : request.status_name === "Approved"
-                      ? "bg-green-100 text-green-800"
-                      : "bg-red-100 text-red-800"
+                  <span className={`px-3 py-1 rounded-full text-sm font-medium ${
+                    request.status_name?.toLowerCase().includes("pending") || request.status_id === 1
+                      ? "bg-orange-100 text-orange-800 border border-orange-200"
+                      : request.status_name?.toLowerCase().includes("verified")
+                      ? "bg-orange-100 text-orange-800 border border-orange-200"
+                      : request.status_name?.toLowerCase().includes("scheduled")
+                      ? "bg-blue-100 text-blue-800 border border-blue-200"
+                      : request.status_name?.toLowerCase().includes("approved") || request.status_name?.toLowerCase().includes("done") || request.status_name?.toLowerCase().includes("completed")
+                      ? "bg-green-100 text-green-800 border border-green-200"
+                      : "bg-red-100 text-red-800 border border-red-200"
                   }`}>
                     {request.status_name}
                   </span>
@@ -180,13 +184,15 @@ const StaffSlipRequests = () => {
         return;
       }
 
+      if (status === "Approved" || status === "Scheduled" || status === "Done" || status === "Completed") {
+        navigate(`/staffviewmaintenancerequestform/${id}`);
+        return;
+      }
+
       const isPending = status === "Pending" || status === 1;
-      const isApprovedBy2 = approved_by_2 !== null && approved_by_2 !== undefined;
       const hasPriority = priority_number !== null && priority_number !== undefined;
 
-      if (hasPriority) {
-        navigate(`/staffviewmaintenancerequestform/${id}`);
-      } else if (isPending || isApprovedBy2) {
+      if (isPending) {
         navigate(`/staffmaintenancerequestform/${id}`);
       } else {
         navigate(`/staffviewmaintenancerequestform/${id}`);
@@ -196,16 +202,13 @@ const StaffSlipRequests = () => {
   );
 
   const getTabs = (statuses) => {
-    const approvedIdx = statuses.findIndex(s => s.name?.toLowerCase() === "approved");
-
-    let reordered = statuses.filter((s, idx) =>
-      idx !== approvedIdx &&
+    // Keep 'Approved' in the list or add it back manually if we want a specific order.
+    let reordered = statuses.filter((s) =>
       s.name?.toLowerCase() !== "urgent" &&
       s.name?.toLowerCase() !== "onhold" &&
       s.name?.toLowerCase() !== "on hold" &&
       s.name?.toLowerCase() !== "verified" &&
       s.name?.toLowerCase() !== "pending approval"
-
     );
 
     const newPendingIdx = reordered.findIndex(s => s.name?.toLowerCase() === "pending");
@@ -215,6 +218,11 @@ const StaffSlipRequests = () => {
     } else {
       reordered.unshift({ id: "pending-approvals", name: "Pending Approvals" });
       reordered.unshift({ id: "verified", name: "Verified" });
+    }
+
+    // Check if 'Approved' exists, if not, push it
+    if (!reordered.find(s => s.name?.toLowerCase() === "approved")) {
+      reordered.push({ id: "approved", name: "Approved" });
     }
 
     return reordered;
@@ -318,17 +326,16 @@ const StaffSlipRequests = () => {
               <button
                 key={status.id}
                 onClick={() => { setSelectedTab(status.name); setShowAllTab(false); }}
-                className={`px-4 py-2 font-semibold rounded-md ${
-                  (selectedTab === status.name && !showAllTab) ||
-                  (selectedTab === "Pending" && !showAllTab && (status.id === 1 || status.name?.toLowerCase() === "pending"))
-                    ? status.name === "Pending" || status.id === 1
-                      ? "bg-yellow-500 text-white"
-                      : status.name === "Approved"
-                      ? "bg-green-500 text-white"
-                      : status.name === "Verified"
-                      ? "bg-yellow-500 text-white"
-                      : "bg-red-500 text-white"
-                    : "bg-transparent text-gray-700"
+                className={`px-4 py-2 font-semibold rounded-md transition-all ${
+                  selectedTab === status.name && !showAllTab
+                    ? (status.name?.toLowerCase().includes("pending") || status.name?.toLowerCase().includes("verified") || status.id === 1)
+                      ? "bg-yellow-500 text-white shadow-md"
+                      : (status.name?.toLowerCase().includes("scheduled"))
+                      ? "bg-blue-600 text-white shadow-md"
+                      : (status.name?.toLowerCase().includes("approved") || status.name?.toLowerCase().includes("done") || status.name?.toLowerCase().includes("completed"))
+                      ? "bg-green-600 text-white shadow-md"
+                      : "bg-red-500 text-white shadow-md"
+                    : "bg-transparent text-gray-600 hover:bg-gray-100"
                 }`}
               >
                 {status.name}

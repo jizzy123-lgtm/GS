@@ -14,6 +14,8 @@ return new class extends Migration
         Schema::create('maintenance_types', function (Blueprint $table) {
             $table->id();
             $table->string('type_name')->unique();
+            $table->text('description')->nullable();
+            $table->unsignedBigInteger('created_by')->nullable();
             $table->timestamps();
         });
     }

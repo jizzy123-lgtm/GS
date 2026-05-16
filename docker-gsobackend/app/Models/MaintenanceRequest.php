@@ -96,4 +96,9 @@ class MaintenanceRequest extends Model
         return $this->hasOne(Feedback::class, 'maintenance_request_id');
     }
 
+    public function assignedStaff()
+    {
+        return $this->belongsTo(User::class, 'assigned_staff_id');
+    }
+
 }

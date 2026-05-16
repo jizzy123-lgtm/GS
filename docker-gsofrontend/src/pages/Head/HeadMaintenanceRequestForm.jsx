@@ -195,32 +195,18 @@ const HeadMaintenanceRequestForm = () => {
       return;
     }
 
+    const payload = {
+        comment,
+    };
+
     try {
       setIsLoading(true);
       setError("");
-
-      const formattedTime = formatTimeTo24Hour(time_received);
 
       const endpoint =
         action === "deny"
           ? `${API_BASE_URL}/maintenance-requests/${id}/disapprove`
           : `${API_BASE_URL}/maintenance-requests/${id}/approve-head`;
-
-      const payload = {
-        id,
-        date_received,
-        time_received: formattedTime,
-        priority_number,
-        comment,
-        approved_by: approvedById,
-        ...(action === "deny" && { status: "denied" }),
-      };
-
-      if (approvedById === HEAD1_ID) {
-        payload.verified_by_head = approvedById;
-      } else if (approvedById === HEAD2_ID && requestDetails.verified_by_head) {
-        payload.verified_by_supervisor = approvedById;
-      }
 
       const response = await fetch(endpoint, {
         method: "PUT",

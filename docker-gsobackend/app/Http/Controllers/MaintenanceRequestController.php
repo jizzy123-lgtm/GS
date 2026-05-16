@@ -59,7 +59,7 @@ class MaintenanceRequestController extends Controller
             'requesting_office' => $request->requesting_office,
             'contact_number' => $request->contact_number,
             'maintenance_type_id' => $request->maintenance_type_id,
-            'status_id' => 1,
+            'status_id' => 2,
             'image_path' => $imagePaths[0],
             'image_path_2' => $imagePaths[1],
             'image_path_3' => $imagePaths[2],
@@ -125,14 +125,16 @@ class MaintenanceRequestController extends Controller
         $maintenanceRequest = MaintenanceRequest::findOrFail($id);
 
         // Update only the staff's fields
+        // Dynamically find or create the 'Verified' status to avoid ID mismatches
+        $verifiedStatus = \App\Models\Status::firstOrCreate(['name' => 'Verified']);
+
         $maintenanceRequest->update([
             'date_received' => $request->date_received,
             'time_received' => $request->time_received,
             'priority_number' => $request->priority_number,
             'remarks' => $request->remarks,
             'verified_by' => $request->verified_by,
-            // 'status_id' => 8,
-
+            'status_id' => $verifiedStatus->id,
         ]);
 
         // ✅ Optional: Create comment if provided
@@ -147,16 +149,19 @@ class MaintenanceRequestController extends Controller
             ]);
         }
 
-        // $requester = User::where('id', $maintenanceRequest->requesting_personnel)->first();
-        // if ($requester && $requester->email) {
-        //     $requester->notify(new MaintenanceVerifiedNotification($maintenanceRequest));
-        // }
+        try {
+            $requester = User::find($maintenanceRequest->requesting_personnel);
+            if ($requester && $requester->email) {
+                // $requester->notify(new MaintenanceVerifiedNotification($maintenanceRequest));
+            }
 
-        // $heads = User::where('role_id', 2)->where('status_id', 2)->get(); // assuming role_id = 2 is Head
-
-        // foreach ($heads as $head) {
-        //     $head->notify(new RequestVerifiedByStaff($maintenanceRequest));
-        // }
+            $heads = User::where('role_id', 2)->where('status_id', 2)->get(); 
+            foreach ($heads as $head) {
+                // $head->notify(new RequestVerifiedByStaff($maintenanceRequest));
+            }
+        } catch (\Exception $e) {
+            \Log::error("Failed to send verification email notifications: " . $e->getMessage());
+        }
 
         SystemNotification::create([
             'user_id' => $maintenanceRequest->requesting_personnel, // requester
@@ -186,6 +191,18 @@ class MaintenanceRequestController extends Controller
                     'user_id' => $user->id,
                     'type' => 'maintenance_request_verified',
                     'message' => 'A maintenance request was verified by the staff',
+                    'reference_id' => $maintenanceRequest->id,
+                    'is_read' => false,
+                ]);
+            }
+
+            // Notify Campus Directors so they are aware of the pipeline
+            $campusDirectors = User::where('role_id', 5)->get();
+            foreach ($campusDirectors as $director) {
+                SystemNotification::create([
+                    'user_id' => $director->id,
+                    'type' => 'maintenance_request_verified',
+                    'message' => 'A maintenance request has been verified by staff and is pending Head approval.',
                     'reference_id' => $maintenanceRequest->id,
                     'is_read' => false,
                 ]);
@@ -291,7 +308,13 @@ class MaintenanceRequestController extends Controller
         // Notify the campus director
         $campusDirectors = User::where('role_id', 5)->where('status_id', 2)->get(); // assuming role_id 5 = Campus Director
         foreach ($campusDirectors as $director) {
-            $director->notify(new RequestApprovedByHead($maintenanceRequest));
+            try {
+                if ($director->email) {
+                    $director->notify(new RequestApprovedByHead($maintenanceRequest));
+                }
+            } catch (\Exception $e) {
+                \Log::error("Failed to send RequestApprovedByHead email: " . $e->getMessage());
+            }
         }
 
         SystemNotification::create([
@@ -361,7 +384,7 @@ class MaintenanceRequestController extends Controller
         }
 
         $maintenanceRequest->approved_by_2 = $user->id;
-        // $maintenanceRequest->status_id = 10;
+        $maintenanceRequest->status_id = 3; // Approved
         $maintenanceRequest->save();
 
         // Notify Requester
@@ -373,7 +396,13 @@ class MaintenanceRequestController extends Controller
         // Notify Staff
         $staffMembers = User::where('role_id', 3)->where('status_id', 2)->get(); // Assuming role_id = 3 is staff
         foreach ($staffMembers as $staff) {
-            $staff->notify(new AssignPriorityToRequest($maintenanceRequest));
+            try {
+                if ($staff->email) {
+                    $staff->notify(new AssignPriorityToRequest($maintenanceRequest));
+                }
+            } catch (\Exception $e) {
+                \Log::error("Failed to send AssignPriorityToRequest email: " . $e->getMessage());
+            }
         }
 
         SystemNotification::create([
@@ -999,6 +1028,7 @@ class MaintenanceRequestController extends Controller
             'approver1',
             'approver2',
             'maintenanceType',
+            'assignedStaff',
             'comments.user',     // include comment user
             'comments.role',     // if you want to show role name too
             'feedback'
@@ -1035,7 +1065,8 @@ class MaintenanceRequestController extends Controller
                 'maintenance_type' => optional($request->maintenanceType)->type_name,
                 'scheduled_date' => $request->scheduled_date,
                 'scheduled_time' => $request->scheduled_time,
-                'assigned_staff_id' => $request->assigned_staff,
+                'assigned_staff_id' => $request->assigned_staff_id ?? $request->assigned_staff,
+                'assigned_staff_name' => trim(optional($request->assignedStaff)->first_name . ' ' . optional($request->assignedStaff)->last_name),
                 'has_feedback' => !is_null($request->feedback),
                 'created_at' => $request->created_at,
                 'updated_at' => $request->updated_at,
@@ -1092,14 +1123,17 @@ class MaintenanceRequestController extends Controller
 
         // Update the priority number
         $maintenanceRequest->priority_number = $request->priority_number;
-        $maintenanceRequest->status_id = 2; // Approved status ID
+        $maintenanceRequest->status_id = 3; // Approved status ID
         $maintenanceRequest->save();
 
         // Notify the requester
-        $requester = User::find($maintenanceRequest->requesting_personnel);
-
-        if ($requester && $requester->email) {
-            $requester->notify(new RequestAssignedPriority($maintenanceRequest));
+        try {
+            $requester = User::find($maintenanceRequest->requesting_personnel);
+            if ($requester && $requester->email) {
+                $requester->notify(new RequestAssignedPriority($maintenanceRequest));
+            }
+        } catch (\Exception $e) {
+            \Log::error("Failed to send RequestAssignedPriority email: " . $e->getMessage());
         }
 
 
@@ -1136,8 +1170,8 @@ class MaintenanceRequestController extends Controller
             return response()->json(['message' => 'Maintenance request not found.'], 404);
         }
 
-        // Must be in Approved status (status_id = 2) before scheduling
-        if ($maintenanceRequest->status_id !== 2) {
+        // Must be in Approved status (status_id = 3) before scheduling
+        if ($maintenanceRequest->status_id !== 3) {
             return response()->json(['message' => 'Request must be fully approved before scheduling.'], 422);
         }
 
@@ -1151,16 +1185,16 @@ class MaintenanceRequestController extends Controller
         $maintenanceRequest->update([
             'scheduled_date' => $request->scheduled_date,
             'scheduled_time' => $request->scheduled_time,
-            'assigned_staff' => $request->assigned_staff,
+            'assigned_staff_id' => $request->assigned_staff,
             'scheduled_notes' => $request->scheduled_notes,
-            'status_id' => 4, // 4 = Done (TEMPORARY OVERRIDE for immediate feedback)
+            'status_id' => 1, // 1 = Scheduled
         ]);
 
         // Notify the requester
         SystemNotification::create([
             'user_id' => $maintenanceRequest->requesting_personnel,
-            'type' => 'maintenance_request_done', // Changed to trigger feedback prompt
-            'message' => 'Your maintenance request has been scheduled and immediately marked as done. Kindly share your feedback to help us improve our service.',
+            'type' => 'maintenance_request_scheduled',
+            'message' => 'Your maintenance request has been scheduled. Please check the details for the exact date and time.',
             'reference_id' => $maintenanceRequest->id,
             'is_read' => false,
         ]);
@@ -1191,14 +1225,14 @@ class MaintenanceRequestController extends Controller
             return response()->json(['message' => 'Maintenance request not found.'], 404);
         }
 
-        // Must be in Scheduled status (status_id = 9) with a scheduled_date
-        if ($request->status_id !== 9 || is_null($request->scheduled_date)) {
+        // Must be in Scheduled status (status_id = 1) with a scheduled_date
+        if ($request->status_id !== 1 || is_null($request->scheduled_date)) {
             return response()->json([
                 'message' => 'Request must be scheduled (with a scheduled date) before marking as done.'
             ], 422);
         }
 
-        $request->status_id = 4; // 4 = Done
+        $request->status_id = 5; // 5 = Done
         $request->save();
 
         SystemNotification::create([

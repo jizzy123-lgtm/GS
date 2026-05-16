@@ -1,0 +1,11 @@
+node_modules
+# vendor
+.git
+.env
+public/storage
+storage/*.key
+storage/framework/cache/data/*
+storage/framework/sessions/*
+storage/framework/views/*.php
+storage/logs/*.log
+docker-gsobackend/docker-data

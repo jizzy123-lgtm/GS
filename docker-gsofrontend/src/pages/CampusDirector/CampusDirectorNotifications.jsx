@@ -91,7 +91,8 @@ const DashboardContent = memo(() => {
   }, []);
 
   const filteredNotifications = notifications.filter((n) => {
-    const matchesSearch = n.message?.toLowerCase().includes(searchQuery.toLowerCase());
+    const message = n.message || "";
+    const matchesSearch = message.toLowerCase().includes(searchQuery.toLowerCase());
     const matchesFilter =
       filter === 'All' ? true :
       filter === 'Unread' ? !n.is_read :

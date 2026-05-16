@@ -15,7 +15,7 @@ class AIAssistantController extends Controller
             'form_data' => 'nullable|array'
         ]);
 
-        $apiKey = config('services.groq.key');
+        $apiKey = config('services.gemini.key');
 
         if (!$apiKey) {
             return response()->json(['message' => 'AI Assistant is currently unavailable (API key missing).'], 503);
@@ -38,35 +38,38 @@ class AIAssistantController extends Controller
 
         $fullPrompt = $contextString . $userMessage;
 
-        // Groq uses the OpenAI-compatible chat completions format
+        // Gemini API uses a different payload format
         $payload = [
-            "model"    => "llama-3.3-70b-versatile",
-            "messages" => [
-                [
-                    "role"    => "system",
-                    "content" => "You are a highly skilled and knowledgeable School Senior Maintenance Officer. You assist users with the General Service Office (GSO) maintenance request form. You MUST strictly limit your responses to school maintenance, GSO topics, and assessing maintenance request forms. If a user asks about anything unrelated to school maintenance or GSO, politely refuse to answer. Assess the provided form details, suggest improvements for clarity to help maintenance staff understand the issue better, and answer facility maintenance questions directly (e.g., why an AC unit stops working, basic troubleshooting, or expected repair procedures). Provide concise, professional, and helpful responses."
-                ],
-                [
-                    "role"    => "user",
-                    "content" => $fullPrompt
+            "system_instruction" => [
+                "parts" => [
+                    ["text" => "You are a highly skilled and knowledgeable School Senior Maintenance Officer. You assist users with the General Service Office (GSO) maintenance request form. You MUST strictly limit your responses to school maintenance, GSO topics, and assessing maintenance request forms. If a user asks about anything unrelated to school maintenance or GSO, politely refuse to answer. Assess the provided form details, suggest improvements for clarity to help maintenance staff understand the issue better, and answer facility maintenance questions directly (e.g., why an AC unit stops working, basic troubleshooting, or expected repair procedures). Provide concise, professional, and helpful responses."]
                 ]
             ],
-            "temperature" => 0.7,
-            "max_tokens"  => 512,
+            "contents" => [
+                [
+                    "role" => "user",
+                    "parts" => [
+                        ["text" => $fullPrompt]
+                    ]
+                ]
+            ],
+            "generationConfig" => [
+                "temperature" => 0.7,
+                "maxOutputTokens" => 512,
+            ]
         ];
 
         try {
             $response = Http::withoutVerifying()->withHeaders([
                 'Content-Type'  => 'application/json',
-                'Authorization' => 'Bearer ' . $apiKey,
-            ])->post('https://api.groq.com/openai/v1/chat/completions', $payload);
+            ])->post('https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=' . $apiKey, $payload);
 
             if ($response->successful()) {
                 $data = $response->json();
 
-                // Groq response follows OpenAI format: choices[0].message.content
-                if (isset($data['choices'][0]['message']['content'])) {
-                    $reply = $data['choices'][0]['message']['content'];
+                // Gemini response follows: candidates[0].content.parts[0].text
+                if (isset($data['candidates'][0]['content']['parts'][0]['text'])) {
+                    $reply = $data['candidates'][0]['content']['parts'][0]['text'];
                     return response()->json([
                         'reply' => $reply
                     ]);
@@ -75,11 +78,11 @@ class AIAssistantController extends Controller
                 return response()->json(['message' => 'Failed to parse AI response.'], 500);
             }
 
-            Log::error('Groq API Error: ' . $response->body());
+            Log::error('Gemini API Error: ' . $response->body());
             return response()->json(['message' => 'AI service error. Please try again later.'], 502);
 
         } catch (\Exception $e) {
-            Log::error('Groq API Exception: ' . $e->getMessage());
+            Log::error('Gemini API Exception: ' . $e->getMessage());
             return response()->json(['message' => 'An unexpected error occurred while contacting the AI.'], 500);
         }
     }

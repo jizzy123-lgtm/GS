@@ -1,6 +1,6 @@
 import React, { memo } from 'react';
 
-const SCHEDULE_ITEMS = ['Team Meeting', 'Project Deadline', 'System Maintenance'];
+const SCHEDULE_ITEMS = ['Team Meeting', 'Project Deadline'];
 
 const ScheduleSidebar = memo(() => (
   <aside className="hidden lg:block lg:w-1/4 bg-white/90 p-4 border-l backdrop-blur-sm">

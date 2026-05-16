@@ -1,7 +1,7 @@
 import { useState, useReducer, useEffect, useCallback, memo, useRef, useMemo } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
 import Icon from '../../components/Icon';
-import { StaffSidebar, MENU_ITEMS } from '../../components/StaffSidebar';
+import { StaffSidebar, MENU_ITEMS, useNotifications } from '../../components/StaffSidebar';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
 
@@ -32,7 +32,6 @@ const sidebarReducer = (state, action) => {
 };
 
 // ─── Reusable Avatar Component ─────────────────────────────────────────────────
-// Uses React state to handle broken image URLs cleanly
 const UserAvatar = ({ profilePicture, username, size = "md" }) => {
   const [imgFailed, setImgFailed] = useState(false);
   const initial = username ? username.charAt(0).toUpperCase() : "U";
@@ -77,7 +76,6 @@ const Header = memo(({
           onClick={onToggleMobileMenu}
           className="md:hidden p-2 hover:bg-blue-800 rounded-lg border border-blue-400 transition-colors"
           aria-label="Toggle menu"
-          aria-expanded={isMobileMenuOpen}
         >
           <Icon path="M4 6h16M4 12h16M4 18h16" className="w-6 h-6" />
         </button>
@@ -111,9 +109,6 @@ const Header = memo(({
             </NavLink>
           ))}
         </nav>
-        <div className="text-center py-3 text-xs text-blue-300 border-t border-blue-700">
-          Created By Exverter
-        </div>
       </div>
     </header>
   );
@@ -161,7 +156,7 @@ const LoadingSpinner = () => (
 );
 
 const EmptyState = ({ searchTerm, statusFilter }) => {
-  const isFiltered = searchTerm || statusFilter !== 'All Statuses';
+  const isFiltered = searchTerm || statusFilter !== '';
   
   return (
     <div className="flex flex-col items-center justify-center h-64 bg-gray-50 rounded-lg border-2 border-dashed border-gray-300 p-6">
@@ -183,7 +178,6 @@ const UserRequestCard = memo(({ request, onRowClick }) => (
   <div className="bg-white border border-gray-200 rounded-xl shadow-sm hover:shadow-md transition-shadow p-4 space-y-3">
     <div className="flex items-center justify-between">
       <div className="flex items-center space-x-3">
-        {/* ← Fixed avatar */}
         <UserAvatar profilePicture={request.profile_picture} username={request.username} size="md" />
         <div>
           <div className="font-medium text-gray-900">{request.username}</div>
@@ -202,7 +196,7 @@ const UserRequestCard = memo(({ request, onRowClick }) => (
     </div>
     
     <button
-      onClick={() => onRowClick(request.id)}
+      onClick={() => onRowClick(request.user_id)}
       className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-medium py-2 px-4 rounded-lg transition-colors flex items-center justify-center"
     >
       <Icon path="M15 12a3 3 0 11-6 0 3 3 0 016 0z M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" className="w-5 h-5 mr-2" />
@@ -239,7 +233,7 @@ const UserRequestsTable = memo(({
 
   if (isLoading) {
     return (
-      <main className="flex-1 p-4 md:p-6 lg:p-8 bg-gray-50 overflow-y-auto">
+      <main className="flex-1 p-4 md:p-6 lg:p-8 bg-gray-50 overflow-y-auto text-black">
         <div className="mb-6">
           <h1 className="text-2xl md:text-3xl font-bold text-gray-900">User Requests</h1>
           <p className="text-gray-600 mt-1">Review and manage your account requests</p>
@@ -250,14 +244,14 @@ const UserRequestsTable = memo(({
   }
 
   return (
-    <main className="flex-1 p-4 md:p-6 lg:p-8 bg-gray-50 overflow-y-auto">
+    <main className="flex-1 p-4 md:p-6 lg:p-8 bg-gray-50 overflow-y-auto text-black">
       <div className="mb-6">
         <div className="flex flex-wrap items-center justify-between gap-4">
           <div>
             <h1 className="text-2xl md:text-3xl font-bold text-gray-900">User Requests</h1>
             <p className="text-gray-600 mt-1">Review and manage your account requests</p>
           </div>
-          <div className="flex gap-2">
+          <div className="flex gap-2 text-black">
             <div className="relative">
               <input 
                 type="text" 
@@ -295,7 +289,7 @@ const UserRequestsTable = memo(({
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:hidden gap-4">
             {filteredRequests.map((request) => (
               <UserRequestCard 
-                key={request.id} 
+                key={request.user_id} 
                 request={request} 
                 onRowClick={onRowClick} 
               />
@@ -318,12 +312,11 @@ const UserRequestsTable = memo(({
               <tbody>
                 {filteredRequests.map((request, index) => (
                   <tr 
-                    key={request.id} 
+                    key={request.user_id} 
                     className={`hover:bg-gray-50 ${index !== filteredRequests.length - 1 ? 'border-b border-gray-200' : ''}`}
                   >
-                    <td className="p-4">
+                    <td className="p-4 text-black">
                       <div className="flex items-center">
-                        {/* ← Fixed avatar */}
                         <UserAvatar profilePicture={request.profile_picture} username={request.username} size="sm" />
                         <span className="font-medium text-gray-900 ml-3">{request.username}</span>
                       </div>
@@ -338,7 +331,7 @@ const UserRequestsTable = memo(({
                     </td>
                     <td className="p-4">
                       <button
-                        onClick={() => onRowClick(request.id)}
+                        onClick={() => onRowClick(request.user_id)}
                         className="bg-indigo-600 hover:bg-indigo-700 text-white font-medium py-2 px-4 rounded-lg transition-colors inline-flex items-center"
                       >
                         <Icon path="M15 12a3 3 0 11-6 0 3 3 0 016 0z M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" className="w-5 h-5 mr-2" />
@@ -349,20 +342,6 @@ const UserRequestsTable = memo(({
                 ))}
               </tbody>
             </table>
-            <div className="bg-gray-50 px-4 py-3 border-t border-gray-200 flex items-center justify-between">
-              <div className="text-sm text-gray-600">
-                Showing <span className="font-medium">{filteredRequests.length}</span> of <span className="font-medium">{requests.length}</span> requests
-              </div>
-              <div className="flex items-center space-x-2">
-                <button className="bg-white border border-gray-300 rounded-md px-3 py-1 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50" disabled>
-                  Previous
-                </button>
-                <span className="bg-indigo-600 text-white rounded-md px-3 py-1 text-sm font-medium">1</span>
-                <button className="bg-white border border-gray-300 rounded-md px-3 py-1 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50" disabled>
-                  Next
-                </button>
-              </div>
-            </div>
           </div>
         </>
       )}
@@ -392,7 +371,7 @@ const UserRequests = () => {
     }
   }, [navigate]);
 
-  const fetchAccountStatuses = async () => {
+  const fetchAccountStatuses = async (token) => {
     try {
       const response = await fetch(`${API_BASE_URL}/accountStatuses`, {
         method: "GET",
@@ -402,24 +381,20 @@ const UserRequests = () => {
         },
       });
 
-      if (!response.ok) {
-        console.warn(`Failed to fetch account statuses: ${response.status} ${response.statusText}`);
-        return [];
-      }
+      if (!response.ok) return [];
 
       const data = await response.json();
-      const statusesArray = Array.isArray(data.statuses) ? data.statuses : [];
-      return statusesArray;
+      return Array.isArray(data.statuses) ? data.statuses : [];
     } catch (error) {
       console.error("Error fetching account statuses:", error);
       return [];
     }
   };
 
-  const fetchUserRequests = async () => {
+  const fetchUserRequests = async (token) => {
     setLoading(true);
     try {
-      const statusesArray = await fetchAccountStatuses();
+      const statusesArray = await fetchAccountStatuses(token);
       setAccountStatuses(statusesArray);
 
       const response = await fetch(`${API_BASE_URL}/users-list`, {
@@ -435,19 +410,7 @@ const UserRequests = () => {
       const data = await response.json();
       const extractedData = Array.isArray(data.data) ? data.data : Array.isArray(data) ? data : [];
 
-      if (extractedData.length === 0) {
-        setRequests([]);
-        setLoading(false);
-        return;
-      }
-
-      const requestsWithRoles = extractedData.map(request => ({
-        ...request,
-        id: request.user_id,
-        role: request.role || 'Unknown Role'
-      }));
-
-      setRequests(requestsWithRoles);
+      setRequests(extractedData);
     } catch (error) {
       console.error("Error fetching user requests:", error);
       setRequests([]);
@@ -458,7 +421,7 @@ const UserRequests = () => {
 
   useEffect(() => {
     if (token) {
-      fetchUserRequests();
+      fetchUserRequests(token);
     }
   }, [token]);
 
@@ -471,8 +434,9 @@ const UserRequests = () => {
     sessionStorage.removeItem("authToken");
     navigate("/loginpage");
   };
+
   return (
-    <div className="flex flex-col h-screen bg-gray-50">
+    <div className="flex flex-col h-screen bg-gray-50 text-black">
       <Header
         isMobileMenuOpen={state.isMobileMenuOpen}
         onToggleMobileMenu={() => dispatch({ type: "TOGGLE_MOBILE_MENU" })}

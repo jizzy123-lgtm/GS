@@ -160,44 +160,50 @@ function AdminUserRequestsForm() {
   };
 
   const updateAccountStatus = async (statusId) => {
-  if (!userData || !user_id) return;
-  try {
-    const numericStatusId = parseInt(statusId);
-    if (isNaN(numericStatusId)) throw new Error("Invalid status ID");
+    if (!userData || !user_id) return;
+    try {
+      const numericStatusId = parseInt(statusId);
+      if (isNaN(numericStatusId)) throw new Error("Invalid status ID");
 
-    let endpoint = API_BASE_URL + "/users/" + user_id + "/updateAccountStatus";
-    if (numericStatusId === 3) {
-      endpoint = API_BASE_URL + "/users/" + user_id + "/dissaproveAccountStatus";
-    }
+      let endpoint = API_BASE_URL + "/users/" + user_id + "/updateAccountStatus";
+      let body = { status_id: numericStatusId };
 
-    const response = await fetch(endpoint, {
-      method: "PUT",
-      headers: {
-        "Authorization": "Bearer " + token,
-        "Accept": "application/json",
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({ account_status_id: numericStatusId }),
-    });
+      if (numericStatusId === 3) {
+        endpoint = API_BASE_URL + "/users/" + user_id + "/dissaproveAccountStatus";
+        body = { status_id: numericStatusId, rejection_reason: "Account rejected by admin." };
+      }
 
-    const result = await response.json();
-    if (!response.ok) throw new Error(result.message || "Failed to update status");
+      const response = await fetch(endpoint, {
+        method: "PUT",
+        headers: {
+          "Authorization": "Bearer " + token,
+          "Accept": "application/json",
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(body),
+      });
 
-    setStatusMessage("User status updated successfully.");
-    setUserData({
-      ...userData,
-      account_status_id: numericStatusId,
-      account_status:
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.message || "Failed to update status");
+
+      const newStatusLabel =
         numericStatusId === 2 ? "Approved" :
-        numericStatusId === 3 ? "Disapproved" : "Pending",
-    });
+        numericStatusId === 3 ? "Disapproved" : "Pending";
 
-    setTimeout(() => navigate("/adminuserrequests"), 2000);
-  } catch (err) {
-    console.error("Error updating status:", err);
-    setStatusMessage("Failed to update status: " + err.message);
-  }
-};
+      setStatusMessage("User status updated successfully.");
+      setUserData({
+        ...userData,
+        status_id: numericStatusId,
+        status: newStatusLabel,
+        account_status: newStatusLabel,
+      });
+
+      setTimeout(() => navigate("/adminuserrequests"), 2000);
+    } catch (err) {
+      console.error("Error updating status:", err);
+      setStatusMessage("Failed to update status: " + err.message);
+    }
+  };
 
 
   // Delete account function
@@ -350,57 +356,72 @@ function AdminUserRequestsForm() {
                 </div>
 
                 <div className="mt-8 pt-6 border-t border-gray-100">
-                  <div className="flex flex-wrap items-center justify-between gap-4">
-                    <div className="flex items-center gap-3">
-                      <div className={`px-4 py-2 rounded-lg font-medium text-sm
-                        ${userData.account_status === 'Approved' ? 'bg-green-100 text-green-800' : 
-                          userData.account_status === 'Disapproved' ? 'bg-red-100 text-red-800' : 
-                          'bg-amber-100 text-amber-800'}`}>
-                        Current Status: {userData.account_status || 'Pending'}
-                      </div>
-                      <div className="text-sm text-gray-500">
-                        <span className="mr-1">Registered on:</span>
-                        <span className="font-medium">
-                          {userData.created_at ? new Date(userData.created_at).toLocaleDateString(undefined, {
-                            year: 'numeric', month: 'short', day: 'numeric'
-                          }) : 'Unknown'}
-                        </span>
-                      </div>
-                    </div>
+                  {/* Map status_id directly to account status labels to avoid confusion with maintenance statuses */}
+                  {(() => {
+                    const statusId = parseInt(userData.status_id);
+                    const currentStatus =
+                      statusId === 2 ? 'Approved' :
+                      statusId === 3 ? 'Disapproved' : 'Pending';
+                    const isPending = currentStatus === 'Pending';
+                    const isApproved = currentStatus === 'Approved';
+                    const isDisapproved = currentStatus === 'Disapproved';
 
-                    {/* Approve/Reject buttons - Pending only */}
-                    {userData.account_status === 'Pending' && (
-                      <div className="flex gap-3">
-                        <button
-                          onClick={() => updateAccountStatus(3)}
-                          className="flex items-center px-5 py-2.5 bg-white border-2 border-red-400 text-red-600 hover:bg-red-50 rounded-lg shadow-sm transition-all duration-200 font-medium"
-                        >
-                          <Icon path="M6 18L18 6M6 6l12 12" className="w-5 h-5 mr-2" />
-                          Reject Request
-                        </button>
-                        <button
-                          onClick={() => updateAccountStatus(2)}
-                          className="flex items-center px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg shadow-md transition-all duration-200 font-medium"
-                        >
-                          <Icon path="M5 13l4 4L19 7" className="w-5 h-5 mr-2" />
-                          Approve Request
-                        </button>
-                      </div>
-                    )}
-                  </div>
+                    return (
+                      <>
+                        <div className="flex flex-wrap items-center justify-between gap-4">
+                          <div className="flex items-center gap-3">
+                            <div className={`px-4 py-2 rounded-lg font-medium text-sm
+                              ${isApproved ? 'bg-green-100 text-green-800' :
+                                isDisapproved ? 'bg-red-100 text-red-800' :
+                                'bg-amber-100 text-amber-800'}`}>
+                              Current Status: {currentStatus}
+                            </div>
+                            <div className="text-sm text-gray-500">
+                              <span className="mr-1">Registered on:</span>
+                              <span className="font-medium">
+                                {userData.created_at ? new Date(userData.created_at).toLocaleDateString(undefined, {
+                                  year: 'numeric', month: 'short', day: 'numeric'
+                                }) : 'Unknown'}
+                              </span>
+                            </div>
+                          </div>
 
-                  {/* Delete button - Approved accounts only */}
-                  {userData.account_status === 'Approved' && (
-                    <div className="flex justify-end mt-4">
-                      <button
-                        onClick={() => setShowDeleteModal(true)}
-                        className="flex items-center px-5 py-2.5 bg-white border-2 border-red-500 text-red-600 hover:bg-red-50 rounded-lg shadow-sm transition-all duration-200 font-medium"
-                      >
-                        <Icon path="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" className="w-5 h-5 mr-2" />
-                        Delete Account
-                      </button>
-                    </div>
-                  )}
+                          {/* Approve/Reject buttons - show when Pending */}
+                          {isPending && (
+                            <div className="flex gap-3">
+                              <button
+                                onClick={() => updateAccountStatus(3)}
+                                className="flex items-center px-5 py-2.5 bg-white border-2 border-red-400 text-red-600 hover:bg-red-50 rounded-lg shadow-sm transition-all duration-200 font-medium"
+                              >
+                                <Icon path="M6 18L18 6M6 6l12 12" className="w-5 h-5 mr-2" />
+                                Reject Request
+                              </button>
+                              <button
+                                onClick={() => updateAccountStatus(2)}
+                                className="flex items-center px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg shadow-md transition-all duration-200 font-medium"
+                              >
+                                <Icon path="M5 13l4 4L19 7" className="w-5 h-5 mr-2" />
+                                Approve Request
+                              </button>
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Delete button - Approved accounts only */}
+                        {isApproved && (
+                          <div className="flex justify-end mt-4">
+                            <button
+                              onClick={() => setShowDeleteModal(true)}
+                              className="flex items-center px-5 py-2.5 bg-white border-2 border-red-500 text-red-600 hover:bg-red-50 rounded-lg shadow-sm transition-all duration-200 font-medium"
+                            >
+                              <Icon path="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" className="w-5 h-5 mr-2" />
+                              Delete Account
+                            </button>
+                          </div>
+                        )}
+                      </>
+                    );
+                  })()}
                 </div>
               </div>
             </div>

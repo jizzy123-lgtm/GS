@@ -45,25 +45,36 @@ const HeadProfileInner = () => {
   const [showUploadOptions, setShowUploadOptions] = useState(false);
 
   const [formData, setFormData] = useState({
-    requesting_personnel: '',
-    position: '',
-    requesting_office: '',
-    contact_number: '',
-    username: '',
-    email: '',
-    role_id: '',
+    first_name:           '',
+    last_name:            '',
+    middle_name:          '',
+    suffix:               '',
+    position:             '',
+    requesting_office:    '',
+    contact_number:       '',
+    username:             '',
+    email:                '',
+    role_id:              '',
+    position_id:          '',
+    office_id:            ''
   });
 
   const [editFormData, setEditFormData] = useState({
-    full_name: '',
-    position: '',
-    office: '',
-    contact_number: '',
-    username: '',
-    email: '',
-    password: '',
-    password_confirmation: '',
+    first_name:            '',
+    last_name:             '',
+    middle_name:           '',
+    suffix:                '',
+    position_id:           '',
+    office_id:             '',
+    contact_number:        '',
+    username:              '',
+    email:                 '',
+    password:              '',
+    password_confirmation: ''
   });
+
+  const [offices, setOffices] = useState([]);
+  const [positions, setPositions] = useState([]);
 
   const [isEditing, setIsEditing]                   = useState(false);
   const [showPasswordFields, setShowPasswordFields] = useState(false);
@@ -71,6 +82,7 @@ const HeadProfileInner = () => {
   const [status, setStatus] = useState({
     isFetchingUserDetails: false,
     isUpdatingProfile: false,
+    isFetchingCommonData: false,
     error: null,
     success: null,
   });
@@ -114,6 +126,26 @@ const HeadProfileInner = () => {
     setToken(authToken);
   }, [navigate]);
 
+  // ── Fetch common data ─────────────────────────────────────────────────────
+  useEffect(() => {
+    const fetchCommonData = async () => {
+      try {
+        setStatus((prev) => ({ ...prev, isFetchingCommonData: true }));
+        const response = await fetch(`${API_BASE_URL}/common-datas`);
+        const data = await response.json();
+        if (response.ok) {
+          setOffices(data.offices || []);
+          setPositions(data.positions || []);
+        }
+      } catch (err) {
+        console.error('Error fetching common data:', err);
+      } finally {
+        setStatus((prev) => ({ ...prev, isFetchingCommonData: false }));
+      }
+    };
+    fetchCommonData();
+  }, [API_BASE_URL]);
+
   // ── Fetch user details ───────────────────────────────────────────────────────
   useEffect(() => {
     if (!token) return;
@@ -132,20 +164,28 @@ const HeadProfileInner = () => {
 
         setFormData((prev) => ({
           ...prev,
-          requesting_personnel: data.full_name      || '',
+          first_name:           data.first_name     || '',
+          last_name:            data.last_name      || '',
+          middle_name:          data.middle_name    || '',
+          suffix:               data.suffix         || '',
           position:             data.position       || '',
           requesting_office:    data.office         || '',
           contact_number:       data.contact_number || '',
           username:             data.username       || '',
           email:                data.email          || '',
           role_id:              data.role_id        || '',
+          position_id:          data.position_id    || '',
+          office_id:            data.office_id      || '',
         }));
 
         setEditFormData((prev) => ({
           ...prev,
-          full_name:      data.full_name      || '',
-          position:       data.position       || '',
-          office:         data.office         || '',
+          first_name:     data.first_name     || '',
+          last_name:      data.last_name      || '',
+          middle_name:    data.middle_name    || '',
+          suffix:         data.suffix         || '',
+          position_id:    data.position_id    || '',
+          office_id:      data.office_id      || '',
           contact_number: data.contact_number || '',
           username:       data.username       || '',
           email:          data.email          || '',
@@ -328,10 +368,13 @@ const HeadProfileInner = () => {
     try {
       setStatus((prev) => ({ ...prev, isUpdatingProfile: true, error: null, success: null }));
       const requestBody = {
-        full_name:      editFormData.full_name,
+        first_name:     editFormData.first_name,
+        last_name:      editFormData.last_name,
+        middle_name:    editFormData.middle_name,
+        suffix:         editFormData.suffix,
         contact_number: editFormData.contact_number,
-        office:         editFormData.office,
-        position:       editFormData.position,
+        office_id:      editFormData.office_id,
+        position_id:    editFormData.position_id,
         email:          editFormData.email,
         username:       editFormData.username,
       };
@@ -340,7 +383,7 @@ const HeadProfileInner = () => {
         requestBody.password_confirmation = editFormData.password_confirmation;
       }
       const response = await fetch(`${API_BASE_URL}/profile/update`, {
-        method: 'POST',
+        method: 'PUT',
         headers: {
           Authorization: `Bearer ${token}`,
           'Content-Type': 'application/json',
@@ -352,12 +395,18 @@ const HeadProfileInner = () => {
       if (!response.ok) throw new Error(data.message || 'Failed to update profile');
       setFormData((prev) => ({
         ...prev,
-        requesting_personnel: editFormData.full_name,
-        position:             editFormData.position,
-        requesting_office:    editFormData.office,
+        first_name:           editFormData.first_name,
+        last_name:            editFormData.last_name,
+        middle_name:          editFormData.middle_name,
+        suffix:               editFormData.suffix,
+        position_id:          editFormData.position_id,
+        office_id:            editFormData.office_id,
         contact_number:       editFormData.contact_number,
         username:             editFormData.username,
         email:                editFormData.email,
+        // Update labels
+        position: positions.find(p => String(p.id) === String(editFormData.position_id))?.name || prev.position,
+        requesting_office: offices.find(o => String(o.id) === String(editFormData.office_id))?.name || prev.requesting_office,
       }));
       setStatus((prev) => ({ ...prev, success: 'Profile updated successfully' }));
       setIsEditing(false);
@@ -369,8 +418,13 @@ const HeadProfileInner = () => {
   };
 
   const displaySrc  = previewImage || (!imgError ? profilePicture : null) || null;
-  const viewInitial = formData.requesting_personnel?.charAt(0)?.toUpperCase() || 'U';
-  const editInitial = editFormData.full_name?.charAt(0)?.toUpperCase()        || 'U';
+  const fullName = trimString(`${formData.first_name} ${formData.middle_name || ''} ${formData.last_name} ${formData.suffix || ''}`);
+  const viewInitial = fullName.charAt(0)?.toUpperCase() || 'U';
+  const editInitial = editFormData.first_name?.charAt(0)?.toUpperCase()        || 'U';
+
+  function trimString(str) {
+    return str.replace(/\s+/g, ' ').trim();
+  }
 
   // ── Render ───────────────────────────────────────────────────────────────────
   return (
@@ -479,7 +533,7 @@ const HeadProfileInner = () => {
                         {/* Name / position / role */}
                         <div className="mb-6">
                           <h1 className="text-2xl font-bold text-center text-gray-900">
-                            {formData.requesting_personnel || 'Head Name'}
+                            {fullName || 'Head Name'}
                           </h1>
                           <p className="text-gray-500 text-center">{formData.position || 'Position'}</p>
                           <p className="text-indigo-500 text-center font-medium mt-1">
@@ -492,7 +546,7 @@ const HeadProfileInner = () => {
                           {[
                             { label: 'Username',       value: formData.username              },
                             { label: 'Email',          value: formData.email                 },
-                            { label: 'Full Name',      value: formData.requesting_personnel  },
+                            { label: 'Full Name',      value: fullName                       },
                             { label: 'Position',       value: formData.position              },
                             { label: 'Role',           value: getRoleLabel(formData.role_id) },
                             { label: 'Office',         value: formData.requesting_office     },
@@ -575,25 +629,75 @@ const HeadProfileInner = () => {
 
                         {/* Fields */}
                         <div className="space-y-4">
-                          {[
-                            { id: 'full_name',      label: 'Full Name',      type: 'text',  required: true  },
-                            { id: 'username',       label: 'Username',       type: 'text',  required: true  },
-                            { id: 'email',          label: 'Email',          type: 'email', required: true  },
-                            { id: 'position',       label: 'Position',       type: 'text',  required: false },
-                            { id: 'office',         label: 'Office',         type: 'text',  required: false },
-                            { id: 'contact_number', label: 'Contact Number', type: 'text',  required: false },
-                          ].map(({ id, label, type, required }) => (
-                            <div key={id} className="mb-4">
-                              <label htmlFor={id} className="block text-sm font-medium text-gray-700">{label}</label>
-                              <input
-                                type={type} name={id} id={id}
-                                value={editFormData[id]}
-                                onChange={handleEditInputChange}
-                                required={required}
-                                className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
-                              />
+                          <div className="grid grid-cols-2 gap-4">
+                            <div className="mb-4">
+                              <label className="block text-sm font-medium text-gray-700">First Name</label>
+                              <input type="text" name="first_name" value={editFormData.first_name} onChange={handleEditInputChange} required
+                                className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm" />
                             </div>
-                          ))}
+                            <div className="mb-4">
+                              <label className="block text-sm font-medium text-gray-700">Last Name</label>
+                              <input type="text" name="last_name" value={editFormData.last_name} onChange={handleEditInputChange} required
+                                className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm" />
+                            </div>
+                          </div>
+
+                          <div className="grid grid-cols-2 gap-4">
+                            <div className="mb-4">
+                              <label className="block text-sm font-medium text-gray-700">Middle Initial</label>
+                              <input type="text" name="middle_name" value={editFormData.middle_name} onChange={handleEditInputChange} maxLength="1"
+                                className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm" />
+                            </div>
+                            <div className="mb-4">
+                              <label className="block text-sm font-medium text-gray-700">Suffix</label>
+                              <select name="suffix" value={editFormData.suffix} onChange={handleEditInputChange}
+                                className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
+                                <option value="">None</option>
+                                <option value="Jr.">Jr.</option>
+                                <option value="Sr.">Sr.</option>
+                                <option value="III">III</option>
+                                <option value="IV">IV</option>
+                                <option value="V">V</option>
+                              </select>
+                            </div>
+                          </div>
+
+                          <div className="grid grid-cols-1 gap-4">
+                            <div className="mb-4">
+                              <label className="block text-sm font-medium text-gray-700">Username</label>
+                              <input type="text" name="username" value={editFormData.username} onChange={handleEditInputChange} required
+                                className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm" />
+                            </div>
+                            <div className="mb-4">
+                              <label className="block text-sm font-medium text-gray-700">Email</label>
+                              <input type="email" name="email" value={editFormData.email} onChange={handleEditInputChange} required
+                                className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm" />
+                            </div>
+                          </div>
+
+                          <div className="grid grid-cols-1 gap-4">
+                            <div className="mb-4">
+                              <label className="block text-sm font-medium text-gray-700">Office</label>
+                              <select name="office_id" value={editFormData.office_id} onChange={handleEditInputChange} required
+                                className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
+                                <option value="" disabled>Select Office</option>
+                                {offices.map(o => <option key={o.id} value={o.id}>{o.name}</option>)}
+                              </select>
+                            </div>
+                            <div className="mb-4">
+                              <label className="block text-sm font-medium text-gray-700">Position</label>
+                              <select name="position_id" value={editFormData.position_id} onChange={handleEditInputChange} required
+                                className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
+                                <option value="" disabled>Select Position</option>
+                                {positions.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+                              </select>
+                            </div>
+                            <div className="mb-4">
+                              <label className="block text-sm font-medium text-gray-700">Contact Number</label>
+                              <input type="text" name="contact_number" value={editFormData.contact_number} onChange={handleEditInputChange} required
+                                className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm" />
+                            </div>
+                          </div>
 
                           {/* Toggle password */}
                           <div className="mb-4">

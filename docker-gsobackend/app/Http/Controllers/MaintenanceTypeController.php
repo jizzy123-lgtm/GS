@@ -15,9 +15,16 @@ class MaintenanceTypeController extends Controller
 
     public function store(Request $request)
     {
-        $request->validate(['type_name' => 'required|string|unique:maintenance_types']);
+        $request->validate([
+            'type_name' => 'required|string|unique:maintenance_types',
+            'description' => 'nullable|string',
+        ]);
 
-        $type = MaintenanceType::create(['type_name' => $request->type_name]);
+        $type = MaintenanceType::create([
+            'type_name' => $request->type_name,
+            'description' => $request->description,
+            'created_by' => $request->user() ? $request->user()->id : null,
+        ]);
 
         return response()->json($type, 201);
     }

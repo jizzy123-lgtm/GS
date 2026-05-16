@@ -44,14 +44,16 @@ const RequestsTable = ({ onRowClick, requests, showActions }) => (
                 <td className="p-3">{request.requesting_office}</td>
                 <td className="p-3">{request.maintenance_type}</td>
                 <td className="p-3">
-                  <span className={`px-3 py-1 rounded-full text-sm ${
-                    request.status === "Pending"
-                      ? "bg-yellow-100 text-yellow-800"
-                      : request.status === "Verified"
-                      ? "bg-yellow-100 text-yellow-800"
-                      : request.status === "Approved"
-                      ? "bg-green-100 text-green-800"
-                      : "bg-red-100 text-red-800"
+                  <span className={`px-3 py-1 rounded-full text-sm font-medium ${
+                    request.status?.toLowerCase().includes("pending")
+                      ? "bg-orange-100 text-orange-800 border border-orange-200"
+                      : request.status?.toLowerCase().includes("verified")
+                      ? "bg-orange-100 text-orange-800 border border-orange-200"
+                      : request.status?.toLowerCase().includes("scheduled")
+                      ? "bg-blue-100 text-blue-800 border border-blue-200"
+                      : request.status?.toLowerCase().includes("approved") || request.status?.toLowerCase().includes("done") || request.status?.toLowerCase().includes("completed")
+                      ? "bg-green-100 text-green-800 border border-green-200"
+                      : "bg-red-100 text-red-800 border border-red-200"
                   }`}>
                     {request.status}
                   </span>
@@ -169,14 +171,14 @@ const HeadRequests = () => {
 
   const handleRowClick = useCallback(
     (id, status) => {
-      const isPending =
+      const needsApproval =
         status === "Pending" ||
-        status === 1 ||
+        status === "Verified" ||
         status?.toLowerCase() === "urgent" ||
         status?.toLowerCase() === "onhold" ||
-        status?.toLowerCase() === "on hold" ||
-        status?.toLowerCase() === "verified";
-      if (isPending) {
+        status?.toLowerCase() === "on hold";
+      
+      if (needsApproval) {
         navigate(`/headmaintenancerequestform/${id}`);
       } else {
         navigate(`/headviewmaintenancerequestform/${id}`);
@@ -189,25 +191,13 @@ const HeadRequests = () => {
     if (selectedTab === "Pending") {
       return r.status === "Pending";
     }
+    if (selectedTab === "Verified") {
+      return r.status === "Verified";
+    }
     if (selectedTab.toLowerCase() === "urgent") {
-      return (
-        r.status?.toLowerCase() === "urgent" &&
-        r.verified_by !== null && r.verified_by !== undefined &&
-        (r.approved_by_1 === null || r.approved_by_1 === undefined)
-      );
+      return r.status?.toLowerCase() === "urgent";
     }
-    if (selectedTab.toLowerCase() === "onhold" || selectedTab.toLowerCase() === "on hold") {
-      return (
-        (r.status?.toLowerCase() === "onhold" || r.status?.toLowerCase() === "on hold") &&
-        r.verified_by !== null && r.verified_by !== undefined &&
-        (r.approved_by_1 === null || r.approved_by_1 === undefined)
-      );
-    }
-    return (
-      r.verified_by !== null &&
-      r.verified_by !== undefined &&
-      r.status === selectedTab
-    );
+    return r.status === selectedTab;
   });
 
   if (loading) return <div className="p-4">Loading requests...</div>;
@@ -252,12 +242,24 @@ const HeadRequests = () => {
           isSidebarCollapsed={state.isSidebarCollapsed}
           onToggleSidebar={() => dispatch({ type: "TOGGLE_SIDEBAR" })}
           menuItems={HEAD_MENU_ITEMS}
-          onLogout={() => {
-            localStorage.removeItem("authToken");
-            localStorage.removeItem("user");
-            sessionStorage.removeItem("authToken");
-            sessionStorage.removeItem("user");
-            navigate("/loginpage", { replace: true });
+          onLogout={async () => {
+            try {
+              if (token) {
+                await fetch(`${API_BASE_URL}/logout`, {
+                  method: "POST",
+                  headers: {
+                    "Accept": "application/json",
+                    "Authorization": `Bearer ${token}`,
+                  },
+                });
+              }
+            } catch (err) {
+              console.error(err);
+            } finally {
+              localStorage.clear();
+              sessionStorage.clear();
+              navigate("/loginpage", { replace: true });
+            }
           }}
         />
         <main className="flex-1 p-4 md:p-6 lg:p-8 bg-white/95 backdrop-blur-sm overflow-y-auto">
@@ -265,20 +267,25 @@ const HeadRequests = () => {
             Maintenance Requests
           </h2>
           <div className="flex space-x-4 mb-6">
-            {statuses.map((status) => (
+            {statuses
+              .filter((status) => {
+                const name = status.name?.toLowerCase();
+                return name !== "onhold" && name !== "on hold" && name !== "verified";
+              })
+              .map((status) => (
               <button
                 key={status.id}
                 onClick={() => setSelectedTab(status.name)}
-                className={`relative px-4 py-2 font-semibold rounded-md ${
+                className={`relative px-4 py-2 font-semibold rounded-md transition-colors ${
                   selectedTab === status.name
-                    ? status.name === "Pending"
+                    ? status.name === "Scheduled"
+                      ? "bg-blue-500 text-white"
+                      : status.name === "Pending" || status.name === "Verified"
                       ? "bg-yellow-500 text-white"
-                      : status.name === "Approved"
+                      : status.name === "Approved" || status.name === "Done" || status.name === "Completed"
                       ? "bg-green-500 text-white"
-                      : status.name === "Disapproved"
-                      ? "bg-red-500 text-white"
                       : "bg-red-500 text-white"
-                    : "bg-transparent text-gray-700"
+                    : "bg-transparent text-gray-700 hover:bg-gray-100"
                 }`}
               >
                 {status.name}

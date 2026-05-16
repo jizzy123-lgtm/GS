@@ -48,23 +48,27 @@ const RequestsTable = ({ onRowClick, requests, showActions }) => (
           {requests.length > 0 ? (
             requests.map((request) => (
               <tr key={request.request_id} className="hover:bg-gray-50 even:bg-gray-50 border-b border-gray-400">
-                <td className="p-3">{new Date(request.date_requested).toLocaleDateString()}</td>
+                <td className="p-3">{request.date_requested ? new Date(request.date_requested).toLocaleDateString() : "N/A"}</td>
                 <td className="p-3 font-medium">{request.requesting_personnel || "Unknown Personnel"}</td>
                 <td className="p-3">{request.position || "Unknown Position"}</td>
                 <td className="p-3">{request.requesting_office || "Unknown Office"}</td>
                 <td className="p-3">{request.maintenance_type || "Unknown Type"}</td>
                 <td className="p-3">
-                  <span className={`px-3 py-1 rounded-full text-sm ${
-                    request.status === "Pending"
-                      ? "bg-yellow-100 text-yellow-800"
-                      : request.status === "Approved"
-                      ? "bg-green-100 text-green-800"
-                      : "bg-red-100 text-red-800"
+                  <span className={`px-3 py-1 rounded-full text-sm font-medium ${
+                    request.status?.toLowerCase().includes("pending")
+                      ? "bg-orange-100 text-orange-800 border border-orange-200"
+                      : request.status?.toLowerCase().includes("verified")
+                      ? "bg-orange-100 text-orange-800 border border-orange-200"
+                      : request.status?.toLowerCase().includes("scheduled")
+                      ? "bg-blue-100 text-blue-800 border border-blue-200"
+                      : request.status?.toLowerCase().includes("approved") || request.status?.toLowerCase().includes("done") || request.status?.toLowerCase().includes("completed")
+                      ? "bg-green-100 text-green-800 border border-green-200"
+                      : "bg-red-100 text-red-800 border border-red-200"
                   }`}>
                     {request.status}
                   </span>
                 </td>
-                <td className="p-3">{request.contact_number}</td>
+                <td className="p-3">{request.contact_number || "N/A"}</td>
                 {showActions && (
                   <td className="p-3">
                     <button
@@ -188,48 +192,34 @@ const CampusDirectorRequests = () => {
   }, [token, navigate]);
 
   const handleRowClick = useCallback(
-  (id, status) => {
-    const isPending =
-      status === "Pending" ||
-      status === 1 ||
-      status?.toLowerCase() === "urgent" ||
-      status?.toLowerCase() === "onhold" ||
-      status?.toLowerCase() === "on hold" ||
-      status?.toLowerCase() === "verified";
-    if (isPending) {
+    (id, status) => {
+      const needsAction =
+        status === "Verified" ||
+        status === "Pending" ||
+        status?.toLowerCase() === "urgent" ||
+        status?.toLowerCase() === "onhold" ||
+        status?.toLowerCase() === "on hold";
+      
       navigate(`/campusdirectormaintenancerequestform/${id}`);
-    } else {
-      navigate(`/campusdirectormaintenancerequestform/${id}`); // or separate view route
-    }
-  },
-  [navigate]
-);
+    },
+    [navigate]
+  );
 
-  // Only show requests where verified_by is NOT null (already verified)
   const filtered = requests.filter((r) => {
     if (selectedTab === "Pending") {
+      // Show all Pending but highlight those requiring action? 
+      // Actually, standardizing: just filter by status name.
       return r.status === "Pending";
     }
-  if (selectedTab.toLowerCase() === "urgent") {
-    return (
-      r.status?.toLowerCase() === "urgent" &&
-      r.verified_by !== null && r.verified_by !== undefined &&
-      r.approved_by_1 !== null && r.approved_by_1 !== undefined
-    );
-  }
-  if (selectedTab.toLowerCase() === "onhold" || selectedTab.toLowerCase() === "on hold") {
-    return (
-      (r.status?.toLowerCase() === "onhold" || r.status?.toLowerCase() === "on hold") &&
-      r.verified_by !== null && r.verified_by !== undefined &&
-      r.approved_by_1 !== null && r.approved_by_1 !== undefined
-    );
-  }
-  return (
-    r.verified_by !== null &&
-    r.verified_by !== undefined &&
-    r.status === selectedTab
-  );
-});
+    if (selectedTab === "Verified") {
+      // These are the ones ready for Director's attention (if they also have approved_by_1)
+      return r.status === "Verified";
+    }
+    if (selectedTab.toLowerCase() === "urgent") {
+      return r.status?.toLowerCase() === "urgent";
+    }
+    return r.status === selectedTab;
+  });
 
   const showActions = true;
 
@@ -237,18 +227,40 @@ const CampusDirectorRequests = () => {
   const hasStatus = (statusName) =>
     requests.some(
       (r) =>
-        r.status_name?.toLowerCase() === statusName.toLowerCase() &&
+        r &&
+        (r.status_name?.toLowerCase() === statusName.toLowerCase() || r.status?.toLowerCase() === statusName.toLowerCase()) &&
         r.verified_by !== null &&
         r.verified_by !== undefined &&
         r.approved_by_1 !== null &&
         r.approved_by_1 !== undefined
     );
 
+  const handleLogout = useCallback(async () => {
+    try {
+      const token = localStorage.getItem("authToken") || sessionStorage.getItem("authToken");
+      if (token) {
+        await fetch(`${API_BASE_URL}/logout`, {
+          method: "POST",
+          headers: {
+            "Accept": "application/json",
+            "Authorization": `Bearer ${token}`,
+          },
+        });
+      }
+    } catch (err) {
+      console.error("Logout error:", err);
+    } finally {
+      localStorage.clear();
+      sessionStorage.clear();
+      navigate("/loginpage", { replace: true });
+    }
+  }, [navigate]);
+
   if (loading) return <div className="p-4">Loading requests...</div>;
 
   return (
     <div className="flex flex-col h-screen bg-gray-50">
-      <header className="bg-black text-white p-4 flex justify-between items-center relative">
+      <header className="bg-black text-white p-4 flex justify-between items-center relative z-40">
         <span className="text-xl md:text-2xl font-extrabold">ManageIT</span>
         <div className="hidden md:block text-xl font-bold">Campus Director</div>
         <button
@@ -264,19 +276,22 @@ const CampusDirectorRequests = () => {
         >
           <nav className="py-2">
             {MENU_ITEMS.map((item) => (
-              <NavLink
+              <button
                 key={item.text}
-                to={item.to}
-                className="flex items-center px-4 py-3 text-sm hover:bg-gray-700"
-                onClick={() => dispatch({ type: "CLOSE_MOBILE_MENU" })}
+                onClick={() => {
+                  dispatch({ type: "CLOSE_MOBILE_MENU" });
+                  if (item.text === "Logout") handleLogout();
+                  else navigate(item.to);
+                }}
+                className="flex items-center w-full px-4 py-3 text-sm hover:bg-gray-700 transition-colors text-white text-left"
               >
                 <Icon path={item.icon} className="w-5 h-5 mr-3" />
                 {item.text}
-              </NavLink>
+              </button>
             ))}
           </nav>
           <div className="text-center py-2 text-xs text-gray-400 border-t border-gray-700">
-            Created By Exverter
+            Created By Bantilan & Friends
           </div>
         </div>
       </header>
@@ -285,21 +300,20 @@ const CampusDirectorRequests = () => {
         <CampusDirectorSidebar
           isSidebarCollapsed={state.isSidebarCollapsed}
           onToggleSidebar={() => dispatch({ type: "TOGGLE_SIDEBAR" })}
-          onLogout={() => {
-            localStorage.removeItem("authToken");
-            localStorage.removeItem("user");
-            sessionStorage.removeItem("authToken");
-            sessionStorage.removeItem("user");
-            navigate("/loginpage", { replace: true });
-          }}
+          onLogout={handleLogout}
         />
         <main className="flex-1 p-4 md:p-6 lg:p-8 bg-white/95 backdrop-blur-sm overflow-y-auto">
           <h2 className="text-3xl font-extrabold text-gray-900 border-b mb-4 pb-3">
             Maintenance Requests
           </h2>
           {/* Tabs */}
-          <div className="flex space-x-4 mb-6">
-            {statuses.map((status) => {
+          <div className="flex space-x-4 mb-6 overflow-x-auto pb-2 scrollbar-hide">
+            {statuses
+              .filter((status) => {
+                const name = status.name?.toLowerCase();
+                return name !== "onhold" && name !== "on hold" && name !== "verified";
+              })
+              .map((status) => {
               const isUrgent = status.name?.toLowerCase() === "urgent";
               const isOnhold = status.name?.toLowerCase() === "onhold" || status.name?.toLowerCase() === "on hold";
               const showDot =
@@ -310,15 +324,16 @@ const CampusDirectorRequests = () => {
                 <button
                   key={status.id}
                   onClick={() => setSelectedTab(status.name)}
-                  className={`relative px-4 py-2 font-semibold rounded-md ${
-                    (selectedTab === status.name) ||
-                    (selectedTab === "Pending" && (status.id === 1 || status.name?.toLowerCase() === "pending"))
-                      ? status.name === "Pending" || status.id === 1
+                  className={`relative px-4 py-2 font-semibold rounded-md transition-colors ${
+                    selectedTab === status.name
+                      ? status.name === "Scheduled"
+                        ? "bg-blue-500 text-white"
+                        : status.name === "Pending"
                         ? "bg-yellow-500 text-white"
-                        : status.name === "Approved"
+                        : status.name === "Approved" || status.name === "Done" || status.name === "Completed"
                         ? "bg-green-500 text-white"
                         : "bg-red-500 text-white"
-                      : "bg-transparent text-gray-700"
+                      : "bg-transparent text-gray-700 hover:bg-gray-100"
                   }`}
                 >
                   {status.name}

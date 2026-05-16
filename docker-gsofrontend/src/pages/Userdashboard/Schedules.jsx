@@ -1,6 +1,6 @@
 import { useState, useReducer, useEffect, useCallback, memo, useRef } from 'react';
 import { NavLink, useNavigate, useLocation } from 'react-router-dom';
-import Sidebar from '../../components/Sidebar';
+import { Sidebar, MENU_ITEMS as SIDEBAR_MENU_ITEMS } from '../../components/Sidebar';
 import Icon from '../../components/Icon';
 
 // Custom Hooks
@@ -29,20 +29,13 @@ const sidebarReducer = (state, action) => {
   }
 };
 
-const MENU_ITEMS = [
-  { text: "Profile", to: "/profile", icon: "M11.5 15H7a4 4 0 0 0-4 4v2 M21.378 16.626a1 1 0 0 0-3.004-3.004l-4.01 4.012a2 2 0 0 0-.506.854l-.837 2.87a.5.5 0 0 0 .62.62l2.87-.837a2 2 0 0 0 .854-.506z M10 3a4 4 0 1 1 0 8a4 4 0 0 1 0-8z"},
-  { text: "Dashboard", to: "/dashboard", icon: "M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" },
-  { text: "Notifications", to: "/notifications", icon: "M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" },
-  { text: "Schedules", to: "/schedules", icon: "M5 4h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2z M16 2v4 M3 10h18 M8 2v4 M17 14h-6 M13 18H7 M7 14h.01 M17 18h.01" },
-  { text: "Request Status", to: "/requeststatus", icon: "M9 2h6a1 1 0 0 1 1 1v2a1 1 0 0 1-1 1H9a1 1 0 0 1-1-1V3a1 1 0 1 1 1-1z M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2 M12 11h4 M12 16h4 M8 11h.01 M8 16h.01"},
-  { text: "Settings", to: "/settings", icon: "M9.594 3.94c.09-.542.56-.94 1.11-.94h2.593c.55 0 1.02.398 1.11.94l.213 1.281c.063.374.313.686.645.87.074.04.147.083.22.127.325.196.72.257 1.075.124l1.217-.456a1.125 1.125 0 0 1 1.37.49l1.296 2.247a1.125 1.125 0 0 1-.26 1.431l-1.003.827c-.293.241-.438.613-.43.992a7.723 7.723 0 0 1 0 .255c-.008.378.137.75.43.991l1.004.827c.424.35.534.955.26 1.43l-1.298 2.247a1.125 1.125 0 0 1-1.369.491l-1.217-.456c-.355-.133-.75-.072-1.076.124a6.47 6.47 0 0 1-.22.128c-.331.183-.581.495-.644.869l-.213 1.281c-.09.543-.56.94-1.11.94h-2.594c-.55 0-1.019-.398-1.11-.94l-.213-1.281c-.062-.374-.312-.686-.644-.87a6.52 6.52 0 0 1-.22-.127c-.325-.196-.72-.257-1.076-.124l-1.217.456a1.125 1.125 0 0 1-1.369-.49l-1.297-2.247a1.125 1.125 0 0 1 .26-1.431l1.004-.827c.292-.24.437-.613.43-.991a6.932 6.932 0 0 1 0-.255c.007-.38-.138-.751-.43-.992l-1.004-.827a1.125 1.125 0 0 1-.26-1.43l1.297-2.247a1.125 1.125 0 0 1 1.37-.491l1.216.456c.356.133.751.072 1.076-.124.072-.044.146-.086.22-.128.332-.183.582-.495.644-.869l.214-1.28ZM15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" },
-  { text: "Logout", to: "/loginpage", icon: "M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" }
-];
+const MENU_ITEMS = SIDEBAR_MENU_ITEMS;
 
 const Header = memo(({ 
   isMobileMenuOpen, 
   onToggleMobileMenu,
-  onCloseMobileMenu 
+  onCloseMobileMenu,
+  userTitle = "User"
 }) => {
   const mobileMenuRef = useRef(null);
   
@@ -58,6 +51,9 @@ const Header = memo(({
       </span>
       
       <div className="flex items-center gap-4">
+        <div className="hidden md:block text-xl font-bold text-white">
+          {userTitle}
+        </div>
         <button 
           onClick={onToggleMobileMenu}
           className="md:hidden p-2 hover:bg-gray-800 rounded-lg border-2 border-white transition-colors"
@@ -172,40 +168,101 @@ const EventForm = memo(({ newEvent, setNewEvent, handleAddEvent, closeForm }) =>
 const DashboardContent = memo(() => {
      // Calendar state
   const [currentDate, setCurrentDate] = useState(new Date());
-  const [events, setEvents] = useState([
-    { id: 1, title: "Team Meeting", date: "2025-03-18", time: "10:00", color: "bg-blue-200" },
-    { id: 2, title: "Doctor Appointment", date: "2025-03-20", time: "14:30", color: "bg-green-200" },
-    { id: 3, title: "Project Deadline", date: "2025-03-25", time: "16:00", color: "bg-pink-200" }
-  ]);
+  const [events, setEvents] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [selectedEvent, setSelectedEvent] = useState(null);
   const [newEvent, setNewEvent] = useState({ title: "", date: "", time: "", color: "bg-blue-200" });
   const [showForm, setShowForm] = useState(false);
 
-  // Get days in month
-  const getDaysInMonth = (year, month) => {
-    return new Date(year, month + 1, 0).getDate();
-  };
+  const fetchEvents = useCallback(async () => {
+    const token = localStorage.getItem("authToken") || sessionStorage.getItem("authToken");
+    if (!token) return;
 
-  // Get the first day of the month (0 = Sunday, 1 = Monday, etc.)
-  const getFirstDayOfMonth = (year, month) => {
-    return new Date(year, month, 1).getDay();
-  };
+    try {
+      setLoading(true);
+      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/schedule-events`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          Accept: "application/json",
+        },
+      });
+      const data = await response.json();
+      let mappedEvents = [];
+      if (response.ok && data.data) {
+        mappedEvents = data.data.map((event, index) => ({
+          id: event.id,
+          title: event.title,
+          date: event.date,
+          time: event.time.slice(0, 5),
+          location: event.location,
+          notes: event.notes,
+          assigned_office: event.assigned_office,
+          creator: event.creator,
+          color: [
+            "bg-blue-100 text-blue-800 border-blue-200",
+            "bg-green-100 text-green-800 border-green-200",
+            "bg-purple-100 text-purple-800 border-purple-200",
+            "bg-pink-100 text-pink-800 border-pink-200",
+            "bg-yellow-100 text-yellow-800 border-blue-200"
+          ][index % 5]
+        }));
+      }
 
-  // Month navigation
-  const prevMonth = () => {
-    setCurrentDate(prev => new Date(prev.getFullYear(), prev.getMonth() - 1, 1));
-  };
+      // Fetch scheduled maintenance requests and merge them into the calendar
+      const reqResponse = await fetch(`${import.meta.env.VITE_API_BASE_URL}/maintenance-requests/list-with-details`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          Accept: "application/json",
+        },
+      });
+      const reqData = await reqResponse.json();
+      if (reqResponse.ok) {
+        const requests = Array.isArray(reqData) ? reqData : (reqData.data || []);
+        const scheduledRequests = requests
+          .filter(req => req.status === "Scheduled" && req.scheduled_date && req.scheduled_time)
+          .map(req => ({
+            id: `req-${req.request_id}`,
+            title: `Maintenance: ${req.maintenance_type}`,
+            date: req.scheduled_date,
+            time: req.scheduled_time.slice(0, 5),
+            staff: req.assigned_staff_name || "Unassigned",
+            color: "bg-indigo-100 text-indigo-800 border-indigo-200",
+          }));
+        mappedEvents = [...mappedEvents, ...scheduledRequests];
+      }
 
-  const nextMonth = () => {
-    setCurrentDate(prev => new Date(prev.getFullYear(), prev.getMonth() + 1, 1));
-  };
+      setEvents(mappedEvents);
+    } catch (err) {
+      console.error("Error fetching events:", err);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
-  // Add new event
-  const handleAddEvent = () => {
+  useEffect(() => {
+    fetchEvents();
+  }, [fetchEvents]);
+
+  // Add new event (Optional for users, but keeping it if they want personal events)
+  const handleAddEvent = async () => {
     if (newEvent.title && newEvent.date && newEvent.time) {
-      setEvents([...events, { id: events.length + 1, ...newEvent }]);
+      // Logic to save personal event could go here if needed
+      setEvents([...events, { id: Date.now(), ...newEvent }]);
       setNewEvent({ title: "", date: "", time: "", color: "bg-blue-200" });
       setShowForm(false);
     }
+  };
+
+  // Helper functions for calendar
+  const getDaysInMonth = (year, month) => new Date(year, month + 1, 0).getDate();
+  const getFirstDayOfMonth = (year, month) => new Date(year, month, 1).getDay();
+
+  const prevMonth = () => {
+    setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() - 1, 1));
+  };
+
+  const nextMonth = () => {
+    setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 1));
   };
 
   // Generate calendar grid
@@ -239,29 +296,36 @@ const DashboardContent = memo(() => {
                        year === today.getFullYear();
       
       days.push(
-        <td key={day} className={`p-2 border border-gray-100 align-top h-24 md:h-32 relative ${
-          isToday ? 'bg-blue-50' : ''
-        }`}>
-          <div className="flex justify-between items-start mb-1">
-            <span className={`text-sm font-medium ${isToday ? 'text-blue-600' : 'text-gray-700'}`}>
+        <td 
+          key={day} 
+          onClick={() => {
+            if (dayEvents.length > 0) setSelectedEvent(dayEvents[0]);
+          }}
+          className={`p-1 sm:p-2 border border-gray-100 align-top h-24 md:h-32 relative group transition-colors hover:bg-gray-50 cursor-pointer pointer-events-auto ${isToday ? 'bg-blue-50/50' : ''}`}
+        >
+          <div className="flex justify-between items-start mb-1 pointer-events-none">
+            <span className={`text-xs sm:text-sm font-bold ${isToday ? 'bg-blue-600 text-white w-6 h-6 rounded-full flex items-center justify-center' : 'text-gray-500'}`}>
               {day}
             </span>
             {dayEvents.length > 0 && (
-              <span className="text-xs bg-gray-200 rounded-full h-5 w-5 flex items-center justify-center text-gray-700">
+              <span className="text-xs bg-gray-200 rounded-full h-5 w-5 flex items-center justify-center text-gray-700 md:hidden">
                 {dayEvents.length}
               </span>
             )}
           </div>
-          <div className="overflow-y-auto max-h-20">
+          <div className="flex flex-col gap-1 mt-1 px-1 relative z-10">
             {dayEvents.map(event => (
-              <div 
-                key={event.id} 
-                className={`${event.color} p-1 mb-1 rounded text-xs overflow-hidden`}
+              <button
+                key={event.id}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setSelectedEvent(event);
+                }}
+                className={`${event.color} w-full py-1 rounded block text-center text-[10px] md:text-[11px] font-bold text-gray-800 px-1 truncate shadow-sm hover:brightness-95 transition-all cursor-pointer border border-black/5 relative z-20`}
                 title={`${event.title} - ${event.time}`}
               >
-                <div className="font-medium truncate">{event.title}</div>
-                <div className="text-gray-600">{event.time}</div>
-              </div>
+                {event.title}
+              </button>
             ))}
           </div>
         </td>
@@ -294,7 +358,8 @@ const DashboardContent = memo(() => {
   }
 
   return (
-    <main className="flex-1 p-4 md:p-6 lg:p-8 bg-white/95 backdrop-blur-sm overflow-y-auto">
+    <>
+      <main className="flex-1 p-4 md:p-6 lg:p-8 bg-white/95 overflow-y-auto">
       <div className="flex justify-between items-center mb-4 md:mb-6 pb-3 md:pb-4 border-b border-gray-200">
         <h2 className="text-2xl md:text-3xl lg:text-4xl font-extrabold text-gray-900">
           Schedules
@@ -326,7 +391,7 @@ const DashboardContent = memo(() => {
         
         <div className="p-2 sm:p-4 overflow-x-auto">
           <div className="min-w-[768px]">
-            <table className="w-full border-collapse">
+            <table className="w-full border-collapse table-fixed">
               <thead>
                 <tr className="bg-gray-50">
                   {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((day) => (
@@ -352,23 +417,95 @@ const DashboardContent = memo(() => {
             .sort((a, b) => new Date(`${a.date}T${a.time}`) - new Date(`${b.date}T${b.time}`))
             .slice(0, 3)
             .map(event => (
-              <div 
-                key={event.id} 
-                className="flex items-center p-3 rounded-lg border border-gray-100 hover:bg-gray-50"
+              <button
+                key={event.id}
+                onClick={() => setSelectedEvent(event)}
+                className="w-full text-left flex items-center p-3 rounded-lg border border-gray-100 hover:bg-gray-50 hover:border-blue-200 transition-all group"
               >
-                <div className={`w-4 h-4 rounded-full ${event.color.replace('bg-', 'bg-')} mr-3`}></div>
+                <div className={`w-4 h-4 rounded-full ${event.color} mr-3 group-hover:scale-110 transition-transform`}></div>
                 <div className="flex-1">
-                  <div className="font-medium">{event.title}</div>
+                  <div className="font-medium group-hover:text-blue-600 transition-colors">{event.title}</div>
                   <div className="text-sm text-gray-500">
                     {new Date(event.date).toLocaleDateString()} at {event.time}
                   </div>
                 </div>
-              </div>
+                <Icon path="M9 5l7 7-7 7" className="w-4 h-4 text-gray-300 group-hover:text-blue-400" />
+              </button>
             ))}
+          {events.filter(event => new Date(`${event.date}T${event.time}`) >= new Date()).length === 0 && (
+            <div className="text-center text-gray-500 py-4">No upcoming events.</div>
+          )}
         </div>
+
+        {selectedEvent && (
+          <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4">
+            <div 
+              className="absolute inset-0 bg-black/40 backdrop-blur-sm"
+              onClick={() => setSelectedEvent(null)}
+            />
+            <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full overflow-hidden transform transition-all animate-in fade-in zoom-in duration-300 relative z-10">
+              <div className="bg-pink-100 px-6 py-4 flex justify-between items-center">
+                <h3 className="text-lg font-bold text-gray-800">Event Details</h3>
+                <button
+                  onClick={() => setSelectedEvent(null)}
+                  className="p-1 hover:bg-black/5 rounded-full transition-colors"
+                >
+                  <Icon path="M6 18L18 6M6 6l12 12" className="w-6 h-6 text-gray-600" />
+                </button>
+              </div>
+              
+              <div className="p-8 space-y-6">
+                <div>
+                  <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest block mb-1">Event Title</label>
+                  <p className="text-2xl font-black text-gray-900">{selectedEvent.title}</p>
+                </div>
+
+                <div className="grid grid-cols-2 gap-8">
+                  <div>
+                    <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest block mb-1">Date</label>
+                    <div>
+                    <p className="text-xl font-black text-gray-900 leading-tight">
+                      {new Date(selectedEvent.date).toLocaleDateString(undefined, { weekday: 'long' })}
+                    </p>
+                    <p className="text-sm font-bold text-gray-500 tracking-wide">
+                      {new Date(selectedEvent.date).toLocaleDateString(undefined, { month: 'long', day: 'numeric', year: 'numeric' })}
+                    </p>
+                  </div>
+                  </div>
+                  <div>
+                    <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest block mb-1">Time</label>
+                    <p className="font-bold text-gray-700">{selectedEvent.time}</p>
+                  </div>
+                </div>
+
+                {selectedEvent.staff && (
+                  <div className="mt-6">
+                    <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest block mb-1">Assigned Staff</label>
+                    <div className="bg-slate-50 border border-slate-100 rounded-xl px-4 py-3 flex items-center gap-3">
+                      <div className="w-8 h-8 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-700 font-bold text-sm">
+                        {selectedEvent.staff !== "Unassigned" ? selectedEvent.staff.charAt(0).toUpperCase() : "?"}
+                      </div>
+                      <p className="font-bold text-gray-800">{selectedEvent.staff}</p>
+                    </div>
+                  </div>
+                )}
+
+                <div className="pt-6 flex justify-end">
+                  <button
+                    onClick={() => setSelectedEvent(null)}
+                    className="bg-[#1f2937] hover:bg-black text-white px-8 py-2.5 rounded-xl font-bold transition-all shadow-lg active:scale-95"
+                  >
+                    Close
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </main>
-  );
+  </>
+);
 });
 
 // Main Component
@@ -410,6 +547,7 @@ const Schedules = () => {
         isMobileMenuOpen={state.isMobileMenuOpen}
         onToggleMobileMenu={() => dispatch({ type: 'TOGGLE_MOBILE_MENU' })}
         onCloseMobileMenu={() => dispatch({ type: 'CLOSE_MOBILE_MENU' })}
+        userTitle="User"
       />
 
       <div className="flex flex-1 overflow-hidden">

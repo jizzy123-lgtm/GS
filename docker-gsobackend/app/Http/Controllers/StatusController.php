@@ -45,19 +45,15 @@ class StatusController extends Controller
 
     public function statusesPovDirector()
     {
-        $statusIds = [2, 3, 4, 5, 6,7];
-
+        $statusIds = [1, 2, 3, 4, 5, 6, 7, 10];
         $statuses = Status::whereIn('id', $statusIds)->get();
-
         return response()->json($statuses);
     }
 
     public function statusesPovHead()
     {
-        $statusIds = [2, 3, 4, 5, 6,7];
-
+        $statusIds = [1, 2, 3, 4, 5, 6, 7, 10];
         $statuses = Status::whereIn('id', $statusIds)->get();
-
         return response()->json($statuses);
     }
 }

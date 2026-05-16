@@ -131,7 +131,11 @@ const DashboardContent = memo(() => {
     else if (message.includes('completed')) tab = 'Completed';
     else if (message.includes('done')) tab = 'Done';
 
-    navigate('/requeststatus', { state: { tab } });
+    if (notif.reference_id) {
+      navigate(`/viewmaintenancerequestform/${notif.reference_id}`);
+    } else {
+      navigate('/requeststatus', { state: { tab } });
+    }
     setProcessingId(null);
   };
 
@@ -234,14 +238,14 @@ const DashboardContent = memo(() => {
 });
 
 // ─── Header ───────────────────────────────────────────────────────────────────
-const Header = memo(({ isMobileMenuOpen, onToggleMobileMenu, onCloseMobileMenu }) => (
+const Header = memo(({ isMobileMenuOpen, onToggleMobileMenu, onCloseMobileMenu, userTitle = 'User' }) => (
   <header className="bg-black text-white p-4 flex justify-between items-center relative">
     <span className="text-xl md:text-2xl font-extrabold tracking-tight">ManageIT</span>
-    <div className="hidden md:block text-xl font-bold text-white">User</div>
-    <div className="flex items-center gap-4 md:hidden">
+    <div className="flex items-center gap-4">
+      <div className="hidden md:block text-xl font-bold text-white">{userTitle}</div>
       <button
         onClick={onToggleMobileMenu}
-        className="p-2 hover:bg-gray-800 rounded-lg border-2 border-white transition-colors"
+        className="md:hidden p-2 hover:bg-gray-800 rounded-lg border-2 border-white transition-colors"
         aria-label="Toggle menu"
         aria-expanded={isMobileMenuOpen}
       >
@@ -285,6 +289,7 @@ const Notifications = () => {
         isMobileMenuOpen={state.isMobileMenuOpen}
         onToggleMobileMenu={() => dispatch({ type: 'TOGGLE_MOBILE_MENU' })}
         onCloseMobileMenu={() => dispatch({ type: 'CLOSE_MOBILE_MENU' })}
+        userTitle="User"
       />
       <div className="flex flex-1 overflow-hidden">
         <Sidebar

@@ -205,21 +205,39 @@ const DateSelector = ({ dateFilter, setDateFilter, dateRange, setDateRange }) =>
 };
 
 const BarChartComponent = ({ requests }) => {
-  const maintenanceTypes = ["Janitorial", "Carpentry", "Electrical", "Airconditioning"];
+  // Extract unique maintenance types and statuses from requests
+  const { maintenanceTypes, statuses } = useMemo(() => {
+    const typeSet = new Set();
+    const statusSet = new Set();
+    
+    requests.forEach(request => {
+      if (request.maintenance_type) typeSet.add(request.maintenance_type);
+      if (request.status) statusSet.add(request.status);
+    });
+
+    const types = typeSet.size > 0 
+      ? Array.from(typeSet).sort() 
+      : ["Janitorial", "Carpentry", "Electrical", "Airconditioning"];
+      
+    const stats = statusSet.size > 0 
+      ? Array.from(statusSet).sort() 
+      : ["Pending", "Approved", "Disapproved", "Done"];
+
+    return { maintenanceTypes: types, statuses: stats };
+  }, [requests]);
 
   // Count by maintenance type and status
   const countByTypeAndStatus = () => {
     const counts = {};
     maintenanceTypes.forEach(type => {
-      counts[type] = {
-        Pending: 0,
-        Approved: 0,
-        Disapproved: 0,
-        Done: 0
-      };
+      counts[type] = {};
+      statuses.forEach(status => {
+        counts[type][status] = 0;
+      });
     });
+
     requests.forEach(request => {
-      const type = request.maintenance_type || "Unknown";
+      const type = request.maintenance_type;
       const status = request.status;
       if (counts[type] && counts[type][status] !== undefined) {
         counts[type][status]++;
@@ -230,39 +248,31 @@ const BarChartComponent = ({ requests }) => {
   
   const counts = countByTypeAndStatus();
   
-  // Prepare data for Chart.js
+  const statusColors = {
+    'Pending': { bg: 'rgba(255, 206, 86, 0.6)', border: 'rgba(255, 206, 86, 1)' },
+    'Approved': { bg: 'rgba(75, 192, 192, 0.6)', border: 'rgba(75, 192, 192, 1)' },
+    'Disapproved': { bg: 'rgba(255, 99, 132, 0.6)', border: 'rgba(255, 99, 132, 1)' },
+    'Done': { bg: 'rgba(153, 102, 255, 0.6)', border: 'rgba(153, 102, 255, 1)' },
+    'Verified': { bg: 'rgba(54, 162, 235, 0.6)', border: 'rgba(54, 162, 235, 1)' },
+    'Completed': { bg: 'rgba(75, 192, 192, 0.6)', border: 'rgba(75, 192, 192, 1)' }
+  };
+
   const data = {
     labels: maintenanceTypes,
-    datasets: [
-      {
-        label: 'Pending',
-        data: maintenanceTypes.map(type => counts[type]?.Pending || 0),
-        backgroundColor: 'rgba(255, 206, 86, 0.6)',
-        borderColor: 'rgba(255, 206, 86, 1)',
+    datasets: statuses.map((status, index) => {
+      const colors = statusColors[status] || {
+        bg: `rgba(${(index * 50) % 255}, ${(index * 80) % 255}, ${(index * 110) % 255}, 0.6)`,
+        border: `rgba(${(index * 50) % 255}, ${(index * 80) % 255}, ${(index * 110) % 255}, 1)`
+      };
+      
+      return {
+        label: status,
+        data: maintenanceTypes.map(type => counts[type][status] || 0),
+        backgroundColor: colors.bg,
+        borderColor: colors.border,
         borderWidth: 1,
-      },
-      {
-        label: 'Approved',
-        data: maintenanceTypes.map(type => counts[type]?.Approved || 0),
-        backgroundColor: 'rgba(75, 192, 192, 0.6)',
-        borderColor: 'rgba(75, 192, 192, 1)',
-        borderWidth: 1,
-      },
-      {
-        label: 'Disapproved',
-        data: maintenanceTypes.map(type => counts[type]?.Disapproved || 0),
-        backgroundColor: 'rgba(255, 99, 132, 0.6)',
-        borderColor: 'rgba(255, 99, 132, 1)',
-        borderWidth: 1,
-      },
-      {
-        label: 'Done',
-        data: maintenanceTypes.map(type => counts[type]?.Done || 0),
-        backgroundColor: 'rgba(153, 102, 255, 0.6)',
-        borderColor: 'rgba(153, 102, 255, 1)',
-        borderWidth: 1,
-      },
-    ],
+      };
+    }),
   };
   
   const options = {
@@ -371,6 +381,12 @@ const UserRequestAnalysis = ({ requests }) => {
   const analyzeUserRequests = () => {
     const userRequests = {};
     
+    // Dynamically identify all statuses in the system
+    const systemStatuses = new Set();
+    requests.forEach(r => {
+      if (r.status) systemStatuses.add(r.status);
+    });
+    
     requests.forEach(request => {
       const user = request.requesting_personnel;
       const type = request.maintenance_type || "Unknown";
@@ -379,14 +395,11 @@ const UserRequestAnalysis = ({ requests }) => {
         userRequests[user] = {
           totalRequests: 0,
           byType: {},
-          byStatus: {
-            Pending: 0,
-            Approved: 0,
-            Disapproved: 0,
-            Done: 0
-          },
+          byStatus: {},
           office: request.requesting_office
         };
+        // Initialize all found statuses to 0 for this user
+        systemStatuses.forEach(s => userRequests[user].byStatus[s] = 0);
       }
       
       // Increment total requests
@@ -399,7 +412,9 @@ const UserRequestAnalysis = ({ requests }) => {
       userRequests[user].byType[type]++;
       
       // Count by status
-      userRequests[user].byStatus[request.status]++;
+      if (request.status) {
+        userRequests[user].byStatus[request.status]++;
+      }
     });
     
     // Convert to array and sort by most requests
@@ -1610,27 +1625,40 @@ const Report = () => {
               )}
 
               {/* Request count summary */}
-              <div className="mt-6 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
-                <div className="bg-white p-4 rounded-lg shadow border border-gray-200">
+              <div className="mt-6 flex flex-wrap gap-4">
+                <div className="bg-white p-4 rounded-lg shadow border border-gray-200 min-w-[200px] flex-1">
                   <p className="text-gray-500 font-medium">Total Filtered Requests</p>
                   <p className="text-3xl font-bold">{filteredRequests.length}</p>
                 </div>
-                <div className="bg-yellow-50 p-4 rounded-lg shadow border border-yellow-200">
-                  <p className="text-yellow-700 font-medium">Pending</p>
-                  <p className="text-3xl font-bold">{filteredRequests.filter(r => r.status === "Pending").length}</p>
-                </div>
-                <div className="bg-green-50 p-4 rounded-lg shadow border border-green-200">
-                  <p className="text-green-700 font-medium">Approved</p>
-                  <p className="text-3xl font-bold">{filteredRequests.filter(r => r.status === "Approved").length}</p>
-                </div>
-                <div className="bg-red-50 p-4 rounded-lg shadow border border-red-200">
-                  <p className="text-red-700 font-medium">Disapproved</p>
-                  <p className="text-3xl font-bold">{filteredRequests.filter(r => r.status === "Disapproved").length}</p>
-                </div>
-                <div className="bg-purple-50 p-4 rounded-lg shadow border border-purple-200">
-                  <p className="text-purple-700 font-medium">Done</p>
-                  <p className="text-3xl font-bold">{filteredRequests.filter(r => r.status === "Done").length}</p>
-                </div>
+                
+                {(() => {
+                  // Count all unique statuses dynamically
+                  const statusCounts = {};
+                  filteredRequests.forEach(r => {
+                    if (r.status) {
+                      statusCounts[r.status] = (statusCounts[r.status] || 0) + 1;
+                    }
+                  });
+
+                  const statusStyles = {
+                    'Pending': 'bg-yellow-50 border-yellow-200 text-yellow-700',
+                    'Approved': 'bg-green-50 border-green-200 text-green-700',
+                    'Disapproved': 'bg-red-50 border-red-200 text-red-700',
+                    'Done': 'bg-purple-50 border-purple-200 text-purple-700',
+                    'Verified': 'bg-blue-50 border-blue-200 text-blue-700',
+                    'Completed': 'bg-green-50 border-green-200 text-green-700'
+                  };
+
+                  return Object.entries(statusCounts).map(([status, count]) => (
+                    <div 
+                      key={status} 
+                      className={`p-4 rounded-lg shadow border min-w-[200px] flex-1 ${statusStyles[status] || 'bg-gray-50 border-gray-200 text-gray-700'}`}
+                    >
+                      <p className="font-medium">{status}</p>
+                      <p className="text-3xl font-bold">{count}</p>
+                    </div>
+                  ));
+                })()}
               </div>
             </>
           ) : activeSection === "users" ? (

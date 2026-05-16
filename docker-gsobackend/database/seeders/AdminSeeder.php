@@ -21,11 +21,26 @@ class AdminSeeder extends Seeder
             'username' => 'admin123',
             'email' => 'admin@example.com',
             'contact_number' => '09123456789',
-            'password' => Hash::make('password123'), // Change to a secure password in production
-            'role_id' => 1,  // Assuming 1 = Admin
-            'position_id' => 2, // Optional: adjust based on your positions table
-            'office_id' => 1,   // Optional: adjust based on your offices table
-            'status_id' => 2,   // Assuming 1 = Pending/Approved etc.d
+            'password' => Hash::make('password123'),
+            'role_id' => 1,  // Admin
+            'position_id' => 1,
+            'office_id' => 1,
+            'status_id' => 2,
+        ]);
+
+        User::create([
+            'last_name' => 'Head',
+            'first_name' => 'GSO',
+            'middle_name' => 'H',
+            'suffix' => null,
+            'username' => 'head123',
+            'email' => 'head@example.com',
+            'contact_number' => '09987654321',
+            'password' => Hash::make('password123'),
+            'role_id' => 2,  // Head
+            'position_id' => 1,
+            'office_id' => 1,
+            'status_id' => 2,
         ]);
     }
 }

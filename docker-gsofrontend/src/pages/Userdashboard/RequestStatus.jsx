@@ -107,11 +107,16 @@ const StatusTable = ({ requests, selectedTab, onViewClick, onFeedbackClick }) =>
               <td className="p-3">{request.requesting_office || "N/A"}</td>
               <td className="p-3">{request.maintenance_type || "N/A"}</td>
               <td className="p-3">
-                <span className={`px-3 py-1 rounded-full text-sm ${
-                  request.status === "Pending" ? "bg-yellow-100 text-yellow-800"
-                  : request.status === "Approved" ? "bg-green-100 text-green-800"
-                  : request.status === "Done" ? "bg-blue-100 text-blue-800"
-                  : "bg-red-100 text-red-800"
+                <span className={`px-3 py-1 rounded-full text-sm font-medium ${
+                  request.status?.toLowerCase().includes("pending")
+                    ? "bg-orange-100 text-orange-800 border border-orange-200"
+                    : request.status?.toLowerCase().includes("verified")
+                    ? "bg-orange-100 text-orange-800 border border-orange-200"
+                    : request.status?.toLowerCase().includes("scheduled")
+                    ? "bg-blue-100 text-blue-800 border border-blue-200"
+                    : request.status?.toLowerCase().includes("approved") || request.status?.toLowerCase().includes("done") || request.status?.toLowerCase().includes("completed")
+                    ? "bg-green-100 text-green-800 border border-green-200"
+                    : "bg-red-100 text-red-800 border border-red-200"
                 }`}>
                   {request.status}
                 </span>
@@ -261,15 +266,12 @@ const RequestStatus = () => {
     const statusLower = status?.toLowerCase();
 
     if (selectedTab === "Pending") {
-      return statusLower === "pending";
+      return statusLower === "pending" || statusLower === "verified";
     }
-    if (selectedTab.toLowerCase() === "urgent") {
-      return statusLower === "urgent";
+    if (selectedTab === "Scheduled") {
+      return statusLower === "scheduled";
     }
-    if (selectedTab.toLowerCase() === "onhold" || selectedTab.toLowerCase() === "on hold") {
-      return statusLower === "onhold" || statusLower === "on hold";
-    }
-    return status === selectedTab;
+    return statusLower === selectedTab.toLowerCase();
   });
 
   const handleViewClick = useCallback((id) => {
@@ -328,27 +330,27 @@ const RequestStatus = () => {
             Request Status
           </h2>
 
-          {/* Tabs — from /common-datas same as CampusDirectorRequests */}
+          {/* Tabs */}
           <div className="flex space-x-4 mb-6 flex-wrap gap-y-2">
-            {statuses.map((status) => (
+            {["Pending", "Scheduled", "Approved", "Disapproved", "Completed"].map((tab) => (
               <button
-                key={status.id}
-                onClick={() => setSelectedTab(status.name)}
-                className={`px-4 py-2 font-semibold rounded-md ${
-                  selectedTab === status.name
-                    ? status.name === "Pending" || status.id === 1
-                      ? "bg-yellow-500 text-white"
-                      : status.name === "Approved"
-                      ? "bg-green-500 text-white"
-                      : status.name === "Done"
-                      ? "bg-blue-700 text-white"
-                      : status.name === "Disapproved"
-                      ? "bg-red-500 text-white"
-                      : "bg-gray-700 text-white"
-                    : "bg-transparent text-gray-700"
+                key={tab}
+                onClick={() => setSelectedTab(tab)}
+                className={`px-4 py-2 font-semibold rounded-md transition-all ${
+                  selectedTab === tab
+                    ? tab === "Scheduled"
+                      ? "bg-blue-600 text-white shadow-lg shadow-blue-200"
+                      : tab === "Pending"
+                      ? "bg-yellow-500 text-white shadow-lg shadow-yellow-200"
+                      : tab === "Approved" || tab === "Completed"
+                      ? "bg-green-600 text-white shadow-lg shadow-green-200"
+                      : tab === "Disapproved"
+                      ? "bg-red-600 text-white shadow-lg shadow-red-200"
+                      : "bg-gray-800 text-white"
+                    : "bg-gray-100 text-gray-600 hover:bg-gray-200"
                 }`}
               >
-                {status.name}
+                {tab}
               </button>
             ))}
           </div>

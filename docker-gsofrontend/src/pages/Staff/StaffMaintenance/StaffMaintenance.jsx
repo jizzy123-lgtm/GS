@@ -1,8 +1,7 @@
 import { useState, useReducer, useEffect, useCallback, memo, useRef } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
-import Sidebar from '../../../components/Sidebar'; 
+import { Sidebar } from '../../../components/Sidebar'; 
 import Icon from '../../../components/Icon'; 
-import ScheduleSidebar from '../../../components/ScheduleSidebar'; 
 
 // Custom Hooks
 const useClickOutside = (ref, handler) => {
@@ -36,39 +35,26 @@ const CARD_ICONS = {
   Carpentry: "M15 12l-8.373 8.373a1 1 0 1 1-3-3L12 9 M18 15l4-4 M21.5 11.5l-1.914-1.914A2 2 0 0 1 19 8.172V7l-2.26-2.26a6 6 0 0 0-4.202-1.756L9 2.96l.92.82A6.18 6.18 0 0 1 12 8.4V10l2 2h1.172a2 2 0 0 1 1.414.586L18.5 14.5",
   Electrical: "M3.75 13.5l10.5-11.25L12 10.5h8.25L9.75 21.75 12 13.5H3.75Z",
   AirConditioning: "M10 20l-1.25-2.5L6 18 M10 4L8.75 6.5 6 6 M14 20l1.25-2.5L18 18 M14 4l1.25 2.5L18 6 M17 21l-3-6h-4 M17 3l-3 6 1.5 3 M2 12h6.5L10 9 M20 10l-1.5 2 1.5 2 M22 12h-6.5L14 15 M4 10l1.5 2L4 14 M7 21l3-6-1.5-3 M7 3l3 6h4",
+  Plumbing: "M21.75 6.75a4.5 4.5 0 0 1-4.884 4.484c-1.076.091-2.264.071-2.95.904l-.171.213-2.247 2.81a.75.75 0 0 1-1.157.02L7.5 12.339V14.01a.75.75 0 0 1-.22.53l-3.276 3.277a.75.75 0 0 1-1.06 0l-1.5-1.5a.75.75 0 0 1 0-1.06l3.277-3.276a.75.75 0 0 1 .53-.22h1.672l2.836-2.268a.75.75 0 0 1 .933-.02l2.133 2.133c.71-.71.665-1.777.74-2.736a4.5 4.5 0 0 1 6.336-4.486.75.75 0 0 1 .14 1.743l-3.277 3.276a.75.75 0 1 0 1.06 1.06l3.277-3.276a.75.75 0 0 1 .869-.14c.26.113.513.245.75.394Z",
+  Finance: "M12 6V4m0 2a2 2 0 1 0 0 4m0-4a2 2 0 1 1 0 4m-6 8a2 2 0 1 0 0-4m0 4a2 2 0 1 1 0-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 1 0 0-4m0 4a2 2 0 1 1 0-4m0 4v2m0-6V4",
+  Default: "M13 10V3L4 14h7v7l9-11h-7z"
 };
-
-const MENU_ITEMS = [
-  { text: "Dashboard", to: "/staffdashboard", icon: "M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" },
-  { text: "Notifications", to: "/adminnotifications", icon: "M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" },
-  { text: "Schedules", to: "/adminschedules", icon: "M5 4h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2z M16 2v4 M3 10h18 M8 2v4 M17 14h-6 M13 18H7 M7 14h.01 M17 18h.01" },
-  { text: "User Requests", to: "/userrequests", icon: "M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2 M5 7a4 4 0 1 0 8 0a4 4 0 1 0-8 0 M22 21v-2a4 4 0 0 0-3-3.87 M16 3.13a4 4 0 0 1 0 7.75"},
-  { text: "Requests", to: "/StaffSlipRequests", icon: "M9 2h6a1 1 0 0 1 1 1v2a1 1 0 0 1-1 1H9a1 1 0 0 1-1-1V3a1 1 0 1 1 1-1z M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2 M12 11h4 M12 16h4 M8 11h.01 M8 16h.01"},
-  { text: "Settings", to: "/settings", icon: "M9.594 3.94c.09-.542.56-.94 1.11-.94h2.593c.55 0 1.02.398 1.11.94l.213 1.281c.063.374.313.686.645.87.074.04.147.083.22.127.325.196.72.257 1.075.124l1.217-.456a1.125 1.125 0 0 1 1.37.49l1.296 2.247a1.125 1.125 0 0 1-.26 1.431l-1.003.827c-.293.241-.438.613-.43.992a7.723 7.723 0 0 1 0 .255c-.008.378.137.75.43.991l1.004.827c.424.35.534.955.26 1.43l-1.298 2.247a1.125 1.125 0 0 1-1.369.491l-1.217-.456c-.355-.133-.75-.072-1.076.124a6.47 6.47 0 0 1-.22.128c-.331.183-.581.495-.644.869l-.213 1.281c-.09.543-.56.94-1.11.94h-2.594c-.55 0-1.019-.398-1.11-.94l-.213-1.281c-.062-.374-.312-.686-.644-.87a6.52 6.52 0 0 1-.22-.127c-.325-.196-.72-.257-1.076-.124l-1.217.456a1.125 1.125 0 0 1-1.369-.49l-1.297-2.247a1.125 1.125 0 0 1 .26-1.431l1.004-.827c.292-.24.437-.613.43-.991a6.932 6.932 0 0 1 0-.255c.007-.38-.138-.751-.43-.992l-1.004-.827a1.125 1.125 0 0 1-.26-1.43l1.297-2.247a1.125 1.125 0 0 1 1.37-.491l1.216.456c.356.133.751.072 1.076-.124.072-.044.146-.086.22-.128.332-.183.582-.495.644-.869l.214-1.28ZM15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" },
-  { text: "Logout", to: "/loginpage", icon: "M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" }
-];
-
-const DASHBOARD_CARDS = [
-  { text: 'Janitorial', icon: CARD_ICONS.Janitorial },
-  { text: 'Carpentry', icon: CARD_ICONS.Carpentry },
-  { text: 'Electrical', icon: CARD_ICONS.Electrical},
-  { text: 'Air-Conditioning', icon: CARD_ICONS.AirConditioning}
-];
 
 const DashboardCard = memo(({ item, onClick }) => (
   <div
-    className="bg-white p-6 rounded-xl shadow-sm hover:shadow-md transition-shadow cursor-pointer group"
+    className="bg-white p-6 rounded-xl shadow-sm hover:shadow-md transition-shadow cursor-pointer group flex flex-col items-center justify-center text-center"
     onClick={onClick}
   >
-    <div className="flex items-center gap-3">
+    <div className="w-16 h-16 bg-blue-50 rounded-2xl flex items-center justify-center mb-4 group-hover:bg-blue-100 transition-colors">
       <Icon 
         path={item.icon} 
-        className="w-8 h-8 text-blue-600 group-hover:text-blue-700 transition-colors"
+        className="w-10 h-10 text-blue-600"
       />
-      <h3 className="text-lg md:text-xl font-bold text-gray-800">
-        {item.text}
-      </h3>
     </div>
+    <h3 className="text-xl font-black text-gray-800 leading-tight">
+      {item.text}
+    </h3>
+    <p className="text-xs text-gray-500 mt-2 font-bold uppercase tracking-widest opacity-0 group-hover:opacity-100 transition-opacity">Request Service</p>
   </div>
 ));
 
@@ -78,13 +64,14 @@ const Header = memo(({
   onCloseMobileMenu 
 }) => {
   const mobileMenuRef = useRef(null);
+  const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
   
   useClickOutside(mobileMenuRef, () => {
     if (isMobileMenuOpen) onCloseMobileMenu();
   });
 
   return (
-    <header className="bg-black text-white p-4 flex justify-between items-center relative">
+    <header className="bg-black text-white p-4 flex justify-between items-center relative z-40">
       <span className="text-xl md:text-2xl font-extrabold tracking-tight">
         ManageIT 
       </span>
@@ -92,7 +79,7 @@ const Header = memo(({
       <div className="flex items-center gap-4">
         <button 
           onClick={onToggleMobileMenu}
-          className="md:hidden p-2 hover:bg-gray-800 rounded-lg border-2 border-white transition-colors"
+          className="p-2 hover:bg-gray-800 rounded-lg border-2 border-white transition-colors"
           aria-label="Toggle menu"
           aria-expanded={isMobileMenuOpen}
         >
@@ -127,35 +114,105 @@ const Header = memo(({
   );
 });
 
-const DashboardContent = memo(({ onCardClick }) => (
-  <main className="flex-1 p-6 overflow-hidden bg-white/95 backdrop-blur-sm">
-    <h2 className="text-2xl md:text-3xl lg:text-4xl font-extrabold text-gray-900 border-b mb-4 md:mb-6 pb-3 md:pb-4">
-        Corrective Maintenance
-      </h2>
-    <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-2 gap-4">
-      {DASHBOARD_CARDS.map((item) => (
-        <DashboardCard
-          key={item.text}
-          item={item}
-          onClick={() => onCardClick(item)}
-        />
-      ))}
+const DashboardContent = memo(({ cards, onCardClick, loading }) => (
+  <main className="flex-1 p-6 lg:p-10 overflow-y-auto bg-white/95 backdrop-blur-sm">
+    <div className="max-w-5xl mx-auto">
+      <div className="mb-10">
+        <h2 className="text-4xl font-black text-gray-900 tracking-tight">
+          Corrective Maintenance
+        </h2>
+        <p className="text-gray-500 mt-2 font-medium">Select a service category to submit a request on behalf of a user.</p>
+      </div>
+      
+      {loading ? (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {[1,2,3,4].map(i => (
+            <div key={i} className="h-48 bg-gray-100 animate-pulse rounded-3xl" />
+          ))}
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {cards.map((item) => (
+            <DashboardCard
+              key={item.id}
+              item={item}
+              onClick={() => onCardClick(item)}
+            />
+          ))}
+        </div>
+      )}
     </div>
   </main>
 ));
 
 const StaffMaintenance = () => {
   const navigate = useNavigate();
+  const [services, setServices] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
   const [state, dispatch] = useReducer(sidebarReducer, {
     isSidebarCollapsed: true,
     isMobileMenuOpen: false
   });
 
+  const fetchServices = useCallback(async () => {
+    try {
+      setLoading(true);
+      const token = localStorage.getItem("authToken") || sessionStorage.getItem("authToken");
+      const response = await fetch(`${API_BASE_URL}/maintenance-types`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Accept': 'application/json'
+        }
+      });
+      if (!response.ok) throw new Error('Failed to fetch services');
+      const data = await response.json();
+      const list = Array.isArray(data) ? data : data.data || [];
+      
+      const mapped = list.map(s => {
+        let iconKey = "Default";
+        const name = s.type_name.toLowerCase();
+        if (name.includes("janitorial")) iconKey = "Janitorial";
+        else if (name.includes("carpentry")) iconKey = "Carpentry";
+        else if (name.includes("electrical")) iconKey = "Electrical";
+        else if (name.includes("conditioning")) iconKey = "AirConditioning";
+        else if (name.includes("plumbing")) iconKey = "Plumbing";
+        else if (name.includes("finance")) iconKey = "Finance";
+        
+        return {
+          id: s.id,
+          text: s.type_name,
+          icon: CARD_ICONS[iconKey] || CARD_ICONS.Default
+        };
+      });
+      setServices(mapped);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
+  }, [API_BASE_URL]);
+
+  useEffect(() => {
+    const token = localStorage.getItem("authToken") || sessionStorage.getItem("authToken");
+    if (!token) {
+      navigate("/loginpage", { replace: true });
+    } else {
+      fetchServices();
+    }
+  }, [navigate, fetchServices]);
+
   const handleNavigation = useCallback((item) => {
-    if (item.text === 'Janitorial') navigate('/staffJanitorial');
-    if (item.text === 'Carpentry') navigate('/staffCarpentry');
-    if (item.text === 'Electrical') navigate('/staffElectrical');
-    if (item.text === 'Air-Conditioning') navigate('/staffAirconditioning');
+    const hardcoded = {
+      'Janitorial': '/staffJanitorial',
+      'Carpentry': '/staffCarpentry',
+      'Electrical': '/staffElectrical',
+      'Air-Conditioning': '/staffAirconditioning',
+      'Air Conditioning': '/staffAirconditioning'
+    };
+    
+    const target = hardcoded[item.text] || `/staff-maintenance-form/${item.id}`;
+    navigate(target);
   }, [navigate]);
 
   return (
@@ -174,9 +231,12 @@ const StaffMaintenance = () => {
           title="Staff"
         />
         
-        <DashboardContent onCardClick={handleNavigation} />
+        <DashboardContent 
+          cards={services} 
+          onCardClick={handleNavigation} 
+          loading={loading}
+        />
         
-        <ScheduleSidebar />
       </div>
     </div>
   );

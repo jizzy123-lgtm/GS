@@ -29,7 +29,20 @@ function SignupPage() {
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
-  const [contactWarning, setContactWarning] = useState(""); 
+  const [contactWarning, setContactWarning] = useState("");
+  const [passwordStrength, setPasswordStrength] = useState({ score: 0, checks: {} });
+
+  // Password strength checker
+  const checkPasswordStrength = (pwd) => {
+    const checks = {
+      length:    pwd.length >= 8,
+      uppercase: /[A-Z]/.test(pwd),
+      number:    /[0-9]/.test(pwd),
+      special:   /[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(pwd),
+    };
+    const score = Object.values(checks).filter(Boolean).length;
+    return { score, checks };
+  };
 
   // Memoize suffix options to prevent recreation on every render
   const suffixOptions = useMemo(() => [
@@ -91,8 +104,21 @@ function SignupPage() {
       return;
     }
 
-    if (password.length < 6) {
-      setError("Password must be at least 6 characters");
+    const strength = checkPasswordStrength(password);
+    if (!strength.checks.length) {
+      setError("Password must be at least 8 characters.");
+      return;
+    }
+    if (!strength.checks.uppercase) {
+      setError("Password must contain at least one uppercase letter.");
+      return;
+    }
+    if (!strength.checks.number) {
+      setError("Password must contain at least one number.");
+      return;
+    }
+    if (!strength.checks.special) {
+      setError("Password must contain at least one special character (e.g. @, #, !).");
       return;
     }
 
@@ -484,30 +510,70 @@ function SignupPage() {
                   Security
                 </h3>
                 <div className="space-y-3">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                    <div className="relative group">
-                      <div className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-blue-500 transition-colors duration-200">
-                        <ShieldIcon />
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3 items-start">
+
+                    {/* Password field + strength indicator in its own column */}
+                    <div className="space-y-1.5">
+                      <div className="relative group">
+                        <div className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-blue-500 transition-colors duration-200">
+                          <ShieldIcon />
+                        </div>
+                        <input
+                          type={showPassword ? "text" : "password"}
+                          placeholder="Password *"
+                          className="w-full pl-10 pr-10 py-3 bg-white border border-slate-200 rounded-lg text-slate-700 placeholder-slate-400 
+                                   focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 
+                                   hover:border-slate-300 transition-all duration-200 text-sm"
+                          value={password}
+                          onChange={(e) => {
+                            setPassword(e.target.value);
+                            setPasswordStrength(checkPasswordStrength(e.target.value));
+                          }}
+                          required
+                        />
+                        <button
+                          type="button"
+                          onClick={togglePasswordVisibility}
+                          className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors duration-200"
+                        >
+                          {showPassword ? <EyeOffIcon /> : <EyeIcon />}
+                        </button>
                       </div>
-                      <input
-                        type={showPassword ? "text" : "password"}
-                        placeholder="Password * (min. 6 chars)"
-                        className="w-full pl-10 pr-10 py-3 bg-white border border-slate-200 rounded-lg text-slate-700 placeholder-slate-400 
-                                 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 
-                                 hover:border-slate-300 transition-all duration-200 text-sm"
-                        value={password}
-                        onChange={(e) => setPassword(e.target.value)}
-                        required
-                      />
-                      <button 
-                        type="button" 
-                        onClick={togglePasswordVisibility}
-                        className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors duration-200"
-                      >
-                        {showPassword ? <EyeOffIcon /> : <EyeIcon />}
-                      </button>
+
+                      {/* Strength bars + checklist — same width as password box */}
+                      {password.length > 0 && (
+                        <div className="space-y-1">
+                          <div className="flex gap-1">
+                            {[1,2,3,4].map(i => (
+                              <div key={i} className={`h-1.5 flex-1 rounded-full transition-all duration-300 ${
+                                passwordStrength.score >= i
+                                  ? passwordStrength.score <= 1 ? 'bg-red-500'
+                                  : passwordStrength.score === 2 ? 'bg-orange-400'
+                                  : passwordStrength.score === 3 ? 'bg-yellow-400'
+                                  : 'bg-green-500'
+                                  : 'bg-slate-200'
+                              }`} />
+                            ))}
+                          </div>
+                          <div className="flex flex-wrap gap-x-3 gap-y-0.5">
+                            {[
+                              { key: 'length',    label: '8+ chars' },
+                              { key: 'uppercase', label: 'Uppercase' },
+                              { key: 'number',    label: 'Number' },
+                              { key: 'special',   label: 'Special char' },
+                            ].map(({ key, label }) => (
+                              <span key={key} className={`text-xs flex items-center gap-0.5 ${
+                                passwordStrength.checks[key] ? 'text-green-600' : 'text-slate-400'
+                              }`}>
+                                {passwordStrength.checks[key] ? '✓' : '✗'} {label}
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+                      )}
                     </div>
 
+                    {/* Confirm password field */}
                     <div className="relative group">
                       <div className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-blue-500 transition-colors duration-200">
                         <ShieldIcon />

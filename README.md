@@ -39,7 +39,7 @@ A mobile application for the General Services Office (GSO) of Jose Rizal Memoria
 - [Setup Guide](docs/setup-guide.md)
 - [User Story](https://github.com/jizzy123-lgtm/GS/wiki/Mobile-App-%E2%80%90-User-Stories)
 - [API Documentation](https://documenter.getpostman.com/view/54234949/2sBXqRiGCu)
-- [Documentation using Notion](https://www.notion.so/Technical-Documentation-36102d556fc7803da10be2a6c38e5a95?source=copy_link)
+- [Documentation using Notion](https://thunder-drawbridge-ba0.notion.site/GSU-Gateway-Documentation-36202d556fc780dd93f3eba549e54755)
 
 
 ## Team

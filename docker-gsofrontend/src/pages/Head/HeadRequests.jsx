@@ -237,7 +237,7 @@ const HeadRequests = () => {
         </div>
       </header>
 
-      <div className="flex flex-1 overflow-auto">
+      <div className="flex flex-1 overflow-hidden">
         <HeadSidebar
           isSidebarCollapsed={state.isSidebarCollapsed}
           onToggleSidebar={() => dispatch({ type: "TOGGLE_SIDEBAR" })}

@@ -432,7 +432,7 @@ const handleMarkOnhold = async () => {
           </div>
         </div>
       </header>
-      <div className="flex flex-1 overflow-auto">
+      <div className="flex flex-1 overflow-hidden">
         <StaffSidebar
           isSidebarCollapsed={sidebarState.isSidebarCollapsed}
           onToggleSidebar={() => sidebarDispatch({ type: "TOGGLE_SIDEBAR" })}

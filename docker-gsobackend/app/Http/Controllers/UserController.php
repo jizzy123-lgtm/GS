@@ -15,6 +15,7 @@ use Illuminate\Support\Facades\Hash;
 use Illuminate\Validation\ValidationException;
 use App\Notifications\NewUserRegistered;
 use App\Notifications\AccountApproved;
+use App\Notifications\AccountRejected;
 use App\Models\Notification as SystemNotification;
 use App\Models\SystemSetting;
 use App\Models\LoginLocation;
@@ -223,10 +224,14 @@ class UserController extends Controller
         $user->rejected_at = now();
         $user->save();
 
-        // Send email notification only if approved
-        // if ($user->status_id == 2 && $user->email) {
-        //     $user->notify(new AccountApproved());
-        // }
+        // Send email notification for rejection
+        if ($user->email) {
+            try {
+                $user->notify(new AccountRejected($request->rejection_reason));
+            } catch (\Exception $e) {
+                \Log::error("Failed to send account rejection email: " . $e->getMessage());
+            }
+        }
 
         SystemNotification::create([
             'user_id' => $user->id,

@@ -119,6 +119,13 @@ const DashboardContent = memo(() => {
     }
 
     const message = notif.message?.toLowerCase() || '';
+
+    // If this is an account registration notification, just mark as read and don't navigate to maintenance request
+    if (message.includes('account registration')) {
+      setProcessingId(null);
+      return;
+    }
+
     let tab = 'Pending';
 
     if (message.includes('approved')) tab = 'Approved';

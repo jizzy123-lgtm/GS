@@ -17,6 +17,11 @@ use App\Notifications\RequestApprovedByHead;
 use App\Notifications\RequestApprovedByCampusDirector;
 use App\Notifications\AssignPriorityToRequest;
 use App\Notifications\RequestAssignedPriority;
+use App\Notifications\MaintenanceRequestDisapproved;
+use App\Notifications\MaintenanceRequestUrgent;
+use App\Notifications\MaintenanceRequestOnHold;
+use App\Notifications\MaintenanceRequestScheduled;
+use App\Notifications\MaintenanceRequestDone;
 use Carbon\Carbon;
 use App\Models\Comment;
 class MaintenanceRequestController extends Controller
@@ -152,12 +157,14 @@ class MaintenanceRequestController extends Controller
         try {
             $requester = User::find($maintenanceRequest->requesting_personnel);
             if ($requester && $requester->email) {
-                // $requester->notify(new MaintenanceVerifiedNotification($maintenanceRequest));
+                $requester->notify(new MaintenanceVerifiedNotification($maintenanceRequest));
             }
 
             $heads = User::where('role_id', 2)->where('status_id', 2)->get(); 
             foreach ($heads as $head) {
-                // $head->notify(new RequestVerifiedByStaff($maintenanceRequest));
+                if ($head->email) {
+                    $head->notify(new RequestVerifiedByStaff($maintenanceRequest));
+                }
             }
         } catch (\Exception $e) {
             \Log::error("Failed to send verification email notifications: " . $e->getMessage());
@@ -299,11 +306,15 @@ class MaintenanceRequestController extends Controller
         $maintenanceRequest->save();
 
         // Notify the requester by email after final approval
-        // $requester = User::where('id', $maintenanceRequest->requesting_personnel)->first();
+        $requester = User::where('id', $maintenanceRequest->requesting_personnel)->first();
 
-        // if ($requester && $requester->email) {
-        //     $requester->notify(new MaintenanceRequestApproved($maintenanceRequest));
-        // }
+        try {
+            if ($requester && $requester->email) {
+                $requester->notify(new MaintenanceRequestApproved($maintenanceRequest));
+            }
+        } catch (\Exception $e) {
+            \Log::error("Failed to send RequestApprovedByHead email to requester: " . $e->getMessage());
+        }
 
         // Notify the campus director
         $campusDirectors = User::where('role_id', 5)->where('status_id', 2)->get(); // assuming role_id 5 = Campus Director
@@ -388,10 +399,14 @@ class MaintenanceRequestController extends Controller
         $maintenanceRequest->save();
 
         // Notify Requester
-        // $requester = User::where('id', $maintenanceRequest->requesting_personnel)->first();
-        // if ($requester && $requester->email) {
-        //     $requester->notify(new RequestApprovedByCampusDirector($maintenanceRequest));
-        // }
+        $requester = User::where('id', $maintenanceRequest->requesting_personnel)->first();
+        try {
+            if ($requester && $requester->email) {
+                $requester->notify(new RequestApprovedByCampusDirector($maintenanceRequest));
+            }
+        } catch (\Exception $e) {
+            \Log::error("Failed to send RequestApprovedByCampusDirector email: " . $e->getMessage());
+        }
 
         // Notify Staff
         $staffMembers = User::where('role_id', 3)->where('status_id', 2)->get(); // Assuming role_id = 3 is staff
@@ -579,6 +594,15 @@ class MaintenanceRequestController extends Controller
             'time' => \Carbon\Carbon::now()->toTimeString(),
         ]);
 
+        try {
+            $requester = User::find($maintenanceRequest->requesting_personnel);
+            if ($requester && $requester->email) {
+                $requester->notify(new MaintenanceRequestDisapproved($maintenanceRequest));
+            }
+        } catch (\Exception $e) {
+            \Log::error("Failed to send denial email: " . $e->getMessage());
+        }
+
         SystemNotification::create([
             'user_id' => $maintenanceRequest->requesting_personnel, // requester
             'type' => 'maintenance_request_denied',
@@ -678,6 +702,15 @@ class MaintenanceRequestController extends Controller
             'date' => \Carbon\Carbon::now()->toDateString(),
             'time' => \Carbon\Carbon::now()->toTimeString(),
         ]);
+
+        try {
+            $requester = User::find($maintenanceRequest->requesting_personnel);
+            if ($requester && $requester->email) {
+                $requester->notify(new MaintenanceRequestDisapproved($maintenanceRequest));
+            }
+        } catch (\Exception $e) {
+            \Log::error("Failed to send disapproval email: " . $e->getMessage());
+        }
 
         // Notify the requester
         SystemNotification::create([
@@ -932,6 +965,15 @@ class MaintenanceRequestController extends Controller
         $maintenanceRequest->save();
 
         // ✅ Notify the requester
+        try {
+            $requester = User::find($maintenanceRequest->requesting_personnel);
+            if ($requester && $requester->email) {
+                $requester->notify(new MaintenanceRequestUrgent($maintenanceRequest));
+            }
+        } catch (\Exception $e) {
+            \Log::error("Failed to send urgent email: " . $e->getMessage());
+        }
+
         SystemNotification::create([
             'user_id' => $maintenanceRequest->requesting_personnel,
             'type' => 'maintenance_request_urgent',
@@ -981,6 +1023,15 @@ class MaintenanceRequestController extends Controller
         $maintenanceRequest->save();
 
         // ✅ Create system notification for requester
+        try {
+            $requester = User::find($maintenanceRequest->requesting_personnel);
+            if ($requester && $requester->email) {
+                $requester->notify(new MaintenanceRequestOnHold($maintenanceRequest));
+            }
+        } catch (\Exception $e) {
+            \Log::error("Failed to send on hold email: " . $e->getMessage());
+        }
+
         SystemNotification::create([
             'user_id' => $maintenanceRequest->requesting_personnel,
             'type' => 'maintenance_request_onhold',
@@ -1191,6 +1242,15 @@ class MaintenanceRequestController extends Controller
         ]);
 
         // Notify the requester
+        try {
+            $requester = User::find($maintenanceRequest->requesting_personnel);
+            if ($requester && $requester->email) {
+                $requester->notify(new MaintenanceRequestScheduled($maintenanceRequest));
+            }
+        } catch (\Exception $e) {
+            \Log::error("Failed to send scheduled email: " . $e->getMessage());
+        }
+
         SystemNotification::create([
             'user_id' => $maintenanceRequest->requesting_personnel,
             'type' => 'maintenance_request_scheduled',
@@ -1234,6 +1294,15 @@ class MaintenanceRequestController extends Controller
 
         $request->status_id = 5; // 5 = Done
         $request->save();
+
+        try {
+            $requester = User::find($request->requesting_personnel);
+            if ($requester && $requester->email) {
+                $requester->notify(new MaintenanceRequestDone($request));
+            }
+        } catch (\Exception $e) {
+            \Log::error("Failed to send done email: " . $e->getMessage());
+        }
 
         SystemNotification::create([
             'user_id' => $request->requesting_personnel,

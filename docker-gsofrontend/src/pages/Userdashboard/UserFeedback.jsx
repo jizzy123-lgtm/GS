@@ -271,8 +271,21 @@ const UserFeedback = () => {
       return parseInt(val, 10);
     };
 
+    // Calculate overall rating from SQDs (average)
+    let totalScore = 0;
+    let count = 0;
+    for (let i = 0; i < 9; i++) {
+      const val = ratingToInt(formData.sqd[i]);
+      if (val !== null) {
+        totalScore += val;
+        count++;
+      }
+    }
+    const overallRating = count > 0 ? Math.round(totalScore / count) : 5;
+
     const payload = {
       maintenance_request_id: formData.maintenance_request_id,
+      rating: overallRating,
       client_type: formData.client_type,
       service_type: formData.service_type,
       request_date: requestDate, // Use fetched request_date

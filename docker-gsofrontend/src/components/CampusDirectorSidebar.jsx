@@ -216,10 +216,10 @@ const CampusDirectorSidebar = memo(({
   menuItems = MENU_ITEMS, 
   onLogout,
 }) => (
-  <aside className={`hidden md:block bg-gray-900 text-white transition-[width] duration-300 ease-in-out relative h-full z-20 ${
+  <aside className={`hidden md:block bg-gray-900 text-white transition-[width] duration-300 ease-in-out relative h-full z-20 overflow-y-auto ${
     isSidebarCollapsed ? 'w-16' : 'w-64'
   }`}>
-    <div className="p-4 flex flex-col justify-between h-full">
+    <div className="p-4 flex flex-col justify-between min-h-full">
       <div>
         <button
           onClick={onToggleSidebar}

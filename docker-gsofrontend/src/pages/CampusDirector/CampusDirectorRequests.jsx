@@ -290,7 +290,7 @@ const CampusDirectorRequests = () => {
         </div>
       </header>
 
-      <div className="flex flex-1 overflow-auto">
+      <div className="flex flex-1 overflow-hidden">
         <CampusDirectorSidebar
           isSidebarCollapsed={state.isSidebarCollapsed}
           onToggleSidebar={() => dispatch({ type: "TOGGLE_SIDEBAR" })}

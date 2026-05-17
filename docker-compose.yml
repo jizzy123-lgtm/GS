@@ -28,6 +28,14 @@ services:
       DB_DATABASE: manageit
       DB_USERNAME: root
       DB_PASSWORD: 23-Shai-01186
+      MAIL_MAILER: smtp
+      MAIL_HOST: smtp.gmail.com
+      MAIL_PORT: 587
+      MAIL_USERNAME: generalserviceoffice23@gmail.com
+      MAIL_PASSWORD: your_app_password_here
+      MAIL_ENCRYPTION: tls
+      MAIL_FROM_ADDRESS: generalserviceoffice23@gmail.com
+      MAIL_FROM_NAME: "GSO SYSTEM"
     ports:
       - "9000:8000"
     volumes:

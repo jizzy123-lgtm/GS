@@ -229,7 +229,7 @@ const DashboardContent = () => {
   const generateCalendarDays = () => {
     const days = [];
     for (let i = 0; i < firstDayOfMonth; i++) {
-      days.push(<td key={`empty-${i}`} className="p-2 border border-gray-100 text-gray-300"></td>);
+      days.push(<td key={`empty-${i}`} className="p-1 sm:p-2 border border-gray-100 bg-gray-50/50 h-24 md:h-32"></td>);
     }
     const today = new Date();
     for (let day = 1; day <= daysInMonth; day++) {
@@ -283,7 +283,7 @@ const DashboardContent = () => {
     if ((i + 1) % 7 === 0 || i === calendarDays.length - 1) {
       if (i === calendarDays.length - 1 && week.length < 7) {
         for (let j = 0; j < 7 - week.length; j++) {
-          week.push(<td key={`empty-end-${j}`} className="p-2 border border-gray-100 text-gray-300"></td>);
+          week.push(<td key={`empty-end-${j}`} className="p-1 sm:p-2 border border-gray-100 bg-gray-50/50 h-24 md:h-32"></td>);
         }
       }
       weeks.push(<tr key={`week-${weeks.length}`}>{week}</tr>);

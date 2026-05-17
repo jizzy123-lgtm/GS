@@ -47,7 +47,7 @@ const CARD_ICONS = {
 };
 
 const DASHBOARD_CARDS = [
-  { text: 'Corrective Maintenance', icon: CARD_ICONS.Maintenance, isDropdown: true }
+  { text: 'User Requests', icon: CARD_ICONS.Reservation, isDropdown: false, to: '/adminuserrequests' }
 ];
 
 // Dropdown Menu Component
@@ -261,8 +261,6 @@ const AdminDashboard = () => {
   const handleNavigation = useCallback((item) => {
     if (item.text === "Logout") {
       handleLogout();
-    } else if (item.text === "Corrective Maintenance") {
-      dispatch({ type: 'TOGGLE_MAINTENANCE_DROPDOWN' });
     } else if (item.to) {
       navigate(item.to);
     }
@@ -270,8 +268,7 @@ const AdminDashboard = () => {
 
   const handleMaintenanceItemClick = useCallback((item) => {
     dispatch({ type: 'CLOSE_MAINTENANCE_DROPDOWN' });
-    navigate('/adminuserrequests'); // Admin goes to the requests list
-  }, [navigate]);
+  }, []);
 
   return (
     <div className="flex flex-col h-screen bg-gray-50">

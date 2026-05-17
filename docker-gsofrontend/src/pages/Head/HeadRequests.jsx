@@ -189,10 +189,10 @@ const HeadRequests = () => {
 
   const filtered = requests.filter((r) => {
     if (selectedTab === "Pending") {
-      return r.status === "Pending";
+      return (r.status === "Pending" || r.status === "Verified") && !r.approved_by_1;
     }
-    if (selectedTab === "Verified") {
-      return r.status === "Verified";
+    if (selectedTab === "Approved") {
+      return r.status === "Approved" || (r.status === "Verified" && r.approved_by_1);
     }
     if (selectedTab.toLowerCase() === "urgent") {
       return r.status?.toLowerCase() === "urgent";

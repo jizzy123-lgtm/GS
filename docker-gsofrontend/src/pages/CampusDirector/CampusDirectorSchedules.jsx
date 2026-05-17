@@ -188,7 +188,7 @@ const DashboardContent = memo(() => {
   const generateCalendarDays = () => {
     const days = [];
     for (let i = 0; i < firstDayOfMonth; i++) {
-      days.push(<td key={`empty-${i}`} className="p-1 sm:p-2 border border-gray-100 bg-gray-50/50"></td>);
+      days.push(<td key={`empty-${i}`} className="p-1 sm:p-2 border border-gray-100 bg-gray-50/50 h-24 md:h-32"></td>);
     }
 
     const today = new Date();
@@ -241,7 +241,7 @@ const DashboardContent = memo(() => {
       if (i === calendarDays.length - 1 && week.length < 7) {
         const remaining = 7 - week.length;
         for (let j = 0; j < remaining; j++) {
-          week.push(<td key={`empty-end-${j}`} className="p-1 sm:p-2 border border-gray-100 bg-gray-50/50"></td>);
+          week.push(<td key={`empty-end-${j}`} className="p-1 sm:p-2 border border-gray-100 bg-gray-50/50 h-24 md:h-32"></td>);
         }
       }
       weeks.push(<tr key={`week-${weeks.length}`} className="divide-x divide-gray-100">{week}</tr>);

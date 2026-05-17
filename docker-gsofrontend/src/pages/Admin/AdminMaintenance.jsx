@@ -1,7 +1,6 @@
 import { useReducer, useCallback, memo, useRef, useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Icon from '../../components/Icon';
-import Icon from '../../components/Icon';
 import { AdminSidebar, MENU_ITEMS as ADMIN_MENU_ITEMS } from '../../components/AdminSidebar';
 
 // Custom Hooks

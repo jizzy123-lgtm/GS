@@ -565,7 +565,7 @@ class MaintenanceRequestController extends Controller
             'date_received' => $request->date_received,
             'time_received' => $request->time_received,
             // 'remarks' => $request->remarks,
-            'status_id' => 3, //3 means dissaproved
+            'status_id' => 4, // 4 = Disapproved
             'priority_number' => null,
         ]);
 
@@ -928,7 +928,7 @@ class MaintenanceRequestController extends Controller
         ]);
 
         // ✅ Update the request to "Urgent"
-        $maintenanceRequest->status_id = 6;
+        $maintenanceRequest->status_id = 7; // 7 = Urgent
         $maintenanceRequest->save();
 
         // ✅ Notify the requester
@@ -977,7 +977,7 @@ class MaintenanceRequestController extends Controller
         ]);
 
         // ✅ Update status to On Hold
-        $maintenanceRequest->status_id = 7;
+        $maintenanceRequest->status_id = 8; // 8 = On Hold
         $maintenanceRequest->save();
 
         // ✅ Create system notification for requester
@@ -1006,11 +1006,11 @@ class MaintenanceRequestController extends Controller
             return response()->json(['message' => 'Maintenance request not found.'], 404);
         }
 
-        if ($request->status_id != 1) {
+        if ($request->status_id != 2) {
             return response()->json(['message' => 'Only pending requests can be canceled.'], 400);
         }
 
-        $request->status_id = 5; // 5 = canceled
+        $request->status_id = 6; // 6 = Canceled
         $request->save();
 
         return response()->json(['message' => 'Maintenance request canceled successfully.']);

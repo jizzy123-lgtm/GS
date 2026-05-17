@@ -285,7 +285,7 @@ const DashboardContent = memo(() => {
     
     // Add empty cells for days before the first day of the month
     for (let i = 0; i < firstDayOfMonth; i++) {
-      days.push(<td key={`empty-${i}`} className="p-2 border border-gray-100 text-gray-300"></td>);
+      days.push(<td key={`empty-${i}`} className="p-1 sm:p-2 border border-gray-100 bg-gray-50/50 h-24 md:h-32"></td>);
     }
     
     // Add days of the month
@@ -350,7 +350,7 @@ const DashboardContent = memo(() => {
       if (i === calendarDays.length - 1 && week.length < 7) {
         const remainingCells = 7 - week.length;
         for (let j = 0; j < remainingCells; j++) {
-          week.push(<td key={`empty-end-${j}`} className="p-2 border border-gray-100 text-gray-300"></td>);
+          week.push(<td key={`empty-end-${j}`} className="p-1 sm:p-2 border border-gray-100 bg-gray-50/50 h-24 md:h-32"></td>);
         }
       }
       

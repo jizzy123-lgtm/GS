@@ -179,24 +179,102 @@ const MaintenanceForm = () => {
                 />
               </div>
 
-              <div className="bg-gray-50 p-6 rounded-3xl border-2 border-gray-100 space-y-4">
-                <h3 className="text-sm font-black text-gray-400 uppercase tracking-widest mb-2">Requester Info</h3>
-                <div className="grid grid-cols-2 gap-4">
+              {/* User Information Section */}
+              <div className="bg-gray-50 p-4 rounded-lg border border-gray-200 space-y-4">
+                <h3 className="font-medium text-gray-700 mb-3">User Information</h3>
+
+                {/* Requesting Personnel */}
+                <div className="mb-3">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Requesting Personnel:
+                  </label>
+                  <input
+                    type="text"
+                    className="w-full border border-gray-300 bg-gray-100 rounded-lg px-4 py-2 text-gray-700"
+                    value={displayName}
+                    readOnly
+                    disabled
+                  />
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  {/* Position */}
                   <div>
-                    <label className="block text-[10px] font-black text-gray-400 uppercase mb-1">Personnel</label>
-                    <p className="font-bold text-gray-900">{displayName}</p>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Position:
+                    </label>
+                    <input
+                      type="text"
+                      className="w-full border border-gray-300 bg-gray-100 rounded-lg px-4 py-2 text-gray-700"
+                      value={formData.position}
+                      readOnly
+                      disabled
+                    />
                   </div>
+
+                  {/* Contact Number */}
                   <div>
-                    <label className="block text-[10px] font-black text-gray-400 uppercase mb-1">Office</label>
-                    <p className="font-bold text-gray-900">{formData.requesting_office}</p>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Contact Number:
+                    </label>
+                    <input
+                      type="text"
+                      className="w-full border border-gray-300 bg-gray-100 rounded-lg px-4 py-2 text-gray-700"
+                      value={formData.contact_number}
+                      readOnly
+                      disabled
+                    />
                   </div>
+                </div>
+
+                {/* Requesting Office */}
+                <div className="mt-3">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Requesting Office:
+                  </label>
+                  <input
+                    type="text"
+                    className="w-full border border-gray-300 bg-gray-100 rounded-lg px-4 py-2 text-gray-700"
+                    value={formData.requesting_office}
+                    readOnly
+                    disabled
+                  />
                 </div>
               </div>
 
-              <div className="flex gap-4">
-                <button type="button" onClick={() => navigate(-1)} className="flex-1 bg-gray-100 hover:bg-gray-200 text-gray-600 font-bold py-4 rounded-2xl transition-all">Cancel</button>
-                <button type="submit" disabled={status.isSubmitting} className="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-bold py-4 rounded-2xl shadow-lg transition-all active:scale-95 disabled:opacity-50">
-                  {status.isSubmitting ? "Submitting..." : "Submit Request"}
+              {/* Buttons */}
+              <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 sm:justify-between mt-6">
+                <button
+                  type="button"
+                  className="w-full sm:w-auto bg-gray-500 hover:bg-gray-600 text-white px-6 py-3 rounded-lg transition-colors duration-200 flex items-center justify-center"
+                  onClick={() => navigate(-1)}
+                >
+                  <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+                  </svg>
+                  Back
+                </button>
+                <button
+                  type="submit"
+                  className="w-full sm:w-auto bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-lg transition-colors duration-200 flex items-center justify-center"
+                  disabled={status.isSubmitting}
+                >
+                  {status.isSubmitting ? (
+                    <>
+                      <svg className="animate-spin -ml-1 mr-2 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                      </svg>
+                      Processing...
+                    </>
+                  ) : (
+                    <>
+                      <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
+                      </svg>
+                      Submit Request
+                    </>
+                  )}
                 </button>
               </div>
             </form>

@@ -35,11 +35,12 @@ class StatusController extends Controller
 
     public function accountStatuses()
     {
-
-        $statuses = Status::whereIn('id', [1, 2, 3])->get();
-
         return response()->json([
-            'statuses' => $statuses
+            'statuses' => [
+                ['id' => 1, 'name' => 'Pending'],
+                ['id' => 2, 'name' => 'Approved'],
+                ['id' => 3, 'name' => 'Disapproved'],
+            ]
         ]);
     }
 

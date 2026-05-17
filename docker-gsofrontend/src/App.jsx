@@ -31,6 +31,12 @@ import HeadMaintenance from "./pages/Head/headmaintenance/HeadMaintenance.jsx";
 import CampusDirectorNotifications from "./pages/CampusDirector/CampusDirectorNotifications.jsx";
 import CampusDirectorSchedules from "./pages/CampusDirector/CampusDirectorSchedules.jsx";
 import ViewMaintenanceRequestForm from "./pages/Userdashboard/ViewMaintenanceRequestForm.jsx";
+import MaintenanceForm from "./pages/Maintenance/MaintenanceForm.jsx";
+import AdminMaintenance from "./pages/Admin/AdminMaintenance.jsx";
+import AdminJanitorial from "./pages/Admin/adminMaintenance/AdminJanitorial.jsx";
+import AdminCarpentry from "./pages/Admin/adminMaintenance/AdminCarpentry.jsx";
+import AdminElectrical from "./pages/Admin/adminMaintenance/AdminElectrical.jsx";
+import AdminAirconditioning from "./pages/Admin/adminMaintenance/AdminAirconditioning.jsx";
 
 import { StaffNotificationProvider } from "./components/StaffSidebar";
 import { AdminNotificationProvider } from "./components/AdminSidebar.jsx";
@@ -117,6 +123,14 @@ function App() {
           }
         />
         <Route
+          path="/maintenance-form/:typeId"
+          element={
+            <UserNotificationProvider>
+              <MaintenanceForm />
+            </UserNotificationProvider>
+          }
+        />
+        <Route
           path="/profile"
           element={
             <UserNotificationProvider>
@@ -172,6 +186,46 @@ function App() {
           element={
             <AdminNotificationProvider>
               <AdminUserRequestsForm />
+            </AdminNotificationProvider>
+          }
+        />
+        <Route
+          path="/adminmaintenance"
+          element={
+            <AdminNotificationProvider>
+              <AdminMaintenance />
+            </AdminNotificationProvider>
+          }
+        />
+        <Route
+          path="/adminJanitorial"
+          element={
+            <AdminNotificationProvider>
+              <AdminJanitorial />
+            </AdminNotificationProvider>
+          }
+        />
+        <Route
+          path="/adminCarpentry"
+          element={
+            <AdminNotificationProvider>
+              <AdminCarpentry />
+            </AdminNotificationProvider>
+          }
+        />
+        <Route
+          path="/adminElectrical"
+          element={
+            <AdminNotificationProvider>
+              <AdminElectrical />
+            </AdminNotificationProvider>
+          }
+        />
+        <Route
+          path="/adminAirconditioning"
+          element={
+            <AdminNotificationProvider>
+              <AdminAirconditioning />
             </AdminNotificationProvider>
           }
         />

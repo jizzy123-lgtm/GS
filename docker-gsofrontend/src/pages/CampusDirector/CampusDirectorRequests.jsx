@@ -207,13 +207,7 @@ const CampusDirectorRequests = () => {
 
   const filtered = requests.filter((r) => {
     if (selectedTab === "Pending") {
-      // Show all Pending but highlight those requiring action? 
-      // Actually, standardizing: just filter by status name.
-      return r.status === "Pending";
-    }
-    if (selectedTab === "Verified") {
-      // These are the ones ready for Director's attention (if they also have approved_by_1)
-      return r.status === "Verified";
+      return (r.status === "Pending" || r.status === "Verified") && r.status !== "Approved";
     }
     if (selectedTab.toLowerCase() === "urgent") {
       return r.status?.toLowerCase() === "urgent";

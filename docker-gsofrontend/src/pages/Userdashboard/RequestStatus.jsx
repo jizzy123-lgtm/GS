@@ -332,19 +332,19 @@ const RequestStatus = () => {
 
           {/* Tabs */}
           <div className="flex space-x-4 mb-6 flex-wrap gap-y-2">
-            {["Pending", "Scheduled", "Approved", "Disapproved", "Completed"].map((tab) => (
+            {["Pending", "Scheduled", "Approved", "Disapproved", "Done", "Completed", "Canceled", "Urgent"].map((tab) => (
               <button
                 key={tab}
                 onClick={() => setSelectedTab(tab)}
                 className={`px-4 py-2 font-semibold rounded-md transition-all ${
                   selectedTab === tab
-                    ? tab === "Scheduled"
+                    ? tab === "Scheduled" || tab === "Done" || tab === "Completed"
                       ? "bg-blue-600 text-white shadow-lg shadow-blue-200"
                       : tab === "Pending"
                       ? "bg-yellow-500 text-white shadow-lg shadow-yellow-200"
-                      : tab === "Approved" || tab === "Completed"
+                      : tab === "Approved"
                       ? "bg-green-600 text-white shadow-lg shadow-green-200"
-                      : tab === "Disapproved"
+                      : tab === "Disapproved" || tab === "Canceled" || tab === "Urgent"
                       ? "bg-red-600 text-white shadow-lg shadow-red-200"
                       : "bg-gray-800 text-white"
                     : "bg-gray-100 text-gray-600 hover:bg-gray-200"

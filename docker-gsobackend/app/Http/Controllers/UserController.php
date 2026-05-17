@@ -178,12 +178,22 @@ class UserController extends Controller
         $user->save();
 
         // Send email notification only if approved
-        if ($user->status_id == 2 && $user->email) {
-            try {
-                $user->notify(new AccountApproved());
-            } catch (\Exception $e) {
-                \Log::error("Failed to send account approval email notification: " . $e->getMessage());
+        if ($user->status_id == 2) {
+            if ($user->email) {
+                try {
+                    $user->notify(new AccountApproved());
+                } catch (\Exception $e) {
+                    \Log::error("Failed to send account approval email notification: " . $e->getMessage());
+                }
             }
+
+            SystemNotification::create([
+                'user_id' => $user->id,
+                'type' => 'account_approved',
+                'message' => 'Your account registration has been approved by the Admin.',
+                'reference_id' => $user->id,
+                'is_read' => false,
+            ]);
         }
 
         return response()->json(['message' => 'User status approved successfully.']);

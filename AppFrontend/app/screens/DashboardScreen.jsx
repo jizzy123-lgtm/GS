@@ -401,8 +401,9 @@ function getQuickActions(roleId, onNavigate) {
   if (roleId === ROLE_IDS.SYSTEM_ADMIN) return [
     { label: "Account Approvals", onPress: () => onNavigate("PendingApprovals") },
     { label: "User Management", onPress: () => onNavigate("UserManagement") },
-    { label: "Login Tracking", onPress: () => onNavigate("LoginLocationTracking") },
+    { label: "Account Logs", onPress: () => onNavigate("LoginLocationTracking") },
     { label: "Feedbacks", onPress: () => onNavigate("Feedbacks") },
+    { label: "Manage Types", onPress: () => onNavigate("ManageTypes") },
     ...common,
   ];
   if (roleId === ROLE_IDS.HEAD || roleId === ROLE_IDS.CAMPUS_DIRECTOR) return [
@@ -416,6 +417,7 @@ function getQuickActions(roleId, onNavigate) {
     { label: "Review Requests", onPress: () => onNavigate("ReviewRequests") },
     { label: "New Request", onPress: () => onNavigate("SubmitRequest") },
     { label: "Assign Schedule", onPress: () => onNavigate("AssignSchedule") },
+    { label: "Calendar", onPress: () => onNavigate("Calendar") },
     { label: "My Requests", onPress: () => onNavigate("ViewRequestStatus", { requestScope: "my" }) },
     { label: "All Requests", onPress: () => onNavigate("ViewRequestStatus", { requestScope: "all" }) },
     ...common,

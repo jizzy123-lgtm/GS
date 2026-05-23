@@ -110,7 +110,7 @@ class ScheduleEventController extends Controller
             'title' => $validated['title'],
             'date' => $validated['date'],
             'time' => $validated['time'],
-            'location' => $validated['location'] ?? null,
+            'location' => $validated['location'] ?? $maintenanceRequest->location,
             'notes' => $validated['notes'] ?? null,
             'assigned_office_id' => $maintenanceRequest->requesting_office,
             'created_by' => $user->id,

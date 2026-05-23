@@ -5,11 +5,13 @@ import { getNotificationNavigationTarget } from '../../utils/notificationNavigat
 import { normalizeRoleId } from "../constants/roles";
 import LoginScreen from '../LoginScreen';
 import AssignScheduleScreen from '../screens/AssignScheduleScreen';
+import CalendarScreen from '../screens/CalendarScreen';
 import DashboardScreen from '../screens/DashboardScreen';
 import FeedbackScreen from '../screens/FeedbackScreen';
 import GoogleDuplicateScreen from '../screens/GoogleDuplicateScreen';
 import FeedbacksScreen from '../screens/FeedbacksScreen';
 import LoginLocationTrackingScreen from '../screens/LoginLocationTrackingScreen';
+import ManageTypesScreen from '../screens/ManageTypesScreen';
 import NotificationsScreen from '../screens/NotificationsScreen';
 import PendingApprovalsScreen from '../screens/PendingApprovalsScreen';
 import ProfileScreen from '../screens/ProfileScreen';
@@ -25,7 +27,7 @@ type Screen =
   | 'Login' | 'SignUp' | 'ForgotPassword' | 'Dashboard' | 'SubmitRequest'
   | 'ViewRequestStatus' | 'Feedback' | 'Feedbacks' | 'LoginLocationTracking' | 'Notifications'
   | 'ReviewRequests' | 'PendingApprovals' | 'Profile' | 'AssignSchedule' | 'UserManagement'
-  | 'UserManual' | 'GoogleDuplicate';
+  | 'UserManual' | 'GoogleDuplicate' | 'Calendar' | 'ManageTypes';
 
 export default function HomeScreen() {
   const [user, setUser] = useState<any>(null);
@@ -112,8 +114,14 @@ export default function HomeScreen() {
   if (screen === 'Profile') {
     return <ProfileScreen user={user} onBack={() => navigate('Dashboard')} onUpdateUser={(u: any) => setUser(u)} onNavigate={navigate} />;
   }
+  if (screen === 'Calendar') {
+    return <CalendarScreen user={user} onBack={() => navigate('Dashboard')} onNavigate={navigate} />;
+  }
   if (screen === 'AssignSchedule') {
     return <AssignScheduleScreen user={user} requestId={screenParams.requestId} request={screenParams.request} onBack={() => navigate('ReviewRequests')} onSuccess={() => navigate('Dashboard')} />;
+  }
+  if (screen === 'ManageTypes') {
+    return <ManageTypesScreen user={user} onBack={() => navigate('Dashboard')} onNavigate={navigate} />;
   }
   if (screen === 'UserManual') {
     return <UserManualScreen user={user} onBack={() => navigate('Dashboard')} />;

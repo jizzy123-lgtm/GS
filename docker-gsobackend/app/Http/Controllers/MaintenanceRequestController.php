@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 use App\Models\MaintenanceRequest;
+use App\Models\ScheduleEvent;
 use App\Models\Notification as SystemNotification;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -21,9 +22,63 @@ use Carbon\Carbon;
 use App\Models\Comment;
 class MaintenanceRequestController extends Controller
 {
-    public function index()
+    public function index(Request $request)
     {
-        return response()->json(MaintenanceRequest::all());
+        $user = Auth::user();
+        $query = MaintenanceRequest::with('requester:id,first_name,last_name');
+
+        if ($request->filled('status')) {
+            $status = $request->input('status');
+            $statusMap = [
+                'scheduled' => 9,
+                'done' => 4,
+                'disapproved' => 3,
+                'cancelled' => 5,
+            ];
+
+            if (isset($statusMap[$status])) {
+                $query->where('status_id', $statusMap[$status]);
+            } elseif ($status === 'pending') {
+                if ($user && $user->role_id === 2) {
+                    $query->whereNotNull('verified_by')->whereNull('approved_by_1');
+                } elseif ($user && $user->role_id === 5) {
+                    $query->whereNotNull('approved_by_1')->whereNull('approved_by_2');
+                } else {
+                    $query->where('status_id', 1);
+                }
+            } elseif ($status === 'approved') {
+                if ($user && $user->role_id === 2) {
+                    $query->whereNotNull('approved_by_1');
+                } elseif ($user && $user->role_id === 5) {
+                    $query->whereNotNull('approved_by_2');
+                } else {
+                    $query->whereNotNull('verified_by');
+                }
+            } else {
+                return response()->json(['message' => 'Invalid status filter.'], 400);
+            }
+        }
+
+        if ($request->filled('maintenance_type_id')) {
+            $query->where('maintenance_type_id', $request->input('maintenance_type_id'));
+        }
+
+        $query->orderBy('created_at', 'desc');
+
+        $requests = $query->get();
+
+        $requests->transform(function ($requestItem) {
+            $requester = optional($requestItem->requester);
+            $requestItem->submitted_by = [
+                'id' => $requester->id,
+                'first_name' => $requester->first_name,
+                'last_name' => $requester->last_name,
+            ];
+            unset($requestItem->requester);
+            return $requestItem;
+        });
+
+        return response()->json($requests);
     }
 
     public function store(Request $request)
@@ -35,6 +90,7 @@ class MaintenanceRequestController extends Controller
             'position_id' => 'required|exists:positions,id',
             'requesting_office' => 'required|exists:offices,id',
             'contact_number' => 'required|string',
+            'location' => 'nullable|string|max:255',
             'maintenance_type_id' => 'required|exists:maintenance_types,id',
             'images' => 'nullable|array|max:12',
             'images.*' => 'image|mimes:jpeg,png,jpg,gif|max:5120',
@@ -58,6 +114,7 @@ class MaintenanceRequestController extends Controller
             'position_id' => $request->position_id,
             'requesting_office' => $request->requesting_office,
             'contact_number' => $request->contact_number,
+            'location' => $request->location,
             'maintenance_type_id' => $request->maintenance_type_id,
             'status_id' => 1,
             'image_path' => $imagePaths[0],
@@ -1056,6 +1113,7 @@ class MaintenanceRequestController extends Controller
                 'position' => optional($request->position)->name,
                 'requesting_office' => optional($request->office)->name,
                 'contact_number' => $request->contact_number,
+                'location' => $request->location,
                 'status' => optional($request->status)->name,
                 'date_received' => $request->date_received,
                 'time_received' => $request->time_received,
@@ -1117,13 +1175,17 @@ class MaintenanceRequestController extends Controller
     public function assignPriority(Request $request, $id)
     {
         $request->validate([
-            'priority_number' => 'required|string',
+            'priority_number' => 'nullable|string',
         ]);
 
         $maintenanceRequest = MaintenanceRequest::findOrFail($id);
 
-        // Update the priority number
-        $maintenanceRequest->priority_number = $request->priority_number;
+        $priorityNumber = $request->priority_number;
+        if (!$priorityNumber) {
+            $priorityNumber = $this->generatePriorityNumberForRequest($maintenanceRequest->maintenance_type_id);
+        }
+
+        $maintenanceRequest->priority_number = $priorityNumber;
         $maintenanceRequest->status_id = 2; // Approved status ID
         $maintenanceRequest->save();
 
@@ -1191,9 +1253,21 @@ class MaintenanceRequestController extends Controller
             'status_id' => 9, // 9 = Scheduled (original flow — marks request as scheduled, pending markAsDone)
         ]);
 
-        // Notify the requester
         $maintenanceRequest->load(['maintenanceType']);
         $typeName = optional($maintenanceRequest->maintenanceType)->type_name ?? 'Maintenance';
+
+        ScheduleEvent::create([
+            'title' => $typeName,
+            'date' => $request->scheduled_date,
+            'time' => $request->scheduled_time,
+            'location' => $maintenanceRequest->location,
+            'notes' => $request->scheduled_notes,
+            'assigned_office_id' => $maintenanceRequest->requesting_office,
+            'created_by' => $user->id,
+            'maintenance_request_id' => $maintenanceRequest->id,
+        ]);
+
+        // Notify the requester
         $actorName = Auth::user()->first_name . ' ' . Auth::user()->last_name;
         $priorityInfo = $maintenanceRequest->priority_number ? ' | Priority No. ' . $maintenanceRequest->priority_number : '';
 
@@ -1262,12 +1336,12 @@ class MaintenanceRequestController extends Controller
 
 
 
-    public function generatePriorityNumber($maintenanceTypeId)
+    private function generatePriorityNumberForRequest($maintenanceTypeId)
     {
         $maintenanceType = MaintenanceType::find($maintenanceTypeId);
 
         if (!$maintenanceType) {
-            return response()->json(['message' => 'Maintenance type not found.'], 404);
+            return null;
         }
 
         $firstLetter = strtoupper(substr($maintenanceType->type_name, 0, 1));
@@ -1277,12 +1351,21 @@ class MaintenanceRequestController extends Controller
         $count = MaintenanceRequest::where('maintenance_type_id', $maintenanceType->id)
             ->whereYear('created_at', now()->year)
             ->whereMonth('created_at', now()->month)
-            ->whereNotNull('approved_by_2')  // <-- added condition
+            ->whereNotNull('approved_by_2')
             ->whereNotNull('priority_number')
             ->count();
 
         $runningNumber = $count + 1;
-        $priorityNumber = "{$firstLetter}-{$year}-{$month}-{$runningNumber}";
+        return "{$firstLetter}-{$year}-{$month}-{$runningNumber}";
+    }
+
+    public function generatePriorityNumber($maintenanceTypeId)
+    {
+        $priorityNumber = $this->generatePriorityNumberForRequest($maintenanceTypeId);
+
+        if (!$priorityNumber) {
+            return response()->json(['message' => 'Maintenance type not found.'], 404);
+        }
 
         return response()->json([
             'priority_number' => $priorityNumber

@@ -35,6 +35,7 @@ class MaintenanceRequest extends Model
         'image_path_10',
         'image_path_11',
         'image_path_12',
+        'location',
         'scheduled_date',
         'scheduled_time',
         'assigned_staff',

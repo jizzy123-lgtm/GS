@@ -95,10 +95,12 @@ Because the latest backend is being pushed separately at the repository root fro
 Do not push these as part of the public branch replacement:
 
 - backend `.env`
+- backend runtime output files such as `stdout.txt`, `stderr.txt`, `as_fix_err.txt`, and `as_fix_out.txt`
 - `.git` folders
 - `node_modules`
 - `.expo`
 - `vendor`
+- backend `storage/logs`
 - IDE folders such as `.idea` and `.vscode`
 - the nested `C:\Users\ACER\GSO_MOBILE_TESTING\docker-gsobackend` copy inside the frontend source
 
@@ -121,10 +123,10 @@ Get-ChildItem -Force | Where-Object { $_.Name -ne '.git' } | Remove-Item -Recurs
 
 ### 3. Copy the backend folder into the clean clone
 
-This copies the backend while excluding `.env`, `vendor`, `node_modules`, and local editor/cache folders.
+This copies the backend while excluding `.env`, `vendor`, `node_modules`, runtime output files, `storage/logs`, and local editor/cache folders.
 
 ```powershell
-robocopy 'C:\Users\ACER\GS-JS_Backend\docker-gsobackend' 'C:\tmp\GS-emc-clean\docker-gsobackend' /E /XD .git node_modules vendor .idea .vscode .fleet .nova .zed /XF .env .env.backup .env.production .phpunit.result.cache
+robocopy 'C:\Users\ACER\GS-JS_Backend\docker-gsobackend' 'C:\tmp\GS-emc-clean\docker-gsobackend' /E /XD .git node_modules vendor .idea .vscode .fleet .nova .zed storage\\logs /XF .env .env.backup .env.production .phpunit.result.cache stdout.txt stderr.txt as_fix_err.txt as_fix_out.txt
 ```
 
 ### 4. Copy the frontend folder as `AppFrontend`

@@ -81,9 +81,6 @@ Route::middleware(['auth:sanctum'])->put('/maintenance-requests/{id}/disapprove'
 Route::middleware(['auth:sanctum'])->get('/staffpov/{id}', [MaintenanceRequestController::class, 'staffpov']);
 //staff would know used numbers for setting priority numbers
 Route::middleware(['auth:sanctum'])->get('/maintenance-requests/priority-numbers', [MaintenanceRequestController::class, 'getUsedPriorityNumbers']);
-// Route::middleware(['auth:sanctum'])->group(function () {
-    Route::get('/maintenance-requests', [MaintenanceRequestController::class, 'index']);
-// });
 
 //denies the request by a staff
 Route::middleware(['auth:sanctum'])->put('/maintenance-requests/{id}/deny', [MaintenanceRequestController::class, 'denyRequest']);
@@ -165,11 +162,13 @@ Route::middleware('auth:sanctum')->get('/feedbacks', [FeedbackController::class,
 Route::middleware('auth:sanctum')->group(function () {
     // Maintenance Requests
     Route::apiResource('/maintenance-requests', MaintenanceRequestController::class);
-    Route::apiResource('/maintenance-types', MaintenanceTypeController::class);
 
     // AI Assistant
     Route::post('/ai-assist', [AIAssistantController::class, 'assist']);
 });
+
+// Public index with filtering (overrides auth-protected one from apiResource)
+Route::get('/maintenance-requests', [MaintenanceRequestController::class, 'index']);
 
 Route::get('/maintenance-requests/{id}/request-date', [MaintenanceRequestController::class, 'getRequestDate']);
 
@@ -213,6 +212,7 @@ Route::apiResource('roles', RoleController::class);
 Route::apiResource('positions', PositionController::class);
 Route::apiResource('offices', OfficeController::class);
 Route::apiResource('statuses', StatusController::class);
+Route::apiResource('maintenance-types', MaintenanceTypeController::class);
 
 
 Route::middleware('auth:sanctum')->group(function () {

@@ -36,7 +36,7 @@ const SM = {
   [MAINTENANCE_STATUS.DISAPPROVED]: { color: C.danger, bg: C.dangerBg, label: "Disapproved" },
   [MAINTENANCE_STATUS.CANCELLED]: { color: C.textMute, bg: C.surfaceAlt, label: "Cancelled" },
 };
-const FILTERS = ["All", "Pending", "Approved", "Scheduled", "Done", "Disapproved", "Cancelled"];
+const STATUS_OPTIONS = ["All", "Pending", "Approved", "Scheduled", "Done", "Disapproved", "Cancelled"];
 const SCHEDULING_AUTO_COMPLETES_REQUEST = false;
 
 const sortRequestsDescending = (list) => {
@@ -107,7 +107,11 @@ export default function ReviewRequestsScreen({ user, onBack, onNavigate }) {
   const [types, setTypes] = useState({});
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [filter, setFilter] = useState("All");
+  const [selectedStatus, setSelectedStatus] = useState("All");
+  const [selectedMaintenanceType, setSelectedMaintenanceType] = useState(null);
+  const [maintenanceTypes, setMaintenanceTypes] = useState([]);
+  const [showStatusPicker, setShowStatusPicker] = useState(false);
+  const [showTypePicker, setShowTypePicker] = useState(false);
   const [selected, setSelected] = useState(null);
   const [actionLoading, setActionLoading] = useState(false);
   const [actionMsg, setActionMsg] = useState("");
@@ -125,15 +129,22 @@ export default function ReviewRequestsScreen({ user, onBack, onNavigate }) {
     try {
       const token = await getAuthToken();
       const headers = getAuthHeaders(token);
+      const params = new URLSearchParams();
+      if (selectedStatus !== "All") params.append("status", selectedStatus.toLowerCase());
+      if (selectedMaintenanceType) params.append("maintenance_type_id", selectedMaintenanceType);
+      const qs = params.toString();
+
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 45000);
       let res;
       let data;
       try {
-        res = await fetch(`${API_URL}/maintenance-requests/list-with-details`, { headers, signal: controller.signal });
+        const url = `${API_URL}/maintenance-requests${qs ? `?${qs}` : ""}`;
+        res = await fetch(url, { headers, signal: controller.signal });
         data = await res.json().catch(() => ({}));
         if (!res.ok) {
-          res = await fetch(`${API_URL}/maintenance-requests`, { headers, signal: controller.signal });
+          const fallbackUrl = `${API_URL}/maintenance-requests/list-with-details${qs ? `?${qs}` : ""}`;
+          res = await fetch(fallbackUrl, { headers, signal: controller.signal });
           data = await res.json().catch(() => ({}));
         }
       } finally {
@@ -179,8 +190,20 @@ export default function ReviewRequestsScreen({ user, onBack, onNavigate }) {
       );
     } catch (_e) { setRequests([]); }
     finally { setLoading(false); setRefreshing(false); }
-  }, [types]);
+  }, [types, selectedStatus, selectedMaintenanceType]);
 
+  const fetchMaintenanceTypes = useCallback(async () => {
+    try {
+      const token = await getAuthToken();
+      const res = await fetch(`${API_URL}/maintenance-types`, { headers: getAuthHeaders(token) });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) return;
+      const list = extractApiList(data);
+      setMaintenanceTypes(list);
+    } catch (_e) { /* silently fail */ }
+  }, []);
+
+  useEffect(() => { fetchMaintenanceTypes(); }, [fetchMaintenanceTypes]);
   useEffect(() => { fetchRequests(); }, [fetchRequests]);
   useEffect(() => {
     setDetailImageUrls(normalizeImageUrls(selected?.image_urls));
@@ -240,19 +263,6 @@ export default function ReviewRequestsScreen({ user, onBack, onNavigate }) {
   };
 
   const roleNeedsSequentialFilter = [ROLE_IDS.STAFF, ROLE_IDS.HEAD, ROLE_IDS.CAMPUS_DIRECTOR].includes(roleId);
-
-  const filtered = (() => {
-    if (filter === "All") {
-      return requests;
-    }
-    if (filter === "Pending" && roleNeedsSequentialFilter) {
-      return getSequentialPendingRequests(requests, roleId);
-    }
-    return requests.filter(r => {
-      const s = normalizeMaintenanceStatus(r.status, r.status_id);
-      return s === filter.toLowerCase();
-    });
-  })();
 
   const doAction = async (id, action, reason = "", extra = {}) => {
     setActionLoading(true); setActionMsg("");
@@ -487,7 +497,7 @@ export default function ReviewRequestsScreen({ user, onBack, onNavigate }) {
               ["Type", selected.maintenance_type_name || selected.maintenance_type?.name || selected.maintenance_type || selected.type],
               ["Priority", selected.priority_number || selected.priority || "Pending priority assignment"],
               ["Location", selected.location],
-              ["Submitted by", selected.requester_name || selected.user?.name || selected.requester?.name],
+              ["Submitted by", selected.submitted_by ? `${selected.submitted_by.first_name} ${selected.submitted_by.last_name}` : (selected.requester_name || selected.user?.name || selected.requester?.name)],
               ["Date", (selected.date_requested || selected.created_at)?.slice(0, 10)],
               ["Description", selected.details || selected.description]
             ].map(([l, v], i, arr) => (
@@ -678,17 +688,23 @@ export default function ReviewRequestsScreen({ user, onBack, onNavigate }) {
       />
       <ScrollView contentContainerStyle={{ paddingBottom: 40 }}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={C.steel} />}>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginTop: 12 }} contentContainerStyle={{ paddingHorizontal: 14, gap: 8 }}>
-          {FILTERS.map(f => (
-            <TouchableOpacity key={f} style={[styles.filterTab, filter === f && styles.filterTabActive]} onPress={() => setFilter(f)}>
-              <Text style={[styles.filterTabText, filter === f && styles.filterTabTextActive]}>{f}</Text>
-            </TouchableOpacity>
-          ))}
-        </ScrollView>
+        <View style={styles.filterBar}>
+          <TouchableOpacity style={styles.dropdownBtn} onPress={() => setShowStatusPicker(true)} activeOpacity={0.8}>
+            <Text style={styles.dropdownLabel}>Status</Text>
+            <Text style={styles.dropdownValue}>{selectedStatus}</Text>
+            <Text style={styles.dropdownArrow}>▼</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.dropdownBtn} onPress={() => setShowTypePicker(true)} activeOpacity={0.8}>
+            <Text style={styles.dropdownLabel}>Type</Text>
+            <Text style={styles.dropdownValue}>{selectedMaintenanceType ? (maintenanceTypes.find(t => t.id === selectedMaintenanceType)?.type_name || "All Types") : "All Types"}</Text>
+            <Text style={styles.dropdownArrow}>▼</Text>
+          </TouchableOpacity>
+        </View>
+
         <View style={{ padding: 14 }}>
           {loading ? <ActivityIndicator color={C.steel} style={{ marginTop: 40 }} />
-            : filtered.length === 0 ? <View style={styles.emptyCard}><Text style={styles.emptyText}>No {filter !== "All" ? filter.toLowerCase() : ""} requests.</Text></View>
-              : filtered.map((req, i) => {
+            : requests.length === 0 ? <View style={styles.emptyCard}><Text style={styles.emptyText}>No requests match the selected filters.</Text></View>
+              : requests.map((req, i) => {
                 const status = normalizeMaintenanceStatus(req.status, req.status_id);
                 const s = SM[status] || SM[MAINTENANCE_STATUS.PENDING];
                 const pending = status === MAINTENANCE_STATUS.PENDING;
@@ -737,6 +753,55 @@ export default function ReviewRequestsScreen({ user, onBack, onNavigate }) {
               })}
         </View>
       </ScrollView>
+
+      {showStatusPicker && (
+        <View style={styles.pickerOverlay}>
+          <View style={styles.pickerSheet}>
+            <Text style={styles.pickerTitle}>Filter by Status</Text>
+            {STATUS_OPTIONS.map((opt) => (
+              <TouchableOpacity
+                key={opt}
+                style={[styles.pickerOption, selectedStatus === opt && styles.pickerOptionActive]}
+                onPress={() => { setSelectedStatus(opt); setShowStatusPicker(false); }}
+                activeOpacity={0.7}
+              >
+                <Text style={[styles.pickerOptionText, selectedStatus === opt && styles.pickerOptionTextActive]}>{opt}</Text>
+              </TouchableOpacity>
+            ))}
+            <TouchableOpacity style={styles.pickerCancel} onPress={() => setShowStatusPicker(false)}>
+              <Text style={styles.pickerCancelText}>Cancel</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      )}
+
+      {showTypePicker && (
+        <View style={styles.pickerOverlay}>
+          <View style={styles.pickerSheet}>
+            <Text style={styles.pickerTitle}>Filter by Maintenance Type</Text>
+            <TouchableOpacity
+              style={[styles.pickerOption, selectedMaintenanceType === null && styles.pickerOptionActive]}
+              onPress={() => { setSelectedMaintenanceType(null); setShowTypePicker(false); }}
+              activeOpacity={0.7}
+            >
+              <Text style={[styles.pickerOptionText, selectedMaintenanceType === null && styles.pickerOptionTextActive]}>All Types</Text>
+            </TouchableOpacity>
+            {maintenanceTypes.map((t) => (
+              <TouchableOpacity
+                key={t.id}
+                style={[styles.pickerOption, selectedMaintenanceType === t.id && styles.pickerOptionActive]}
+                onPress={() => { setSelectedMaintenanceType(t.id); setShowTypePicker(false); }}
+                activeOpacity={0.7}
+              >
+                <Text style={[styles.pickerOptionText, selectedMaintenanceType === t.id && styles.pickerOptionTextActive]}>{t.type_name}</Text>
+              </TouchableOpacity>
+            ))}
+            <TouchableOpacity style={styles.pickerCancel} onPress={() => setShowTypePicker(false)}>
+              <Text style={styles.pickerCancelText}>Cancel</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      )}
     </View>
   );
 }
@@ -777,10 +842,20 @@ function ApprovalStepDetail({ done, skipped, label, who, date, pendingText }) {
 }
 
 const styles = StyleSheet.create({
-  filterTab: { paddingHorizontal: 14, paddingVertical: 7, borderRadius: 20, backgroundColor: C.surface, borderWidth: 1.5, borderColor: C.border },
-  filterTabActive: { backgroundColor: C.navy, borderColor: C.navy },
-  filterTabText: { fontSize: 12, fontWeight: "700", color: C.textMute },
-  filterTabTextActive: { color: "#fff" },
+  filterBar: { flexDirection: "row", gap: 10, paddingHorizontal: 14, paddingTop: 12 },
+  dropdownBtn: { flex: 1, backgroundColor: C.surface, borderRadius: 10, padding: 10, borderWidth: 1.5, borderColor: C.border },
+  dropdownLabel: { fontSize: 9, fontWeight: "700", color: C.textMute, textTransform: "uppercase", letterSpacing: 0.8 },
+  dropdownValue: { fontSize: 13, fontWeight: "700", color: C.navy, marginTop: 2 },
+  dropdownArrow: { fontSize: 8, color: C.textMute, position: "absolute", right: 10, top: 10 },
+  pickerOverlay: { position: "absolute", top: 0, left: 0, right: 0, bottom: 0, backgroundColor: "rgba(0,0,0,0.5)", justifyContent: "center", padding: 20, zIndex: 100 },
+  pickerSheet: { backgroundColor: C.surface, borderRadius: 20, padding: 20, elevation: 5, maxHeight: "70%" },
+  pickerTitle: { fontSize: 16, fontWeight: "900", color: C.navy, marginBottom: 12, textAlign: "center" },
+  pickerOption: { paddingVertical: 14, paddingHorizontal: 16, borderRadius: 10, marginBottom: 4, backgroundColor: C.surfaceAlt },
+  pickerOptionActive: { backgroundColor: C.navy },
+  pickerOptionText: { fontSize: 14, fontWeight: "600", color: C.navy },
+  pickerOptionTextActive: { color: "#fff", fontWeight: "800" },
+  pickerCancel: { marginTop: 8, paddingVertical: 14, alignItems: "center", borderTopWidth: 1, borderTopColor: C.border },
+  pickerCancelText: { fontSize: 14, fontWeight: "700", color: C.danger },
   emptyCard: { backgroundColor: C.surface, borderRadius: 12, padding: 36, alignItems: "center", borderWidth: 1, borderColor: C.border },
   emptyText: { fontSize: 14, color: C.textMute, fontWeight: "600" },
   reqCard: { backgroundColor: C.surface, borderRadius: 12, padding: 14, marginBottom: 10, borderLeftWidth: 4, borderWidth: 1, borderColor: C.border, elevation: 1 },

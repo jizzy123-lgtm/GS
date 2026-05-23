@@ -1,0 +1,45 @@
+# Dependencies and build output
+/node_modules
+/vendor
+/public/build
+/public/hot
+/public/storage
+dist
+dist-ssr
+
+# Environment and secrets
+.env
+.env.backup
+.env.production
+*.local
+/auth.json
+
+# Logs and caches
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+/.phpunit.cache
+.phpunit.result.cache
+/storage/*.key
+/storage/pail
+.phpactor.json
+
+# Local machine and editor files
+Homestead.json
+Homestead.yaml
+/.fleet
+.vscode/*
+!.vscode/extensions.json
+.idea
+/.nova
+/.zed
+.DS_Store
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?

@@ -19,6 +19,7 @@ use App\Notifications\AccountRejected;
 use App\Models\Notification as SystemNotification;
 use App\Models\SystemSetting;
 use App\Models\LoginLocation;
+use Google_Client;
 
 
 class UserController extends Controller
@@ -137,9 +138,92 @@ class UserController extends Controller
         }
 
         return response()->json(['token' => $token, 'user' => $user], 200);
-
     }
 
+    public function googleLogin(Request $request)
+    {
+        $request->validate([
+            'credential' => 'nullable|string',
+            'code' => 'nullable|string',
+            'latitude' => 'nullable|numeric',
+            'longitude' => 'nullable|numeric',
+            'address' => 'nullable|string'
+        ]);
+
+        if (!$request->credential && !$request->code) {
+            return response()->json(['message' => 'The credential or code field is required.'], 422);
+        }
+
+        $client = new Google_Client(['client_id' => env('VITE_GOOGLE_CLIENT_ID')]);
+        $payload = null;
+
+        if ($request->code) {
+            $client->setClientSecret(env('GOOGLE_CLIENT_SECRET'));
+            // useGoogleLogin with auth-code flow uses 'postmessage' as the redirect URI
+            $client->setRedirectUri('postmessage');
+            $token = $client->fetchAccessTokenWithAuthCode($request->code);
+            
+            if (isset($token['error'])) {
+                \Log::error('Google auth code exchange failed: ' . json_encode($token));
+                return response()->json(['message' => 'Invalid Google authorization code'], 401);
+            }
+            $payload = $client->verifyIdToken($token['id_token']);
+        } elseif ($request->credential) {
+            $payload = $client->verifyIdToken($request->credential);
+        }
+        
+        if ($payload) {
+            $email = $payload['email'];
+            
+            $user = User::where('email', $email)->first();
+            
+            if (!$user) {
+                return response()->json(['message' => 'Account not found. Please register first.'], 404);
+            }
+            
+            // Check account status
+            if ($user->status_id == 1) {
+                return response()->json(['message' => 'Your account is still pending approval.'], 403);
+            }
+            
+            if ($user->status_id == 3) {
+                $message = 'Your account was disapproved.';
+                if ($user->rejection_reason) {
+                    $message .= ' Reason: ' . $user->rejection_reason;
+                } else {
+                    $message .= ' Contact admin.';
+                }
+                return response()->json(['message' => $message], 403);
+            }
+            
+            // Update google_id if it's null
+            if (empty($user->google_id)) {
+                $user->update(['google_id' => $payload['sub']]);
+            }
+            
+            $token = $user->createToken('authToken')->plainTextToken;
+            
+            if (in_array($user->role_id, [2, 3, 4, 5])) {
+                $setting = SystemSetting::firstOrCreate(
+                    ['setting_key' => 'track_login_locations'],
+                    ['setting_value' => 'false']
+                );
+
+                if ($setting->setting_value === 'true') {
+                    LoginLocation::create([
+                        'user_id'   => $user->id,
+                        'latitude'  => $request->latitude,
+                        'longitude' => $request->longitude,
+                        'address'   => $request->address,
+                    ]);
+                }
+            }
+
+            return response()->json(['token' => $token, 'user' => $user], 200);
+        } else {
+            return response()->json(['message' => 'Invalid Google token'], 401);
+        }
+    }
 
 
 
@@ -191,7 +275,7 @@ class UserController extends Controller
             SystemNotification::create([
                 'user_id' => $user->id,
                 'type' => 'account_approved',
-                'message' => 'Your account registration has been approved by the Admin.',
+                'message' => 'Welcome to GSO System! You can now log in.',
                 'reference_id' => $user->id,
                 'is_read' => false,
             ]);

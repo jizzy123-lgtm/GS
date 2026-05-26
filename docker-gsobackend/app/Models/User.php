@@ -26,6 +26,7 @@ class User extends Authenticatable
         'password',
         'expo_push_token',
         'profile_picture',
+        'google_id',
     ];
 
     // Relationships

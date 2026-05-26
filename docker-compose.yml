@@ -19,6 +19,7 @@ services:
       dockerfile: backend.dockerfile
     container_name: gso_backend
     restart: always
+    env_file: ./docker-gsobackend/.env
     depends_on:
       - mysql
     environment:
@@ -32,7 +33,7 @@ services:
       MAIL_HOST: smtp.gmail.com
       MAIL_PORT: 587
       MAIL_USERNAME: generalserviceoffice23@gmail.com
-      MAIL_PASSWORD: your_app_password_here
+      MAIL_PASSWORD: yumstxmmijwivhzj
       MAIL_ENCRYPTION: tls
       MAIL_FROM_ADDRESS: generalserviceoffice23@gmail.com
       MAIL_FROM_NAME: "GSO SYSTEM"
@@ -71,6 +72,26 @@ services:
       - mysql
     networks:
       - gso_network
+
+  queue_worker:
+    build:
+      context: ./docker-gsobackend
+      dockerfile: backend.dockerfile
+    container_name: gso_queue_worker
+    restart: always
+    env_file: ./docker-gsobackend/.env
+    depends_on:
+      - mysql
+    environment:
+      DB_CONNECTION: mysql
+      DB_HOST: mysql
+      DB_PORT: 3306
+      DB_DATABASE: manageit
+      DB_USERNAME: root
+      DB_PASSWORD: 23-Shai-01186
+    networks:
+      - gso_network
+    command: php artisan queue:work --tries=3
 
 networks:
   gso_network:

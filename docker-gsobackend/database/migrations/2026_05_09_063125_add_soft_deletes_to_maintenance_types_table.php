@@ -11,10 +11,8 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('maintenance_types', function (Blueprint $table) {
-            $table->id();
-            $table->string('type_name')->unique();
-            $table->timestamps();
+        Schema::table('maintenance_types', function (Blueprint $table) {
+            $table->softDeletes();
         });
     }
 
@@ -23,6 +21,8 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::dropIfExists('maintenance_types');
+        Schema::table('maintenance_types', function (Blueprint $table) {
+            $table->dropSoftDeletes();
+        });
     }
 };

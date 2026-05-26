@@ -8,5 +8,6 @@ return [
     'allowed_headers' => ['*'],
     'exposed_headers' => [],
     'max_age' => 0,
-    'supports_credentials' => true, // Set to true if using authentication
+    'supports_credentials' => false, // Must be false when allowed_origins is '*' (browser blocks wildcard + credentials).
+                                      // Bearer token auth does NOT require credentials=true. Only SPA cookie auth does.
 ];

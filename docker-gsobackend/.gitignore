@@ -1,5 +1,20 @@
-<<<<<<< HEAD
-# Logs
+# Dependencies and build output
+/node_modules
+/vendor
+/public/build
+/public/hot
+/public/storage
+dist
+dist-ssr
+
+# Environment and secrets
+.env
+.env.backup
+.env.production
+*.local
+/auth.json
+
+# Logs and caches
 logs
 *.log
 npm-debug.log*
@@ -7,44 +22,24 @@ yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
+/.phpunit.cache
+.phpunit.result.cache
+/storage/*.key
+/storage/pail
+.phpactor.json
 
-node_modules
-dist
-dist-ssr
-*.local
-
-# Editor directories and files
+# Local machine and editor files
+Homestead.json
+Homestead.yaml
+/.fleet
 .vscode/*
 !.vscode/extensions.json
 .idea
+/.nova
+/.zed
 .DS_Store
 *.suo
 *.ntvs*
 *.njsproj
 *.sln
 *.sw?
-=======
-/.phpunit.cache
-/node_modules
-/public/build
-/public/hot
-/public/storage
-/storage/*.key
-/storage/pail
-/vendor
-.env
-.env.backup
-.env.production
-.phpactor.json
-.phpunit.result.cache
-Homestead.json
-Homestead.yaml
-npm-debug.log
-yarn-error.log
-/auth.json
-/.fleet
-/.idea
-/.nova
-/.vscode
-/.zed
->>>>>>> 414ebb9 (Initial commit)

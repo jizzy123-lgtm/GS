@@ -35,26 +35,29 @@ class StatusController extends Controller
 
     public function accountStatuses()
     {
+
+        $statuses = Status::whereIn('id', [1, 2, 3])->get();
+
         return response()->json([
-            'statuses' => [
-                ['id' => 1, 'name' => 'Pending'],
-                ['id' => 2, 'name' => 'Approved'],
-                ['id' => 3, 'name' => 'Disapproved'],
-            ]
+            'statuses' => $statuses
         ]);
     }
 
     public function statusesPovDirector()
     {
-        $statusIds = [1, 2, 3, 4, 5, 6, 7, 10];
+        $statusIds = [2, 3, 4, 5, 6,7];
+
         $statuses = Status::whereIn('id', $statusIds)->get();
+
         return response()->json($statuses);
     }
 
     public function statusesPovHead()
     {
-        $statusIds = [1, 2, 3, 4, 5, 6, 7, 10];
+        $statusIds = [2, 3, 4, 5, 6,7];
+
         $statuses = Status::whereIn('id', $statusIds)->get();
+
         return response()->json($statuses);
     }
 }

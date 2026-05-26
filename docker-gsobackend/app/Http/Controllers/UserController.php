@@ -15,7 +15,6 @@ use Illuminate\Support\Facades\Hash;
 use Illuminate\Validation\ValidationException;
 use App\Notifications\NewUserRegistered;
 use App\Notifications\AccountApproved;
-use App\Notifications\AccountRejected;
 use App\Models\Notification as SystemNotification;
 use App\Models\SystemSetting;
 use App\Models\LoginLocation;
@@ -32,7 +31,7 @@ class UserController extends Controller
             'middle_name'  => 'nullable|string|max:1',
             'suffix'          => 'nullable|string|max:10',
             'username'        => 'required|string|unique:users,username',
-            'email'          => 'nullable|email',
+            'email'          => 'nullable|email|unique:users,email',
             'position_id'     => 'required|exists:positions,id',
             'office_id'       => 'required|exists:offices,id',
             'contact_number'  => 'required|string',
@@ -56,15 +55,11 @@ class UserController extends Controller
         ]);
 
         // Notify Admins and Staffs (role_id = 1 for Admin, 3 for Staff)
-        try {
-            $adminsAndStaffs = User::whereIn('role_id', [1, 3])->get();
-            foreach ($adminsAndStaffs as $notifiableUser) {
-                if ($notifiableUser->email) {
-                    $notifiableUser->notify(new NewUserRegistered($user));
-                }
+        $adminsAndStaffs = User::whereIn('role_id', [1, 3])->get();
+        foreach ($adminsAndStaffs as $notifiableUser) {
+            if ($notifiableUser->email) {
+                $notifiableUser->notify(new NewUserRegistered($user));
             }
-        } catch (\Exception $e) {
-            \Log::error("Failed to send registration email notification: " . $e->getMessage());
         }
 
         $adminUsers = User::where('role_id', 1)->get();
@@ -179,22 +174,8 @@ class UserController extends Controller
         $user->save();
 
         // Send email notification only if approved
-        if ($user->status_id == 2) {
-            if ($user->email) {
-                try {
-                    $user->notify(new AccountApproved());
-                } catch (\Exception $e) {
-                    \Log::error("Failed to send account approval email notification: " . $e->getMessage());
-                }
-            }
-
-            SystemNotification::create([
-                'user_id' => $user->id,
-                'type' => 'account_approved',
-                'message' => 'Your account registration has been approved by the Admin.',
-                'reference_id' => $user->id,
-                'is_read' => false,
-            ]);
+        if ($user->status_id == 2 && $user->email) {
+            $user->notify(new AccountApproved());
         }
 
         return response()->json(['message' => 'User status approved successfully.']);
@@ -224,14 +205,10 @@ class UserController extends Controller
         $user->rejected_at = now();
         $user->save();
 
-        // Send email notification for rejection
-        if ($user->email) {
-            try {
-                $user->notify(new AccountRejected($request->rejection_reason));
-            } catch (\Exception $e) {
-                \Log::error("Failed to send account rejection email: " . $e->getMessage());
-            }
-        }
+        // Send email notification only if approved
+        // if ($user->status_id == 2 && $user->email) {
+        //     $user->notify(new AccountApproved());
+        // }
 
         SystemNotification::create([
             'user_id' => $user->id,
@@ -242,6 +219,34 @@ class UserController extends Controller
         ]);
 
         return response()->json(['message' => 'User register disapproved successfully.']);
+    }
+
+
+
+    public function destroy($id)
+    {
+        $authUser = Auth::user();
+
+        // Only Admins (role_id = 1) can delete accounts
+        if (!$authUser || $authUser->role_id !== 1) {
+            return response()->json(['message' => 'Unauthorized. Only Admins can delete accounts.'], 403);
+        }
+
+        $user = User::find($id);
+
+        if (!$user) {
+            return response()->json(['message' => 'User not found.'], 404);
+        }
+
+        // Prevent admin from deleting their own account
+        if ($authUser->id === $user->id) {
+            return response()->json(['message' => 'You cannot delete your own account.'], 422);
+        }
+
+        // Soft delete — sets deleted_at timestamp, preserves all historical records
+        $user->delete();
+
+        return response()->json(['message' => 'User account deleted successfully.'], 200);
     }
 
 
@@ -432,34 +437,15 @@ class UserController extends Controller
         $request->validate([
             'last_name' => 'sometimes|string|max:255',
             'first_name' => 'sometimes|string|max:255',
-            'middle_name' => 'sometimes|string|max:255|nullable',
-            'middle_initial' => 'sometimes|string|max:50|nullable',
+            'middle_name' => 'sometimes|string|max:255',
             'suffix' => 'sometimes|string|max:50|nullable',
             'contact_number' => 'sometimes|string|max:20',
             'email' => 'sometimes|email|max:255',
             'username' => 'sometimes|string|max:255|unique:users,username,' . $user->id,
             'password' => 'sometimes|string|min:6|confirmed',
-            'office_id' => 'sometimes|integer|nullable',
-            'position_id' => 'sometimes|integer|nullable',
         ]);
 
-        // Support for mobile app field names
-        if ($request->has('middle_initial') && !$request->has('middle_name')) {
-            $request->merge(['middle_name' => $request->middle_initial]);
-        }
-
-        // If frontend sends full_name, try to handle it (legacy/fallback)
-        if ($request->has('full_name') && !$request->has('first_name')) {
-            $parts = explode(' ', $request->full_name);
-            if (count($parts) > 0) {
-                $user->first_name = $parts[0];
-                if (count($parts) > 1) {
-                    $user->last_name = end($parts);
-                }
-            }
-        }
-
-        $updateData = $request->only([
+        $user->update($request->only([
             'last_name',
             'first_name',
             'middle_name',
@@ -467,11 +453,7 @@ class UserController extends Controller
             'contact_number',
             'email',
             'username',
-            'office_id',
-            'position_id',
-        ]);
-
-        $user->update($updateData);
+        ]));
 
         if ($request->filled('password')) {
             $user->update([
@@ -481,40 +463,8 @@ class UserController extends Controller
 
         return response()->json([
             'message' => 'Profile updated successfully.',
-            'user' => $user->load(['position', 'office']),
+            'user' => $user,
         ], 200);
-    }
-
-    public function uploadProfilePicture(Request $request)
-    {
-        $request->validate([
-            'profile_picture' => 'required|image|mimes:jpeg,png,jpg,gif|max:2048',
-        ]);
-
-        $user = Auth::user();
-
-        if ($request->hasFile('profile_picture')) {
-            $file = $request->file('profile_picture');
-            $filename = time() . '_' . $user->id . '.' . $file->getClientOriginalExtension();
-            
-            // Ensure the directory exists
-            if (!file_exists(public_path('profile_pictures'))) {
-                mkdir(public_path('profile_pictures'), 0777, true);
-            }
-
-            $file->move(public_path('profile_pictures'), $filename);
-            
-            $path = url('profile_pictures/' . $filename);
-            $user->profile_picture = $path;
-            $user->save();
-
-            return response()->json([
-                'message' => 'Profile picture uploaded successfully.',
-                'profile_picture' => $path
-            ], 200);
-        }
-
-        return response()->json(['message' => 'No file uploaded.'], 400);
     }
 
 
@@ -606,32 +556,6 @@ class UserController extends Controller
         ];
 
         return response()->json($data, 200);
-    }
-
-    public function destroy($id)
-    {
-        $authUser = Auth::user();
-
-        // Only admins can delete accounts
-        if (!$authUser || $authUser->role_id !== 1) {
-            return response()->json(['message' => 'Unauthorized. Only admins can delete accounts.'], 403);
-        }
-
-        $user = User::find($id);
-
-        if (!$user) {
-            return response()->json(['message' => 'User not found.'], 404);
-        }
-
-        // Prevent admin from deleting their own account
-        if ($user->id === $authUser->id) {
-            return response()->json(['message' => 'You cannot delete your own account.'], 403);
-        }
-
-        $user->tokens()->delete(); // Revoke all tokens
-        $user->delete();
-
-        return response()->json(['message' => 'Account deleted successfully.'], 200);
     }
 
 }

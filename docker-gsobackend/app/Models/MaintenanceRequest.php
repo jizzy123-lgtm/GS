@@ -35,6 +35,7 @@ class MaintenanceRequest extends Model
         'image_path_10',
         'image_path_11',
         'image_path_12',
+        'location',
         'scheduled_date',
         'scheduled_time',
         'assigned_staff',
@@ -78,7 +79,7 @@ class MaintenanceRequest extends Model
 
     public function maintenanceType()
     {
-        return $this->belongsTo(MaintenanceType::class);
+        return $this->belongsTo(MaintenanceType::class)->withTrashed();
     }
 
     public function comments()
@@ -94,11 +95,6 @@ class MaintenanceRequest extends Model
     public function feedback()
     {
         return $this->hasOne(Feedback::class, 'maintenance_request_id');
-    }
-
-    public function assignedStaff()
-    {
-        return $this->belongsTo(User::class, 'assigned_staff_id');
     }
 
 }

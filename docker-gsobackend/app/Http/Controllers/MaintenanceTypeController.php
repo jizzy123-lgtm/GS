@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
 use App\Models\MaintenanceType;
+use Illuminate\Support\Facades\Auth;
 
 class MaintenanceTypeController extends Controller
 {
@@ -15,18 +16,18 @@ class MaintenanceTypeController extends Controller
 
     public function store(Request $request)
     {
-        $request->validate([
-            'type_name' => 'required|string|unique:maintenance_types',
-            'description' => 'nullable|string',
-        ]);
+        if (Auth::user()->role_id !== 1) {
+            return response()->json(['message' => 'Only Admins can add maintenance types.'], 403);
+        }
 
-        $type = MaintenanceType::create([
-            'type_name' => $request->type_name,
-            'description' => $request->description,
-            'created_by' => $request->user() ? $request->user()->id : null,
-        ]);
+        $request->validate(['type_name' => 'required|string|unique:maintenance_types']);
 
-        return response()->json($type, 201);
+        $type = MaintenanceType::create(['type_name' => $request->type_name]);
+
+        return response()->json([
+            'message' => 'Maintenance type successfully added.',
+            'data' => $type
+        ], 201);
     }
 
     public function show($id)
@@ -41,6 +42,10 @@ class MaintenanceTypeController extends Controller
 
     public function update(Request $request, $id)
     {
+        if (Auth::user()->role_id !== 1) {
+            return response()->json(['message' => 'Only Admins can edit maintenance types.'], 403);
+        }
+
         $type = MaintenanceType::find($id);
         if (!$type) {
             return response()->json(['message' => 'Maintenance type not found'], 404);
@@ -50,11 +55,18 @@ class MaintenanceTypeController extends Controller
 
         $type->update(['type_name' => $request->type_name]);
 
-        return response()->json($type, 200);
+        return response()->json([
+            'message' => 'Maintenance type successfully updated.',
+            'data' => $type
+        ], 200);
     }
 
     public function destroy($id)
     {
+        if (Auth::user()->role_id !== 1) {
+            return response()->json(['message' => 'Only Admins can delete maintenance types.'], 403);
+        }
+
         $type = MaintenanceType::find($id);
         if (!$type) {
             return response()->json(['message' => 'Maintenance type not found'], 404);
@@ -62,6 +74,6 @@ class MaintenanceTypeController extends Controller
 
         $type->delete();
 
-        return response()->json(['message' => 'Maintenance type deleted'], 200);
+        return response()->json(['message' => 'Maintenance type successfully removed.'], 200);
     }
 }

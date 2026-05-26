@@ -19,9 +19,6 @@ class FeedbackController extends Controller
             'request_id'             => 'sometimes|exists:maintenance_requests,id',
             'rating'                 => 'required|integer|min:1|max:5',
             'comment'                => 'nullable|string|max:2000',
-            'client_type'            => 'nullable|string',
-            'service_type'           => 'nullable|string',
-            'request_date'           => 'nullable|date',
         ]);
 
         // Normalize field name: frontend may send request_id or maintenance_request_id
@@ -39,8 +36,8 @@ class FeedbackController extends Controller
             return response()->json(['message' => 'Maintenance request not found.'], 404);
         }
 
-        // Request must be Done (status_id = 5) or Completed (status_id = 9) before feedback can be submitted
-        if (!in_array($maintenance->status_id, [5, 9])) {
+        // Request must be Done (status_id = 4) before feedback can be submitted
+        if ($maintenance->status_id !== 4) {
             return response()->json([
                 'message' => 'Feedback can only be submitted for completed (done) requests.'
             ], 422);
@@ -59,10 +56,10 @@ class FeedbackController extends Controller
             'maintenance_request_id' => $maintenanceRequestId,
             'rating'                 => $validated['rating'],
             'feedback_comment'       => $validated['comment'] ?? null,
-            // Legacy CSMS columns — filled with neutral defaults if not provided
-            'client_type'    => $validated['client_type'] ?? 'N/A',
-            'service_type'   => $validated['service_type'] ?? 'N/A',
-            'request_date'   => $validated['request_date'] ?? now()->toDateString(),
+            // Legacy CSMS columns — filled with neutral defaults to satisfy NOT NULL constraints
+            'client_type'    => 'N/A',
+            'service_type'   => 'N/A',
+            'request_date'   => now()->toDateString(),
             'date'           => now()->toDateString(),
             'sex'            => 'N/A',
             'age'            => 0,
@@ -76,21 +73,14 @@ class FeedbackController extends Controller
             'sqd8' => $validated['rating'],
         ]);
 
-        // Notify staff & head (wrapped in try-catch to prevent email config errors from crashing the submission)
-        try {
-            $staffUsers = User::whereIn('role_id', [2, 3])
-                ->whereNotNull('email')
-                ->get();
+        // Notify staff & head
+        $staffUsers = User::whereIn('role_id', [2, 3])
+            ->whereNotNull('email')
+            ->get();
 
-            foreach ($staffUsers as $staff) {
-                $staff->notify(new FeedbackSubmitted($feedback));
-            }
-        } catch (\Exception $e) {
-            \Log::error('Failed to send feedback notification email: ' . $e->getMessage());
+        foreach ($staffUsers as $staff) {
+            $staff->notify(new FeedbackSubmitted($feedback));
         }
-
-        // Update the maintenance request status to Completed (9) after feedback is given
-        $maintenance->update(['status_id' => 9]);
 
         return response()->json([
             'message' => 'Feedback submitted successfully.',
@@ -184,9 +174,9 @@ class FeedbackController extends Controller
             return response()->json(['message' => 'Unauthenticated or invalid token.'], 401);
         }
 
-        // Admin (1), Staff (2), and Head (3) can access and review feedback data
-        if (!in_array($user->role_id, [1, 2, 3])) {
-            return response()->json(['message' => 'Unauthorized to view feedback data.'], 403);
+        // Only Admin (role_id = 1) can access and review feedback data (TC-5-006)
+        if ($user->role_id !== 1) {
+            return response()->json(['message' => 'Only Admins can view feedback data.'], 403);
         }
 
         $feedbacks = Feedback::with('user')->get()->map(function ($feedback) {
@@ -196,9 +186,6 @@ class FeedbackController extends Controller
                 'request_id' => $feedback->maintenance_request_id, // Alias for frontend convenience
                 'rating' => $feedback->rating,
                 'comment' => $feedback->feedback_comment, // Resolves the mismatch here
-                'client_type' => $feedback->client_type,
-                'service_type' => $feedback->service_type,
-                'date' => $feedback->date,
                 'created_at' => $feedback->created_at,
                 'user' => [
                     'id' => optional($feedback->user)->id,

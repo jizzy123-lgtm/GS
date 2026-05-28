@@ -565,6 +565,34 @@ class UserController extends Controller
         ], 200);
     }
 
+    public function uploadPicture(Request $request)
+    {
+        $request->validate([
+            'profile_picture' => 'required|image|mimes:jpeg,png,jpg,gif|max:5120',
+        ]);
+
+        $user = Auth::user();
+
+        if ($request->hasFile('profile_picture')) {
+            $file = $request->file('profile_picture');
+            $path = $file->store('profile_pictures', 'public');
+
+            // Generate full URL
+            $url = asset('storage/' . $path);
+
+            // Update user record
+            $user->profile_picture = $url;
+            $user->save();
+
+            return response()->json([
+                'message' => 'Profile picture uploaded successfully',
+                'profile_picture' => $url
+            ], 200);
+        }
+
+        return response()->json(['message' => 'No image uploaded'], 400);
+    }
+
 
     public function commonDatas(): JsonResponse
     {

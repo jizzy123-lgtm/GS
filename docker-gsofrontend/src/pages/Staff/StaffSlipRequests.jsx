@@ -253,8 +253,7 @@ const StaffSlipRequests = () => {
   }
 
   if (selectedTab === "Pending") {
-    return r.status_name?.toLowerCase() === "pending";
-      
+    return r.status_name?.toLowerCase() === "pending" && (r.verified_by === null || r.verified_by === undefined);
   }
 
   return r.status_name?.toLowerCase() === selectedTab.toLowerCase();

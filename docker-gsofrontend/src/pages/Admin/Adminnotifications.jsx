@@ -92,6 +92,15 @@ const AdminNotifications = () => {
       const notifs = Array.isArray(data) ? data : data.data || [];
       const sorted = [...notifs].sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
       setNotifications(sorted);
+
+      const hasUnread = sorted.some(n => !n.is_read);
+      if (hasUnread) {
+        await fetch(`${API_BASE_URL}/notifications/markAllAsRead`, {
+          method: 'PUT',
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        setNotifications(prev => prev.map(n => ({ ...n, is_read: true })));
+      }
     } catch (error) {
       console.error("Error fetching notifications:", error);
     } finally {
@@ -151,6 +160,12 @@ const AdminNotifications = () => {
 
     if (!notif.is_read) {
       await markAsRead(notif.id);
+    }
+
+    const msg = notif.message?.toLowerCase() || '';
+    if (msg.includes('welcome to gso system') || msg.includes('account approved')) {
+      setProcessingId(null);
+      return;
     }
 
     const userId = resolveUserFromMessage(notif.message);

@@ -76,13 +76,28 @@ const DashboardContent = memo(() => {
   const [filter, setFilter] = useState('All');
 
   useEffect(() => {
-    fetch(`${API_BASE_URL}/notifications`, { headers: authHeaders() })
-      .then((r) => r.json())
-      .then((data) => {
-        setNotifications(Array.isArray(data) ? data : [data]);
+    const fetchNotifications = async () => {
+      try {
+        const response = await fetch(`${API_BASE_URL}/notifications`, { headers: authHeaders() });
+        const data = await response.json();
+        const fetchedNotifs = Array.isArray(data) ? data : [data];
+        setNotifications(fetchedNotifs);
+        
+        const hasUnread = fetchedNotifs.some(n => !n.is_read);
+        if (hasUnread) {
+          await fetch(`${API_BASE_URL}/notifications/markAllAsRead`, {
+            method: 'PUT',
+            headers: authHeaders(),
+          });
+          setNotifications(prev => prev.map(n => ({ ...n, is_read: true })));
+        }
+      } catch (error) {
+        console.error('Failed to fetch notifications:', error);
+      } finally {
         setLoading(false);
-      })
-      .catch(() => setLoading(false));
+      }
+    };
+    fetchNotifications();
   }, []);
 
   const filteredNotifications = notifications.filter((n) => {
@@ -125,6 +140,12 @@ const DashboardContent = memo(() => {
       null;
 
     const message = notif.message?.toLowerCase() ?? '';
+
+    // If this is an account registration notification or welcome message, just mark as read and don't navigate
+    if (message.includes('account registration') || message.includes('welcome to gso system')) {
+      setProcessingId(null);
+      return;
+    }
 
     if (!requestId) {
       navigate('/staffsliprequests');

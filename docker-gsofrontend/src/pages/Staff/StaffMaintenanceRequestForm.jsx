@@ -40,6 +40,11 @@ const StaffMaintenanceRequestForm = () => {
   const [verifiedByName, setVerifiedByName] = useState("");
   const [verifiedById, setVerifiedById] = useState("");
 
+  const [scheduled_date, setScheduledDate] = useState("");
+  const [scheduled_time, setScheduledTime] = useState("");
+  const [assigned_staff, setAssignedStaff] = useState("");
+  const [scheduled_notes, setScheduledNotes] = useState("");
+
   const [currentUser, setCurrentUser] = useState({ id: "", full_name: "" });
   const [isGeneratingPriority, setIsGeneratingPriority] = useState(false);
 
@@ -265,7 +270,31 @@ const StaffMaintenanceRequestForm = () => {
         console.log("assign-priority response:", data); // para makita ang backend error
         if (!response.ok) throw new Error(data.message || "Assign priority failed");
 
-        // After assigning priority, process "Mark as" if selected
+        // Now assign schedule if fields are provided
+        if (scheduled_date && scheduled_time) {
+          const scheduleEndpoint = `${API_BASE_URL}/maintenance-requests/${id}/assign-schedule`;
+          const schedulePayload = {
+            scheduled_date,
+            scheduled_time,
+            assigned_staff: assigned_staff || verifiedById,
+            scheduled_notes
+          };
+          const scheduleResponse = await fetch(scheduleEndpoint, {
+            method: "POST",
+            headers: {
+              Authorization: `Bearer ${token}`,
+              "Content-Type": "application/json",
+              Accept: "application/json",
+            },
+            body: JSON.stringify(schedulePayload),
+          });
+          const scheduleData = await scheduleResponse.json();
+          if (!scheduleResponse.ok) throw new Error(scheduleData.message || "Assign schedule failed");
+        } else {
+          throw new Error("Scheduled Date and Scheduled Time are required.");
+        }
+
+        // After assigning priority and schedule, process "Mark as" if selected
         if (markAs === "urgent") {
           await handleMarkUrgent();
         }
@@ -663,6 +692,54 @@ const handleMarkOnhold = async () => {
                     />
                   </div>
 
+                  {/* Show Scheduling Fields ONLY if approved by Director */}
+                  {requestDetails.approved_by_2 && (
+                    <div className="mt-6 border-t pt-4 space-y-4">
+                      <h4 className="font-bold text-gray-800">Assign Schedule</h4>
+                      
+                      <div>
+                        <label className="block font-semibold text-gray-700">Scheduled Date <span className="text-red-500">*</span>:</label>
+                        <input
+                          type="date"
+                          className="w-full border rounded-lg px-4 py-2"
+                          value={scheduled_date}
+                          onChange={(e) => setScheduledDate(e.target.value)}
+                          required
+                        />
+                      </div>
+                      <div>
+                        <label className="block font-semibold text-gray-700">Scheduled Time <span className="text-red-500">*</span>:</label>
+                        <input
+                          type="time"
+                          className="w-full border rounded-lg px-4 py-2"
+                          value={scheduled_time}
+                          onChange={(e) => setScheduledTime(e.target.value)}
+                          required
+                        />
+                      </div>
+                      <div>
+                        <label className="block font-semibold text-gray-700">Assigned Staff ID (Optional):</label>
+                        <input
+                          type="number"
+                          placeholder="Leave blank to assign to yourself"
+                          className="w-full border rounded-lg px-4 py-2"
+                          value={assigned_staff}
+                          onChange={(e) => setAssignedStaff(e.target.value)}
+                        />
+                      </div>
+                      <div>
+                        <label className="block font-semibold text-gray-700">Internal Notes (Optional):</label>
+                        <textarea
+                          className="w-full border rounded-lg px-4 py-2"
+                          rows="2"
+                          placeholder="Notes for the assigned staff..."
+                          value={scheduled_notes}
+                          onChange={(e) => setScheduledNotes(e.target.value)}
+                        />
+                      </div>
+                    </div>
+                  )}
+
                   {/* Only show Remarks and Mark as if NOT both approved_by_1 and approved_by_2 */}
                   {!(requestDetails.approved_by_1 && requestDetails.approved_by_2) && (
                     <>
@@ -705,7 +782,7 @@ const handleMarkOnhold = async () => {
                       disabled={isLoading}
                       className="flex-1 bg-green-600 text-white px-6 py-3 rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed font-semibold transition-colors"
                     >
-                      {isLoading ? "Processing..." : "Verify Request"}
+                      {isLoading ? "Processing..." : (requestDetails.approved_by_2 ? "Assign Priority & Schedule" : "Verify Request")}
                     </button>
                     
                     <button

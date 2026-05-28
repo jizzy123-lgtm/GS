@@ -482,6 +482,74 @@ class MaintenanceRequestController extends Controller
 
 
 
+    //staff assigns a schedule
+    public function assignSchedule(Request $request, $id)
+    {
+        $maintenanceRequest = MaintenanceRequest::findOrFail($id);
+
+        if (Auth::user()->role_id !== 3) {
+            return response()->json(['message' => 'Unauthorized. Only staff can assign schedules.'], 403);
+        }
+
+        // Must be fully approved by Campus Director (approved_by_2 is not null)
+        if (is_null($maintenanceRequest->approved_by_2)) {
+            return response()->json(['message' => 'Request must be fully approved by the Campus Director first.'], 400);
+        }
+
+        $request->validate([
+            'scheduled_date' => 'required|date',
+            'scheduled_time' => 'required|date_format:H:i',
+            'assigned_staff' => 'nullable|exists:users,id',
+            'scheduled_notes' => 'nullable|string'
+        ]);
+
+        $maintenanceRequest->update([
+            'scheduled_date' => $request->scheduled_date,
+            'scheduled_time' => $request->scheduled_time,
+            'assigned_staff' => $request->assigned_staff ?? Auth::user()->id,
+            'scheduled_notes' => $request->scheduled_notes,
+            'status_id' => 9 // Scheduled status
+        ]);
+
+        $maintenanceRequest->load(['maintenanceType', 'office']);
+        $typeName = optional($maintenanceRequest->maintenanceType)->type_name ?? 'Maintenance';
+        $actorName = Auth::user()->first_name . ' ' . Auth::user()->last_name;
+
+        // Create a ScheduleEvent so it reflects on the Staff Schedule Dashboard
+        $existingSchedule = \App\Models\ScheduleEvent::where('maintenance_request_id', $maintenanceRequest->id)->first();
+        if (!$existingSchedule) {
+            \App\Models\ScheduleEvent::create([
+                'title' => 'Ref #' . $maintenanceRequest->id . ' - ' . $typeName,
+                'date' => $request->scheduled_date,
+                'time' => $request->scheduled_time,
+                'location' => optional($maintenanceRequest->office)->office_name ?? null,
+                'notes' => $request->scheduled_notes,
+                'assigned_office_id' => $maintenanceRequest->requesting_office,
+                'created_by' => Auth::id(),
+                'maintenance_request_id' => $maintenanceRequest->id,
+            ]);
+        } else {
+            $existingSchedule->update([
+                'date' => $request->scheduled_date,
+                'time' => $request->scheduled_time,
+                'notes' => $request->scheduled_notes,
+            ]);
+        }
+
+        SystemNotification::create([
+            'user_id' => $maintenanceRequest->requesting_personnel,
+            'type' => 'maintenance_request_scheduled',
+            'message' => '[GS-JS] Ref #' . $maintenanceRequest->id . ' (' . $typeName . '): Your request has been scheduled for ' . $request->scheduled_date . ' at ' . $request->scheduled_time . ' by Staff ' . $actorName . '.',
+            'reference_id' => $maintenanceRequest->id,
+            'is_read' => false,
+        ]);
+
+        return response()->json([
+            'message' => 'Schedule assigned successfully.',
+            'maintenance_request' => $maintenanceRequest
+        ]);
+    }
+
     //this function gets the data of an specific maintenance request filled up by the requester
     public function staffpov($id)
     {

@@ -106,7 +106,6 @@ const DashboardContent = memo(() => {
   useEffect(() => {
     const fetchNotifications = async () => {
       try {
-        // ← TANGTANG na ang markAllAsRead - mag-mark ra sa individual click
         const res    = await fetch(`${API_BASE_URL}/notifications`, { headers: authHeaders() });
         const data   = await res.json();
         const notifs = Array.isArray(data) ? data : data.data || [];
@@ -114,6 +113,15 @@ const DashboardContent = memo(() => {
           (a, b) => new Date(b.created_at) - new Date(a.created_at)
         );
         setNotifications(sorted);
+
+        const hasUnread = sorted.some(n => !n.is_read);
+        if (hasUnread) {
+          await fetch(`${API_BASE_URL}/notifications/markAllAsRead`, {
+            method: 'PUT',
+            headers: authHeaders(),
+          });
+          setNotifications(prev => prev.map(n => ({ ...n, is_read: true })));
+        }
       } catch (err) {
         console.error('Error fetching notifications:', err);
       } finally {
@@ -168,6 +176,12 @@ const DashboardContent = memo(() => {
     // Mark as read first
     if (!notif.is_read) {
       await markAsRead(notif.id);
+    }
+
+    const message = notif.message?.toLowerCase() || '';
+    if (message.includes('account registration') || message.includes('welcome to gso system')) {
+      setProcessingId(null);
+      return;
     }
 
     const requestId = resolveMaintenanceRequestId(notif);

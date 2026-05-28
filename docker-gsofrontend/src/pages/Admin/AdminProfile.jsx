@@ -325,6 +325,19 @@ const AdminProfileInner = () => {
 
   const updateProfile = async (e) => {
     e.preventDefault();
+
+    const nameRegex = /^[A-Za-z\s\-ñÑ]+$/;
+    if (!nameRegex.test(editFormData.full_name)) {
+      setStatus((prev) => ({ ...prev, error: 'Full Name can only contain letters, spaces, and hyphens.', success: null }));
+      return;
+    }
+
+    const contactRegex = /^09\d{9}$/;
+    if (editFormData.contact_number && !contactRegex.test(editFormData.contact_number)) {
+      setStatus((prev) => ({ ...prev, error: 'Contact number must be exactly 11 digits and start with 09.', success: null }));
+      return;
+    }
+
     try {
       setStatus((prev) => ({ ...prev, isUpdatingProfile: true, error: null, success: null }));
       const requestBody = {
@@ -340,7 +353,7 @@ const AdminProfileInner = () => {
         requestBody.password_confirmation = editFormData.password_confirmation;
       }
       const response = await fetch(`${API_BASE_URL}/profile/update`, {
-        method: 'POST',
+        method: 'PUT',
         headers: {
           Authorization: `Bearer ${token}`,
           'Content-Type': 'application/json',

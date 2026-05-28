@@ -194,6 +194,7 @@ Route::middleware('auth:sanctum')->put('/maintenance-requests/{id}/editDetails',
 
 //edit user info
 Route::middleware('auth:sanctum')->put('/profile/update', [UserController::class, 'updateProfile']);
+Route::middleware('auth:sanctum')->post('/profile/upload-picture', [UserController::class, 'uploadPicture']);
 
 //return all user's info
 Route::middleware('auth:sanctum')->get('/profile/userInfos', [UserController::class, 'userDetails']);

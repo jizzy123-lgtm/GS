@@ -6,7 +6,7 @@ A mobile application designed for the General Services Office (GSO) of Jose Riza
 ## 📖 Access the Documentation
 
 
-👉 **[Click here to view GSO Gateway Documentation](https://fierce-alligator-8a4.notion.site/GSU-Gateway-Documentation-346026cafae280b7912ef499e45a7433)**
+👉 **[Click here to view GSU Gateway Documentation](https://fierce-alligator-8a4.notion.site/GSU-Gateway-Documentation-346026cafae280b7912ef499e45a7433)**
 
 ---
 *Created by the Documentation Specialist.*

@@ -1,4 +1,5 @@
-# 🚀 GSO Gateway — Mobile App Documentation
+GSO Gateway Mobile App Documentation
+A mobile application designed for the General Services Office (GSO) of Jose Rizal Memorial State University (JRMSU) to handle and monitor the full maintenance request process for facilities and equipment.
 
 
 ## 📖 Access the Documentation
@@ -8,3 +9,4 @@
 
 ---
 *Created by the Documentation Specialist.*
+REAH P. EX
